@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 glow = { git = "https://github.com/TannerRogalsky/glow.git", branch = "attrib_getters" }
 memoffset = "0.5"
 log = "0.4"
+slotmap = "0.4"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 glutin = "0.22.0-alpha3"
