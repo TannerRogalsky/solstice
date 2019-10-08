@@ -10,15 +10,18 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 glow = { git = "https://github.com/TannerRogalsky/glow.git", branch = "attrib_getters" }
 memoffset = "0.5"
+log = "0.4"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 glutin = "0.22.0-alpha3"
 instant = { version = "0.1", features = ["now"] }
+simple_logger = "1.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
 web-sys = "0.3"
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
+wasm-logger = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.winit]
 git = "https://github.com/rust-windowing/winit.git"
