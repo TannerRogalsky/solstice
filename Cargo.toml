@@ -10,7 +10,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 glow = { git = "https://github.com/TannerRogalsky/glow.git", branch = "program_parameters" }
 #glow = { path = "../glow" }
-memoffset = "0.5"
 log = "0.4"
 slotmap = "0.4"
 
