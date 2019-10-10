@@ -8,7 +8,7 @@ edition = "2018"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-glow = { git = "https://github.com/TannerRogalsky/glow.git", branch = "program_parameters" }
+glow = { git = "https://github.com/TannerRogalsky/glow.git", branch = "attrib_getters" }
 #glow = { path = "../glow" }
 log = "0.4"
 slotmap = "0.4"
