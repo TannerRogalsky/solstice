@@ -9,7 +9,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 #glow = { git = "https://github.com/TannerRogalsky/glow.git", branch = "extensions" }
-glow = { path = "../glow" }
+glow = { git = "https://github.com/GrovesNL/glow.git" }
+#glow = { path = "../glow" }
 log = "0.4"
 slotmap = "0.4"
 
