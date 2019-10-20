@@ -16,5 +16,6 @@ slotmap = "0.4"
 
 [workspace]
 members = [
-    "examples/triangle"
+    "examples/triangle",
+    "examples/cube",
 ]
