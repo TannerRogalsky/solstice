@@ -1,4 +1,4 @@
-use super::texture::{Filter, FilterMode, PixelFormat, Texture, TextureType, Wrap};
+use super::texture::{Filter, PixelFormat, Texture, TextureType, Wrap};
 use super::Context;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -30,7 +30,7 @@ impl Canvas {
             ctx.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer_key));
 
             ctx.framebuffer_texture(
-                framebuffer_key,
+                Target::All,
                 Attachment::Color,
                 texture_type,
                 texture_key,
@@ -64,6 +64,22 @@ impl Attachment {
             Attachment::Color => glow::COLOR_ATTACHMENT0,
             Attachment::Depth => glow::DEPTH_ATTACHMENT,
             Attachment::Stencil => glow::STENCIL_ATTACHMENT,
+        }
+    }
+}
+
+pub enum Target {
+    Draw,
+    Read,
+    All,
+}
+
+impl Target {
+    pub fn to_gl(&self) -> u32 {
+        match self {
+            Target::Draw => glow::DRAW_FRAMEBUFFER,
+            Target::Read => glow::READ_FRAMEBUFFER,
+            Target::All => glow::FRAMEBUFFER,
         }
     }
 }

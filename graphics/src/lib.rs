@@ -94,7 +94,7 @@ pub struct Context {
     buffers: DenseSlotMap<BufferKey, buffer::Buffer>,
     active_buffers: HashMap<buffer::BufferType, BufferKey>,
     textures: DenseSlotMap<TextureKey, GLTexture>,
-    bound_textures: Vec<Vec<u32>>,
+    bound_textures: Vec<Vec<Option<GLTexture>>>,
     framebuffers: DenseSlotMap<FramebufferKey, GLFrameBuffer>,
     active_framebuffer: [Option<FramebufferKey>; 2],
     current_texture_unit: u32,
@@ -114,14 +114,14 @@ impl Context {
 
         let bound_textures = texture::TextureType::enumerate()
             .iter()
-            .map(|tt| vec![0; gl_constants.max_texture_units])
+            .map(|tt| vec![None; gl_constants.max_texture_units])
             .collect();
 
         for texture_unit in 0..gl_constants.max_texture_units {
             unsafe {
                 ctx.active_texture(glow::TEXTURE0 + texture_unit as u32);
                 // do this for every supported texture type
-                ctx.bind_texture(glow::TEXTURE_2D, Some(0));
+                ctx.bind_texture(glow::TEXTURE_2D, None);
             }
         }
         unsafe { ctx.active_texture(glow::TEXTURE0) }
@@ -301,29 +301,23 @@ impl Context {
         texture_key: TextureKey,
         texture_unit: u32,
     ) {
-        match self.textures.get(texture_key) {
-            None => {
-                if self.bound_textures[texture_type.to_index()][texture_unit as usize] != 0 {
-                    if self.current_texture_unit != texture_unit {
-                        self.current_texture_unit = texture_unit;
-                        unsafe { self.ctx.active_texture(glow::TEXTURE0 + texture_unit) }
-                    }
-
-                    self.bound_textures[texture_type.to_index()][texture_unit as usize] = 0;
-                    unsafe { self.ctx.bind_texture(texture_type.to_gl(), None) }
-                }
-            }
-            Some(&texture) => {
-                if self.bound_textures[texture_type.to_index()][texture_unit as usize] != texture {
-                    if self.current_texture_unit != texture_unit {
-                        self.current_texture_unit = texture_unit;
-                        unsafe { self.ctx.active_texture(glow::TEXTURE0 + texture_unit) }
-                    }
-
-                    self.bound_textures[texture_type.to_index()][texture_unit as usize] = texture;
+        let texture_unit_index = texture_unit as usize;
+        match (self.textures.get(texture_key), self.bound_textures[texture_type.to_index()][texture_unit_index]) {
+            (Some(&texture), None) => {
+                self.bound_textures[texture_type.to_index()][texture_unit_index] = Some(texture);
+                unsafe { self.ctx.bind_texture(texture_type.to_gl(), Some(texture)) }
+            },
+            (Some(&texture), Some(bound_texture)) => {
+                if texture != bound_texture {
+                    self.bound_textures[texture_type.to_index()][texture_unit_index] = Some(texture);
                     unsafe { self.ctx.bind_texture(texture_type.to_gl(), Some(texture)) }
                 }
-            }
+            },
+            (None, Some(_)) => {
+                self.bound_textures[texture_type.to_index()][texture_unit_index] = None;
+                unsafe { self.ctx.bind_texture(texture_type.to_gl(), None) }
+            },
+            (None, None) => (),
         }
     }
 
@@ -437,29 +431,19 @@ impl Context {
 
     pub fn framebuffer_texture(
         &mut self,
-        framebuffer_key: FramebufferKey,
+        target: canvas::Target,
         attachment: canvas::Attachment,
         texture_type: texture::TextureType,
         texture_key: TextureKey,
         level: u32,
     ) {
-        match (
-            self.framebuffers.get(framebuffer_key),
-            self.textures.get(texture_key),
-        ) {
-            (Some(&framebuffer), Some(&texture)) => unsafe {
-                self.ctx.framebuffer_texture(
-                    framebuffer,
-                    attachment.to_gl(),
-                    Some(texture),
-                    level as i32,
-                )
-            },
-            (Some(&framebuffer), None) => unsafe {
-                self.ctx
-                    .framebuffer_texture(framebuffer, attachment.to_gl(), None, level as i32)
-            },
-            (None, Some(_)) | (None, None) => (),
+        unsafe {
+            self.ctx.framebuffer_texture(
+                glow::FRAMEBUFFER,
+                attachment.to_gl(),
+                self.textures.get(texture_key).map(|t| *t),
+                level as i32,
+            )
         }
     }
 

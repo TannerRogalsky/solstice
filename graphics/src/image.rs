@@ -1,4 +1,4 @@
-use super::texture::{Filter, FilterMode, PixelFormat, Texture, TextureType, Wrap};
+use super::texture::{Filter, PixelFormat, Texture, TextureType, Wrap};
 use super::Context;
 use std::cell::RefCell;
 use std::rc::Rc;
