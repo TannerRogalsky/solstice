@@ -1,0 +1,15 @@
+[package]
+name = "graphics"
+version = "0.1.0"
+authors = ["Tanner Rogalsky <tanner@tannerrogalsky.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+glow = { git = "https://github.com/TannerRogalsky/glow.git", branch = "mipmaps" }
+#glow = { git = "https://github.com/GrovesNL/glow.git" }
+#glow = { path = "../glow" }
+log = "0.4"
+slotmap = "0.4"
