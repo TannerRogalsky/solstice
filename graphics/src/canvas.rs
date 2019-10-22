@@ -29,13 +29,7 @@ impl Canvas {
             let framebuffer_key = ctx.new_framebuffer();
             ctx.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer_key));
 
-            ctx.framebuffer_texture(
-                Target::All,
-                Attachment::Color,
-                texture_type,
-                texture_key,
-                0,
-            );
+            ctx.framebuffer_texture(Target::All, Attachment::Color, texture_type, texture_key, 0);
             ctx.clear_color(0., 0., 0., 0.);
             ctx.clear();
 

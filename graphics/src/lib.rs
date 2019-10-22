@@ -8,6 +8,7 @@ pub mod quad_batch;
 pub mod shader;
 pub mod texture;
 pub mod vertex;
+pub mod viewport;
 
 use glow::HasContext;
 use slotmap::DenseSlotMap;
@@ -76,7 +77,7 @@ impl DepthFunction {
     }
 }
 
-pub enum Feature{
+pub enum Feature {
     DepthTest(DepthFunction),
 }
 
@@ -98,6 +99,7 @@ pub struct Context {
     framebuffers: DenseSlotMap<FramebufferKey, GLFrameBuffer>,
     active_framebuffer: [Option<FramebufferKey>; 2],
     current_texture_unit: u32,
+    current_viewport: viewport::Viewport<i32>,
     enabled_attributes: u32, // a bitmask that represents the vertex attribute state
 }
 
@@ -150,6 +152,7 @@ impl Context {
             framebuffers: DenseSlotMap::with_key(),
             active_framebuffer: [None; 2],
             current_texture_unit: 0u32,
+            current_viewport: viewport::Viewport::default(),
             enabled_attributes: std::u32::MAX,
         };
         ctx.set_vertex_attributes(0, 0, &vec![]);
@@ -302,21 +305,25 @@ impl Context {
         texture_unit: u32,
     ) {
         let texture_unit_index = texture_unit as usize;
-        match (self.textures.get(texture_key), self.bound_textures[texture_type.to_index()][texture_unit_index]) {
+        match (
+            self.textures.get(texture_key),
+            self.bound_textures[texture_type.to_index()][texture_unit_index],
+        ) {
             (Some(&texture), None) => {
                 self.bound_textures[texture_type.to_index()][texture_unit_index] = Some(texture);
                 unsafe { self.ctx.bind_texture(texture_type.to_gl(), Some(texture)) }
-            },
+            }
             (Some(&texture), Some(bound_texture)) => {
                 if texture != bound_texture {
-                    self.bound_textures[texture_type.to_index()][texture_unit_index] = Some(texture);
+                    self.bound_textures[texture_type.to_index()][texture_unit_index] =
+                        Some(texture);
                     unsafe { self.ctx.bind_texture(texture_type.to_gl(), Some(texture)) }
                 }
-            },
+            }
             (None, Some(_)) => {
                 self.bound_textures[texture_type.to_index()][texture_unit_index] = None;
                 unsafe { self.ctx.bind_texture(texture_type.to_gl(), None) }
-            },
+            }
             (None, None) => (),
         }
     }
@@ -554,8 +561,16 @@ impl Context {
         }
     }
 
-    pub fn viewport(&self, x: i32, y: i32, width: i32, height: i32) {
-        unsafe { self.ctx.viewport(x, y, width, height) }
+    pub fn set_viewport(&mut self, x: i32, y: i32, width: i32, height: i32) {
+        let new_viewport = viewport::Viewport::new(x, y, width, height);
+        if self.current_viewport != new_viewport {
+            self.current_viewport = new_viewport;
+            unsafe { self.ctx.viewport(x, y, width, height) }
+        }
+    }
+
+    pub fn viewport(&self) -> viewport::Viewport<i32> {
+        self.current_viewport
     }
 
     pub fn clear_color(&self, red: f32, green: f32, blue: f32, alpha: f32) {

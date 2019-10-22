@@ -59,6 +59,10 @@ where
         index
     }
 
+    pub fn insert(&mut self, index: QuadIndex, quad: Quad<T>) {
+        self.mesh.set_vertices(&quad.vertices, index.0 * 4);
+    }
+
     pub fn clear(&mut self) {
         self.count = 0;
         self.mesh.set_draw_range(Some(0..0));
