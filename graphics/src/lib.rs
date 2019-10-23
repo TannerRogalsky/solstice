@@ -51,6 +51,14 @@ impl<'a> Drop for DebugGroup<'a> {
     }
 }
 
+fn to_index(target: canvas::Target) -> usize {
+    match target {
+        Target::Draw => 0,
+        Target::Read => 1,
+        Target::All => 0,
+    }
+}
+
 pub enum DepthFunction {
     Never,
     Less,
@@ -357,17 +365,17 @@ impl Context {
         }
     }
 
-    pub fn set_image_wrap(&mut self, image: &image::Image, wrap: texture::Wrap) {
+    pub fn set_texture_wrap(&mut self, texture_key: TextureKey, texture_type: texture::TextureType, wrap: texture::Wrap) {
         use texture::TextureType;
 
-        let gl_target = image.texture_type().to_gl();
+        let gl_target = texture_type.to_gl();
         unsafe {
-            self.bind_texture_to_unit(image.texture_type(), image.handle(), 0);
+            self.bind_texture_to_unit(texture_type, texture_key, 0);
             self.ctx
                 .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_S, wrap.s().to_gl() as i32);
             self.ctx
                 .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_T, wrap.t().to_gl() as i32);
-            match image.texture_type() {
+            match texture_type {
                 TextureType::Tex2D | TextureType::Tex2DArray | TextureType::Cube => (),
                 TextureType::Volume => self.ctx.tex_parameter_i32(
                     gl_target,
@@ -378,7 +386,7 @@ impl Context {
         }
     }
 
-    pub fn set_image_filter(&mut self, image: &image::Image, filter: texture::Filter) {
+    pub fn set_texture_filter(&mut self, texture_key: TextureKey, texture_type: texture::TextureType, filter: texture::Filter) {
         use texture::FilterMode;
 
         let gl_min = match filter.min() {
@@ -401,10 +409,9 @@ impl Context {
             },
         };
 
-        let gl_target = image.texture_type().to_gl();
-
+        let gl_target = texture_type.to_gl();
         unsafe {
-            self.bind_texture_to_unit(image.texture_type(), image.handle(), 0);
+            self.bind_texture_to_unit(texture_type, texture_key, 0);
             self.ctx
                 .tex_parameter_i32(gl_target, glow::TEXTURE_MIN_FILTER, gl_min as i32);
             self.ctx
@@ -424,16 +431,58 @@ impl Context {
         }
     }
 
-    pub fn bind_framebuffer(&mut self, target: u32, framebuffer_key: Option<FramebufferKey>) {
-        match framebuffer_key {
-            None => unsafe { self.ctx.bind_framebuffer(target, None) },
-            Some(framebuffer_key) => match self.framebuffers.get(framebuffer_key) {
+    pub fn bind_framebuffer(
+        &mut self,
+        target: canvas::Target,
+        framebuffer_key: Option<FramebufferKey>,
+    ) {
+        let target_index = to_index(target);
+        match (framebuffer_key, self.active_framebuffer[target_index]) {
+            (None, None) => (),
+            (Some(framebuffer_key), None) => match self.framebuffers.get(framebuffer_key) {
                 None => (),
-                Some(framebuffer) => unsafe {
-                    self.ctx.bind_framebuffer(target, Some(*framebuffer))
-                },
+                Some(framebuffer) => {
+                    self.active_framebuffer[target_index] = Some(framebuffer_key);
+                    unsafe {
+                        self.ctx
+                            .bind_framebuffer(target.to_gl(), Some(*framebuffer))
+                    }
+                }
             },
+            (Some(framebuffer_key), Some(current_framebuffer_key)) => {
+                if framebuffer_key != current_framebuffer_key {
+                    match self.framebuffers.get(framebuffer_key) {
+                        None => (),
+                        Some(framebuffer) => {
+                            self.active_framebuffer[target_index] = Some(framebuffer_key);
+                            unsafe {
+                                self.ctx
+                                    .bind_framebuffer(target.to_gl(), Some(*framebuffer))
+                            }
+                        }
+                    }
+                }
+            }
+            (None, Some(_current_framebuffer_key)) => {
+                self.active_framebuffer[target_index] = None;
+                unsafe { self.ctx.bind_framebuffer(target.to_gl(), None) }
+            }
         }
+    }
+
+    pub fn check_framebuffer_status(&self, target: canvas::Target) -> canvas::Status {
+        match unsafe { self.ctx.check_framebuffer_status(target.to_gl()) } {
+            glow::FRAMEBUFFER_COMPLETE => canvas::Status::Complete,
+            glow::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => canvas::Status::IncompleteAttachment,
+            glow::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => canvas::Status::MissingAttachment,
+            glow::FRAMEBUFFER_UNSUPPORTED => canvas::Status::Unsupported,
+            glow::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => canvas::Status::IncompleteMultisample,
+            _ => canvas::Status::Unknown,
+        }
+    }
+
+    pub fn get_active_framebuffer(&self, target: canvas::Target) -> Option<FramebufferKey> {
+        self.active_framebuffer[to_index(target)]
     }
 
     pub fn framebuffer_texture(
@@ -446,7 +495,7 @@ impl Context {
     ) {
         unsafe {
             self.ctx.framebuffer_texture(
-                glow::FRAMEBUFFER,
+                target.to_gl(),
                 attachment.to_gl(),
                 self.textures.get(texture_key).map(|t| *t),
                 level as i32,
