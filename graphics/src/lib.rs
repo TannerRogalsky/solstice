@@ -59,6 +59,20 @@ fn to_index(target: canvas::Target) -> usize {
     }
 }
 
+pub enum VertexWinding {
+    ClockWise,
+    CounterClockWise,
+}
+
+impl VertexWinding {
+    pub fn to_gl(&self) -> u32 {
+        match self {
+            VertexWinding::ClockWise => glow::CW,
+            VertexWinding::CounterClockWise => glow::CCW,
+        }
+    }
+}
+
 pub enum DepthFunction {
     Never,
     Less,
@@ -85,8 +99,25 @@ impl DepthFunction {
     }
 }
 
+pub enum CullFace {
+    Back,
+    Front,
+    FrontAndBack,
+}
+
+impl CullFace {
+    pub fn to_gl(&self) -> u32 {
+        match self {
+            CullFace::Back => glow::BACK,
+            CullFace::Front => glow::FRONT,
+            CullFace::FrontAndBack => glow::FRONT_AND_BACK,
+        }
+    }
+}
+
 pub enum Feature {
     DepthTest(DepthFunction),
+    CullFace(CullFace)
 }
 
 struct GLConstants {
@@ -137,8 +168,6 @@ impl Context {
         unsafe { ctx.active_texture(glow::TEXTURE0) }
         unsafe {
             // TODO: this should be left to the consumer
-            ctx.enable(glow::CULL_FACE);
-            ctx.cull_face(glow::BACK);
             ctx.enable(glow::BLEND);
             ctx.blend_equation(glow::FUNC_ADD);
             ctx.blend_func_separate(
@@ -173,6 +202,17 @@ impl Context {
                 self.ctx.enable(glow::DEPTH_TEST);
                 self.ctx.depth_func(func.to_gl());
             },
+            Feature::CullFace(cull_face) => unsafe {
+                self.ctx.enable(glow::CULL_FACE);
+                self.ctx.cull_face(cull_face.to_gl());
+            }
+        }
+    }
+
+    pub fn disable(&mut self, feature: Feature) {
+        match feature {
+            Feature::DepthTest(_) => unsafe { self.ctx.disable(glow::DEPTH_TEST) },
+            Feature::CullFace(_) => unsafe { self.ctx.disable(glow::CULL_FACE) },
         }
     }
 
