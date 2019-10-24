@@ -53,9 +53,9 @@ impl<'a> Drop for DebugGroup<'a> {
 
 fn to_index(target: canvas::Target) -> usize {
     match target {
-        Target::Draw => 0,
-        Target::Read => 1,
-        Target::All => 0,
+        canvas::Target::Draw => 0,
+        canvas::Target::Read => 1,
+        canvas::Target::All => 0,
     }
 }
 
