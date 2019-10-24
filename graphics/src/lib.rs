@@ -117,7 +117,7 @@ impl CullFace {
 
 pub enum Feature {
     DepthTest(DepthFunction),
-    CullFace(CullFace)
+    CullFace(CullFace),
 }
 
 struct GLConstants {
@@ -205,7 +205,7 @@ impl Context {
             Feature::CullFace(cull_face) => unsafe {
                 self.ctx.enable(glow::CULL_FACE);
                 self.ctx.cull_face(cull_face.to_gl());
-            }
+            },
         }
     }
 
@@ -405,7 +405,12 @@ impl Context {
         }
     }
 
-    pub fn set_texture_wrap(&mut self, texture_key: TextureKey, texture_type: texture::TextureType, wrap: texture::Wrap) {
+    pub fn set_texture_wrap(
+        &mut self,
+        texture_key: TextureKey,
+        texture_type: texture::TextureType,
+        wrap: texture::Wrap,
+    ) {
         use texture::TextureType;
 
         let gl_target = texture_type.to_gl();
@@ -426,7 +431,12 @@ impl Context {
         }
     }
 
-    pub fn set_texture_filter(&mut self, texture_key: TextureKey, texture_type: texture::TextureType, filter: texture::Filter) {
+    pub fn set_texture_filter(
+        &mut self,
+        texture_key: TextureKey,
+        texture_type: texture::TextureType,
+        filter: texture::Filter,
+    ) {
         use texture::FilterMode;
 
         let gl_min = match filter.min() {

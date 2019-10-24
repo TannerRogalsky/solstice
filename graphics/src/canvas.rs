@@ -3,6 +3,41 @@ use super::Context;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+pub enum MipmapMode {
+    None,
+    Manual,
+    Auto,
+}
+
+// TODO: builder pattern?
+pub struct Settings {
+    pub width: usize,
+    pub height: usize,
+    pub layers: usize,
+    pub mipmap_mode: MipmapMode,
+    pub format: PixelFormat,
+    pub texture_type: TextureType,
+    pub dpi_scale: f32,
+    pub msaa: usize,
+    pub readable: Option<bool>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            width: 1,
+            height: 1,
+            layers: 1,
+            mipmap_mode: MipmapMode::None,
+            format: PixelFormat::RGBA8,
+            texture_type: TextureType::Tex2D,
+            dpi_scale: 1.0,
+            msaa: 0,
+            readable: None,
+        }
+    }
+}
+
 pub struct Canvas {
     gl: Rc<RefCell<Context>>,
     texture_key: super::TextureKey,
@@ -12,23 +47,22 @@ pub struct Canvas {
 }
 
 impl Canvas {
-    pub fn new(
-        ctx: Rc<RefCell<Context>>,
-        texture_type: TextureType,
-        format: PixelFormat,
-        width: usize,
-        height: usize,
-    ) -> Self {
-        let texture = Texture::new(format, width, height, Filter::default(), Wrap::default());
+    pub fn new(ctx: Rc<RefCell<Context>>, settings: Settings) -> Self {
+        let texture = Texture::new(
+            settings.format,
+            settings.width,
+            settings.height,
+            Filter::default(),
+            Wrap::default(),
+        );
         let (framebuffer_key, texture_key) = {
             let mut ctx = ctx.borrow_mut();
-            let texture_key = ctx.new_texture(texture_type);
-            ctx.bind_texture_to_unit(texture_type, texture_key, 0);
-            ctx.set_texture_wrap(texture_key, texture_type, texture.wrap());
-            ctx.set_texture_filter(texture_key, texture_type, texture.filter());
-            // set filter & wrap
+            let texture_key = ctx.new_texture(settings.texture_type);
+            ctx.bind_texture_to_unit(settings.texture_type, texture_key, 0);
+            ctx.set_texture_wrap(texture_key, settings.texture_type, texture.wrap());
+            ctx.set_texture_filter(texture_key, settings.texture_type, texture.filter());
             // set format
-            ctx.set_texture_data(texture_key, texture, texture_type, None);
+            ctx.set_texture_data(texture_key, texture, settings.texture_type, None);
 
             let framebuffer_key = {
                 let target = Target::All;
@@ -36,7 +70,13 @@ impl Canvas {
                 let framebuffer_key = ctx.new_framebuffer();
                 ctx.bind_framebuffer(target, Some(framebuffer_key));
 
-                ctx.framebuffer_texture(target, Attachment::Color, texture_type, texture_key, 0);
+                ctx.framebuffer_texture(
+                    target,
+                    Attachment::Color,
+                    settings.texture_type,
+                    texture_key,
+                    0,
+                );
                 ctx.clear_color(0., 0., 0., 0.);
                 ctx.clear();
 
@@ -57,10 +97,10 @@ impl Canvas {
         };
         Self {
             gl: ctx,
-            texture_type,
+            texture_type: settings.texture_type,
             framebuffer_key,
             texture_key,
-            texture: Texture::new(format, width, height, Filter::default(), Wrap::default()),
+            texture,
         }
     }
 

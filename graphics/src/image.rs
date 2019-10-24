@@ -69,12 +69,16 @@ impl Image {
 
     pub fn set_wrap(&mut self, wrap: Wrap) {
         // TODO: there's a bunch of extra checks to do in here.
-        self.gl.borrow_mut().set_texture_wrap(self.handle, self.texture_type, wrap);
+        self.gl
+            .borrow_mut()
+            .set_texture_wrap(self.handle, self.texture_type, wrap);
         self.texture.set_wrap(wrap);
     }
 
     pub fn set_filter(&mut self, filter: Filter) {
-        self.gl.borrow_mut().set_texture_filter(self.handle, self.texture_type, filter);
+        self.gl
+            .borrow_mut()
+            .set_texture_filter(self.handle, self.texture_type, filter);
         self.texture.set_filter(filter);
     }
 }
