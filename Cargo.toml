@@ -3,9 +3,11 @@ members = [
     "graphics",
     "engine",
     "engine_examples",
+    "vfs",
 ]
 default-members = [
     "graphics",
     "engine",
     "engine_examples",
+    "vfs",
 ]
