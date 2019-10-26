@@ -544,9 +544,10 @@ impl Context {
         level: u32,
     ) {
         unsafe {
-            self.ctx.framebuffer_texture(
+            self.ctx.framebuffer_texture_2d(
                 target.to_gl(),
                 attachment.to_gl(),
+                texture_type.to_gl(), // TODO: I don't think this actually maps to TextureType correctly
                 self.textures.get(texture_key).map(|t| *t),
                 level as i32,
             )
