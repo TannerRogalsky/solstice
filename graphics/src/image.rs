@@ -61,6 +61,10 @@ impl Image {
         self.texture
     }
 
+    pub fn set_texture(&mut self, texture: Texture) {
+        self.texture = texture;
+    }
+
     pub fn set_data(&mut self, data: Option<&[u8]>) {
         self.gl
             .borrow_mut()

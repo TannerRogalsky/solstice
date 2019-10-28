@@ -42,6 +42,7 @@ pub enum PixelFormat {
     // "regular" formats
     R8,
     RG8,
+    RGB8,
     RGBA8,
     SRGBA8,
     R16,
@@ -69,6 +70,7 @@ impl PixelFormat {
             PixelFormat::Unknown => 0,
             PixelFormat::R8 | PixelFormat::Stencil8 => 1,
             PixelFormat::RG8 | PixelFormat::R16 | PixelFormat::R16F | PixelFormat::Depth16 => 2,
+            PixelFormat::RGB8 => 3,
             PixelFormat::RGBA8
             | PixelFormat::SRGBA8
             | PixelFormat::RG16
@@ -89,6 +91,7 @@ impl PixelFormat {
         match self {
             PixelFormat::R8 | PixelFormat::R16 | PixelFormat::R16F | PixelFormat::R32F => 1,
             PixelFormat::RG8 | PixelFormat::RG16 | PixelFormat::RG16F | PixelFormat::RG32F => 2,
+            PixelFormat::RGB8 => 3,
             PixelFormat::RGBA8
             | PixelFormat::SRGBA8
             | PixelFormat::RGBA16
@@ -103,6 +106,7 @@ impl PixelFormat {
             PixelFormat::Unknown => panic!("Unknown pixel format!"),
             PixelFormat::R8 => (glow::R8, glow::RED, glow::UNSIGNED_BYTE),
             PixelFormat::RG8 => (glow::RG8, glow::RG, glow::UNSIGNED_BYTE),
+            PixelFormat::RGB8 => (glow::RGB8, glow::RGB, glow::UNSIGNED_BYTE),
             PixelFormat::RGBA8 => (glow::RGB8, glow::RGBA, glow::UNSIGNED_BYTE),
             PixelFormat::SRGBA8 => (glow::SRGB8, glow::SRGB, glow::UNSIGNED_BYTE),
             PixelFormat::R16 => (glow::R16, glow::RED, glow::UNSIGNED_SHORT),
@@ -305,8 +309,16 @@ impl Texture {
         self.width
     }
 
+    pub fn set_width(&mut self, width: usize) {
+        self.width = width
+    }
+
     pub fn height(&self) -> usize {
         self.height
+    }
+
+    pub fn set_height(&mut self, height: usize) {
+        self.height = height
     }
 
     pub fn format(&self) -> PixelFormat {
