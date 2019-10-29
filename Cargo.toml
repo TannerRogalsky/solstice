@@ -11,3 +11,8 @@ default-members = [
     "engine_examples",
     "vfs",
 ]
+
+[patch.crates-io]
+wasm-bindgen = { path = "../wasm-bindgen" }
+web-sys = { path = "../wasm-bindgen/crates/web-sys" }
+js-sys = { path = "../wasm-bindgen/crates/js-sys" }
