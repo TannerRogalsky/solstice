@@ -176,6 +176,8 @@ impl Context {
                 glow::ONE,
                 glow::ONE_MINUS_SRC_ALPHA,
             );
+
+            ctx.bind_vertex_array(ctx.create_vertex_array().ok());
         }
         let mut ctx = Self {
             ctx,

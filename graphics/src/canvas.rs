@@ -83,9 +83,7 @@ impl Canvas {
                 match ctx.check_framebuffer_status(target) {
                     Status::Complete => (),
                     status => {
-                        unsafe {
-                            ctx.destroy_framebuffer(framebuffer_key);
-                        }
+                        ctx.destroy_framebuffer(framebuffer_key);
                         panic!("Failed to create framebuffer: {:?}", status);
                     }
                 }
