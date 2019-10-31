@@ -341,3 +341,9 @@ impl Texture {
         self.filter = filter;
     }
 }
+
+pub trait BindableTexture {
+    fn get_texture_key(&self) -> super::TextureKey;
+    fn get_texture_type(&self) -> TextureType;
+    fn get_texture(&self) -> Texture;
+}

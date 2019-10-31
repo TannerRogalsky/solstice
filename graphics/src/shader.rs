@@ -24,11 +24,15 @@ pub struct Attribute {
     pub location: u32,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct UniformLocation(pub(crate) super::GLUniformLocation);
+
+#[derive(Clone, Debug)]
 pub struct Uniform {
     pub name: String,
     pub size: i32,
     pub utype: u32,
-    pub location: <glow::Context as HasContext>::UniformLocation,
+    pub location: UniformLocation,
 }
 
 pub enum RawUniformValue {
@@ -110,7 +114,8 @@ impl Shader {
             for index in 0..gl.get_active_uniforms(program) {
                 let glow::ActiveUniform { name, size, utype } =
                     gl.get_active_uniform(program, index).unwrap();
-                let location = gl.get_uniform_location(program, name.as_str()).unwrap();
+                let location =
+                    UniformLocation(gl.get_uniform_location(program, name.as_str()).unwrap());
                 uniforms.insert(
                     name.clone(),
                     Uniform {

@@ -18,6 +18,7 @@ type GLBuffer = <glow::Context as HasContext>::Buffer;
 type GLProgram = <glow::Context as HasContext>::Program;
 type GLTexture = <glow::Context as HasContext>::Texture;
 type GLFrameBuffer = <glow::Context as HasContext>::Framebuffer;
+type GLUniformLocation = <glow::Context as HasContext>::UniformLocation;
 
 slotmap::new_key_type! {
     pub struct ShaderKey;
@@ -335,7 +336,6 @@ impl Context {
             let handle = self.ctx.create_texture().unwrap();
             let texture = self.textures.insert(handle);
             self.ctx.active_texture(glow::TEXTURE0);
-            //            self.ctx.bind_texture(texture_type.to_gl(), Some(handle));
             self.bind_texture_to_unit(texture_type, texture, 0);
             texture
         }
@@ -598,56 +598,33 @@ impl Context {
         self.enabled_attributes = desired;
     }
 
-    pub fn set_uniform(&self, uniform_name: &str, data: &shader::RawUniformValue) {
-        match self.active_shader {
-            None => (),
-            Some(active_shader) => match self.shaders.get(active_shader) {
-                None => (),
-                Some(shader) => match shader.get_uniform_by_name(uniform_name) {
-                    None => (),
-                    Some(uniform) => {
-                        use shader::RawUniformValue;
-                        let location = Some(uniform.location);
-                        unsafe {
-                            match data {
-                                RawUniformValue::SignedInt(data) => {
-                                    self.ctx.uniform_1_i32(location, *data)
-                                }
-                                RawUniformValue::Float(data) => {
-                                    self.ctx.uniform_1_f32(location, *data)
-                                }
-                                RawUniformValue::Mat2(data) => {
-                                    self.ctx.uniform_matrix_2_f32_slice(location, false, data)
-                                }
-                                RawUniformValue::Mat3(data) => {
-                                    self.ctx.uniform_matrix_3_f32_slice(location, false, data)
-                                }
-                                RawUniformValue::Mat4(data) => {
-                                    self.ctx.uniform_matrix_4_f32_slice(location, false, data)
-                                }
-                                RawUniformValue::Vec2(data) => {
-                                    self.ctx.uniform_2_f32_slice(location, data)
-                                }
-                                RawUniformValue::Vec3(data) => {
-                                    self.ctx.uniform_3_f32_slice(location, data)
-                                }
-                                RawUniformValue::Vec4(data) => {
-                                    self.ctx.uniform_4_f32_slice(location, data)
-                                }
-                                RawUniformValue::IntVec2(data) => {
-                                    self.ctx.uniform_2_i32_slice(location, data)
-                                }
-                                RawUniformValue::IntVec3(data) => {
-                                    self.ctx.uniform_3_i32_slice(location, data)
-                                }
-                                RawUniformValue::IntVec4(data) => {
-                                    self.ctx.uniform_4_i32_slice(location, data)
-                                }
-                            }
-                        }
-                    }
-                },
-            },
+    pub fn set_uniform_by_location(
+        &self,
+        location: shader::UniformLocation,
+        data: &shader::RawUniformValue,
+    ) {
+        use shader::RawUniformValue;
+        let location = Some(location.0);
+        unsafe {
+            match data {
+                RawUniformValue::SignedInt(data) => self.ctx.uniform_1_i32(location, *data),
+                RawUniformValue::Float(data) => self.ctx.uniform_1_f32(location, *data),
+                RawUniformValue::Mat2(data) => {
+                    self.ctx.uniform_matrix_2_f32_slice(location, false, data)
+                }
+                RawUniformValue::Mat3(data) => {
+                    self.ctx.uniform_matrix_3_f32_slice(location, false, data)
+                }
+                RawUniformValue::Mat4(data) => {
+                    self.ctx.uniform_matrix_4_f32_slice(location, false, data)
+                }
+                RawUniformValue::Vec2(data) => self.ctx.uniform_2_f32_slice(location, data),
+                RawUniformValue::Vec3(data) => self.ctx.uniform_3_f32_slice(location, data),
+                RawUniformValue::Vec4(data) => self.ctx.uniform_4_f32_slice(location, data),
+                RawUniformValue::IntVec2(data) => self.ctx.uniform_2_i32_slice(location, data),
+                RawUniformValue::IntVec3(data) => self.ctx.uniform_3_i32_slice(location, data),
+                RawUniformValue::IntVec4(data) => self.ctx.uniform_4_i32_slice(location, data),
+            }
         }
     }
 

@@ -92,3 +92,17 @@ impl Drop for Image {
         self.gl.borrow_mut().destroy_texture(self.handle);
     }
 }
+
+impl super::texture::BindableTexture for &Image {
+    fn get_texture_key(&self) -> super::TextureKey {
+        self.handle
+    }
+
+    fn get_texture_type(&self) -> TextureType {
+        self.texture_type
+    }
+
+    fn get_texture(&self) -> Texture {
+        self.texture
+    }
+}

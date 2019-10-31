@@ -121,6 +121,20 @@ impl Canvas {
     }
 }
 
+impl super::texture::BindableTexture for &Canvas {
+    fn get_texture_key(&self) -> super::TextureKey {
+        self.texture_key
+    }
+
+    fn get_texture_type(&self) -> TextureType {
+        self.texture_type
+    }
+
+    fn get_texture(&self) -> Texture {
+        self.texture
+    }
+}
+
 pub enum Attachment {
     Color,
     Depth,
