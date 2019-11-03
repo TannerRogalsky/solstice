@@ -97,8 +97,8 @@ impl Canvas {
         }
     }
 
-    pub fn bind(&mut self, gl: &mut Context) {
-        gl.bind_framebuffer(Target::All, Some(self.framebuffer_key));
+    pub fn get_framebuffer_key(&self) -> super::FramebufferKey {
+        self.framebuffer_key
     }
 }
 
