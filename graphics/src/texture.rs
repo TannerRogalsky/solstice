@@ -268,7 +268,7 @@ impl Default for Wrap {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Texture {
+pub struct TextureInfo {
     format: PixelFormat,
     width: usize,
     height: usize,
@@ -276,7 +276,7 @@ pub struct Texture {
     wrap: Wrap,
 }
 
-impl Default for Texture {
+impl Default for TextureInfo {
     fn default() -> Self {
         Self {
             format: PixelFormat::Unknown,
@@ -288,7 +288,7 @@ impl Default for Texture {
     }
 }
 
-impl Texture {
+impl TextureInfo {
     pub fn new(
         format: PixelFormat,
         width: usize,
@@ -342,8 +342,30 @@ impl Texture {
     }
 }
 
-pub trait BindableTexture {
+pub trait Texture {
     fn get_texture_key(&self) -> super::TextureKey;
     fn get_texture_type(&self) -> TextureType;
-    fn get_texture(&self) -> Texture;
+    fn get_texture_info(&self) -> TextureInfo;
+}
+
+pub trait TextureUpdate {
+    fn set_texture_data(
+        &mut self,
+        texture_key: super::TextureKey,
+        texture: TextureInfo,
+        texture_type: TextureType,
+        data: Option<&[u8]>,
+    );
+    fn set_texture_wrap(
+        &mut self,
+        texture_key: super::TextureKey,
+        texture_type: TextureType,
+        wrap: Wrap,
+    );
+    fn set_texture_filter(
+        &mut self,
+        texture_key: super::TextureKey,
+        texture_type: TextureType,
+        filter: Filter,
+    );
 }

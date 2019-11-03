@@ -378,99 +378,6 @@ impl Context {
         }
     }
 
-    pub fn set_texture_data(
-        &mut self,
-        texture_key: TextureKey,
-        texture: texture::Texture,
-        texture_type: texture::TextureType,
-        data: Option<&[u8]>,
-    ) {
-        self.new_debug_group("Buffer Image Data");
-        let (_internal, external, gl_type) = texture.format().to_gl();
-        let width = texture.width();
-        let height = texture.height();
-        let gl_target = texture_type.to_gl();
-        self.bind_texture_to_unit(texture_type, texture_key, 0);
-        unsafe {
-            self.ctx.tex_image_2d(
-                gl_target,
-                0,
-                external as i32,
-                width as i32,
-                height as i32,
-                0,
-                external,
-                gl_type,
-                data,
-            );
-            self.ctx.generate_mipmap(gl_target);
-        }
-    }
-
-    pub fn set_texture_wrap(
-        &mut self,
-        texture_key: TextureKey,
-        texture_type: texture::TextureType,
-        wrap: texture::Wrap,
-    ) {
-        use texture::TextureType;
-
-        let gl_target = texture_type.to_gl();
-        unsafe {
-            self.bind_texture_to_unit(texture_type, texture_key, 0);
-            self.ctx
-                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_S, wrap.s().to_gl() as i32);
-            self.ctx
-                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_T, wrap.t().to_gl() as i32);
-            match texture_type {
-                TextureType::Tex2D | TextureType::Tex2DArray | TextureType::Cube => (),
-                TextureType::Volume => self.ctx.tex_parameter_i32(
-                    gl_target,
-                    glow::TEXTURE_WRAP_R,
-                    wrap.r().to_gl() as i32,
-                ),
-            }
-        }
-    }
-
-    pub fn set_texture_filter(
-        &mut self,
-        texture_key: TextureKey,
-        texture_type: texture::TextureType,
-        filter: texture::Filter,
-    ) {
-        use texture::FilterMode;
-
-        let gl_min = match filter.min() {
-            FilterMode::Nearest => glow::NEAREST,
-            FilterMode::Linear | FilterMode::None => glow::LINEAR,
-        };
-        let gl_mag = match filter.mag() {
-            FilterMode::Nearest => glow::NEAREST,
-            FilterMode::Linear | FilterMode::None => glow::LINEAR,
-        };
-
-        let gl_min = match filter.mipmap() {
-            FilterMode::None => gl_min,
-            FilterMode::Nearest | FilterMode::Linear => match (filter.min(), filter.mipmap()) {
-                (FilterMode::Nearest, FilterMode::Nearest) => glow::NEAREST_MIPMAP_NEAREST,
-                (FilterMode::Nearest, FilterMode::Linear) => glow::NEAREST_MIPMAP_LINEAR,
-                (FilterMode::Linear, FilterMode::Nearest) => glow::LINEAR_MIPMAP_NEAREST,
-                (FilterMode::Linear, FilterMode::Linear) => glow::LINEAR_MIPMAP_LINEAR,
-                _ => glow::LINEAR,
-            },
-        };
-
-        let gl_target = texture_type.to_gl();
-        unsafe {
-            self.bind_texture_to_unit(texture_type, texture_key, 0);
-            self.ctx
-                .tex_parameter_i32(gl_target, glow::TEXTURE_MIN_FILTER, gl_min as i32);
-            self.ctx
-                .tex_parameter_i32(gl_target, glow::TEXTURE_MAG_FILTER, gl_mag as i32);
-        }
-    }
-
     pub fn new_framebuffer(&mut self) -> FramebufferKey {
         let framebuffer = unsafe { self.ctx.create_framebuffer().unwrap() };
         self.framebuffers.insert(framebuffer)
@@ -672,6 +579,101 @@ impl Context {
                 self.ctx.enable(glow::DEBUG_OUTPUT);
                 self.ctx.debug_message_callback(callback);
             }
+        }
+    }
+}
+
+impl texture::TextureUpdate for Context {
+    fn set_texture_data(
+        &mut self,
+        texture_key: TextureKey,
+        texture: texture::TextureInfo,
+        texture_type: texture::TextureType,
+        data: Option<&[u8]>,
+    ) {
+        self.new_debug_group("Buffer Image Data");
+        let (_internal, external, gl_type) = texture.format().to_gl();
+        let width = texture.width();
+        let height = texture.height();
+        let gl_target = texture_type.to_gl();
+        self.bind_texture_to_unit(texture_type, texture_key, 0);
+        unsafe {
+            self.ctx.tex_image_2d(
+                gl_target,
+                0,
+                external as i32,
+                width as i32,
+                height as i32,
+                0,
+                external,
+                gl_type,
+                data,
+            );
+            self.ctx.generate_mipmap(gl_target);
+        }
+    }
+
+    fn set_texture_wrap(
+        &mut self,
+        texture_key: TextureKey,
+        texture_type: texture::TextureType,
+        wrap: texture::Wrap,
+    ) {
+        use texture::TextureType;
+
+        let gl_target = texture_type.to_gl();
+        unsafe {
+            self.bind_texture_to_unit(texture_type, texture_key, 0);
+            self.ctx
+                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_S, wrap.s().to_gl() as i32);
+            self.ctx
+                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_T, wrap.t().to_gl() as i32);
+            match texture_type {
+                TextureType::Tex2D | TextureType::Tex2DArray | TextureType::Cube => (),
+                TextureType::Volume => self.ctx.tex_parameter_i32(
+                    gl_target,
+                    glow::TEXTURE_WRAP_R,
+                    wrap.r().to_gl() as i32,
+                ),
+            }
+        }
+    }
+
+    fn set_texture_filter(
+        &mut self,
+        texture_key: TextureKey,
+        texture_type: texture::TextureType,
+        filter: texture::Filter,
+    ) {
+        use texture::FilterMode;
+
+        let gl_min = match filter.min() {
+            FilterMode::Nearest => glow::NEAREST,
+            FilterMode::Linear | FilterMode::None => glow::LINEAR,
+        };
+        let gl_mag = match filter.mag() {
+            FilterMode::Nearest => glow::NEAREST,
+            FilterMode::Linear | FilterMode::None => glow::LINEAR,
+        };
+
+        let gl_min = match filter.mipmap() {
+            FilterMode::None => gl_min,
+            FilterMode::Nearest | FilterMode::Linear => match (filter.min(), filter.mipmap()) {
+                (FilterMode::Nearest, FilterMode::Nearest) => glow::NEAREST_MIPMAP_NEAREST,
+                (FilterMode::Nearest, FilterMode::Linear) => glow::NEAREST_MIPMAP_LINEAR,
+                (FilterMode::Linear, FilterMode::Nearest) => glow::LINEAR_MIPMAP_NEAREST,
+                (FilterMode::Linear, FilterMode::Linear) => glow::LINEAR_MIPMAP_LINEAR,
+                _ => glow::LINEAR,
+            },
+        };
+
+        let gl_target = texture_type.to_gl();
+        unsafe {
+            self.bind_texture_to_unit(texture_type, texture_key, 0);
+            self.ctx
+                .tex_parameter_i32(gl_target, glow::TEXTURE_MIN_FILTER, gl_min as i32);
+            self.ctx
+                .tex_parameter_i32(gl_target, glow::TEXTURE_MAG_FILTER, gl_mag as i32);
         }
     }
 }

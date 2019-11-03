@@ -1,7 +1,6 @@
-use super::texture::{Filter, PixelFormat, Texture, TextureType, Wrap};
+use super::texture::{Filter, PixelFormat, Texture, TextureInfo, TextureType, TextureUpdate, Wrap};
 use super::Context;
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::net::Shutdown::Write;
 
 pub struct Settings {
     mipmaps: bool,
@@ -20,15 +19,14 @@ impl Settings {
 }
 
 pub struct Image {
-    gl: Rc<RefCell<Context>>,
-    handle: super::TextureKey,
-    texture: Texture,
+    texture_key: super::TextureKey,
+    texture_info: TextureInfo,
     texture_type: TextureType,
 }
 
 impl Image {
     pub fn new(
-        ctx: Rc<RefCell<Context>>,
+        ctx: &mut Context,
         texture_type: TextureType,
         format: PixelFormat,
         width: usize,
@@ -36,73 +34,48 @@ impl Image {
         slices: usize,
         settings: &Settings,
     ) -> Self {
-        ctx.borrow().new_debug_group("Create Image");
-        let handle = ctx.borrow_mut().new_texture(texture_type);
-        let mut image = Self {
-            gl: ctx,
+        ctx.new_debug_group("Create Image");
+        let texture_key = ctx.new_texture(texture_type);
+        let filter = Filter::default();
+        let wrap = Wrap::default();
+        ctx.set_texture_filter(texture_key, texture_type, filter);
+        ctx.set_texture_wrap(texture_key, texture_type, wrap);
+        Self {
             texture_type,
-            handle,
-            texture: Texture::new(format, width, height, Filter::default(), Wrap::default()),
-        };
-        image.set_filter(image.texture.filter());
-        image.set_wrap(image.texture.wrap());
-        image
+            texture_key,
+            texture_info: TextureInfo::new(format, width, height, filter, wrap),
+        }
     }
 
-    pub fn handle(&self) -> super::TextureKey {
-        self.handle
-    }
-
-    pub fn texture_type(&self) -> TextureType {
-        self.texture_type
-    }
-
-    pub fn texture(&self) -> Texture {
-        self.texture
-    }
-
-    pub fn set_texture(&mut self, texture: Texture) {
-        self.texture = texture;
-    }
-
-    pub fn set_data(&mut self, data: Option<&[u8]>) {
-        self.gl
-            .borrow_mut()
-            .set_texture_data(self.handle, self.texture, self.texture_type, data);
-    }
-
-    pub fn set_wrap(&mut self, wrap: Wrap) {
-        // TODO: there's a bunch of extra checks to do in here.
-        self.gl
-            .borrow_mut()
-            .set_texture_wrap(self.handle, self.texture_type, wrap);
-        self.texture.set_wrap(wrap);
-    }
-
-    pub fn set_filter(&mut self, filter: Filter) {
-        self.gl
-            .borrow_mut()
-            .set_texture_filter(self.handle, self.texture_type, filter);
-        self.texture.set_filter(filter);
+    pub fn set_texture_info(&mut self, texture_info: TextureInfo) {
+        self.texture_info = texture_info;
     }
 }
 
-impl Drop for Image {
-    fn drop(&mut self) {
-        self.gl.borrow_mut().destroy_texture(self.handle);
-    }
-}
-
-impl super::texture::BindableTexture for &Image {
+impl Texture for Image {
     fn get_texture_key(&self) -> super::TextureKey {
-        self.handle
+        self.texture_key
     }
 
     fn get_texture_type(&self) -> TextureType {
         self.texture_type
     }
 
-    fn get_texture(&self) -> Texture {
-        self.texture
+    fn get_texture_info(&self) -> TextureInfo {
+        self.texture_info
+    }
+}
+
+impl Texture for &Image {
+    fn get_texture_key(&self) -> super::TextureKey {
+        Image::get_texture_key(self)
+    }
+
+    fn get_texture_type(&self) -> TextureType {
+        Image::get_texture_type(self)
+    }
+
+    fn get_texture_info(&self) -> TextureInfo {
+        Image::get_texture_info(self)
     }
 }

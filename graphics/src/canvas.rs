@@ -1,7 +1,5 @@
-use super::texture::{Filter, PixelFormat, Texture, TextureType, Wrap};
+use super::texture::{Filter, PixelFormat, Texture, TextureInfo, TextureType, TextureUpdate, Wrap};
 use super::Context;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub enum MipmapMode {
     None,
@@ -39,16 +37,15 @@ impl Default for Settings {
 }
 
 pub struct Canvas {
-    gl: Rc<RefCell<Context>>,
-    texture_key: super::TextureKey,
     framebuffer_key: super::FramebufferKey,
-    texture: Texture,
+    texture_key: super::TextureKey,
+    texture_info: TextureInfo,
     texture_type: TextureType,
 }
 
 impl Canvas {
-    pub fn new(ctx: Rc<RefCell<Context>>, settings: Settings) -> Self {
-        let texture = Texture::new(
+    pub fn new(ctx: &mut Context, settings: Settings) -> Self {
+        let texture = TextureInfo::new(
             settings.format,
             settings.width,
             settings.height,
@@ -56,7 +53,6 @@ impl Canvas {
             Wrap::default(),
         );
         let (framebuffer_key, texture_key) = {
-            let mut ctx = ctx.borrow_mut();
             let texture_key = ctx.new_texture(settings.texture_type);
             ctx.bind_texture_to_unit(settings.texture_type, texture_key, 0);
             ctx.set_texture_wrap(texture_key, settings.texture_type, texture.wrap());
@@ -94,34 +90,19 @@ impl Canvas {
             (framebuffer_key, texture_key)
         };
         Self {
-            gl: ctx,
             texture_type: settings.texture_type,
             framebuffer_key,
             texture_key,
-            texture,
+            texture_info: texture,
         }
     }
 
-    pub fn bind(&mut self) {
-        self.gl
-            .borrow_mut()
-            .bind_framebuffer(Target::All, Some(self.framebuffer_key));
-    }
-
-    pub fn texture_key(&self) -> super::TextureKey {
-        self.texture_key
-    }
-
-    pub fn texture_type(&self) -> TextureType {
-        self.texture_type
-    }
-
-    pub fn texture(&self) -> Texture {
-        self.texture
+    pub fn bind(&mut self, gl: &mut Context) {
+        gl.bind_framebuffer(Target::All, Some(self.framebuffer_key));
     }
 }
 
-impl super::texture::BindableTexture for &Canvas {
+impl Texture for Canvas {
     fn get_texture_key(&self) -> super::TextureKey {
         self.texture_key
     }
@@ -130,8 +111,22 @@ impl super::texture::BindableTexture for &Canvas {
         self.texture_type
     }
 
-    fn get_texture(&self) -> Texture {
-        self.texture
+    fn get_texture_info(&self) -> TextureInfo {
+        self.texture_info
+    }
+}
+
+impl Texture for &Canvas {
+    fn get_texture_key(&self) -> super::TextureKey {
+        Canvas::get_texture_key(self)
+    }
+
+    fn get_texture_type(&self) -> TextureType {
+        Canvas::get_texture_type(self)
+    }
+
+    fn get_texture_info(&self) -> TextureInfo {
+        Canvas::get_texture_info(self)
     }
 }
 

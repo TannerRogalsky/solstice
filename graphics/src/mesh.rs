@@ -110,7 +110,6 @@ where
             Some(range) => ((range.end - range.start) as i32, range.start as i32),
         };
         gl.draw_elements(glow::TRIANGLES, count, INDEX_GL, offset);
-        //        gl.draw_arrays(glow::TRIANGLES, 0, self.vertex_count as i32);
     }
 }
 
