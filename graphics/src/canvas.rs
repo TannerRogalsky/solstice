@@ -47,8 +47,8 @@ impl Canvas {
     pub fn new(ctx: &mut Context, settings: Settings) -> Self {
         let texture = TextureInfo::new(
             settings.format,
-            settings.width,
-            settings.height,
+            (settings.width as f32 * settings.dpi_scale + 0.5) as usize,
+            (settings.height as f32 * settings.dpi_scale + 0.5) as usize,
             Filter::default(),
             Wrap::default(),
         );

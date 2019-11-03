@@ -156,14 +156,18 @@ impl Context {
 
         let bound_textures = texture::TextureType::enumerate()
             .iter()
-            .map(|tt| vec![None; gl_constants.max_texture_units])
+            .map(|_tt| vec![None; gl_constants.max_texture_units])
             .collect();
 
         for texture_unit in 0..gl_constants.max_texture_units {
             unsafe {
                 ctx.active_texture(glow::TEXTURE0 + texture_unit as u32);
                 // do this for every supported texture type
-                ctx.bind_texture(glow::TEXTURE_2D, None);
+                for texture_type in texture::TextureType::enumerate() {
+                    if texture_type.is_supported() {
+                        ctx.bind_texture(texture_type.to_gl(), None);
+                    }
+                }
             }
         }
         unsafe { ctx.active_texture(glow::TEXTURE0) }
@@ -360,17 +364,35 @@ impl Context {
             self.bound_textures[texture_type.to_index()][texture_unit_index],
         ) {
             (Some(&texture), None) => {
+                if texture_unit != self.current_texture_unit {
+                    unsafe {
+                        self.ctx.active_texture(texture_unit);
+                    }
+                    self.current_texture_unit = texture_unit;
+                }
                 self.bound_textures[texture_type.to_index()][texture_unit_index] = Some(texture);
                 unsafe { self.ctx.bind_texture(texture_type.to_gl(), Some(texture)) }
             }
             (Some(&texture), Some(bound_texture)) => {
                 if texture != bound_texture {
+                    if texture_unit != self.current_texture_unit {
+                        unsafe {
+                            self.ctx.active_texture(texture_unit);
+                        }
+                        self.current_texture_unit = texture_unit;
+                    }
                     self.bound_textures[texture_type.to_index()][texture_unit_index] =
                         Some(texture);
                     unsafe { self.ctx.bind_texture(texture_type.to_gl(), Some(texture)) }
                 }
             }
             (None, Some(_)) => {
+                if texture_unit != self.current_texture_unit {
+                    unsafe {
+                        self.ctx.active_texture(texture_unit);
+                    }
+                    self.current_texture_unit = texture_unit;
+                }
                 self.bound_textures[texture_type.to_index()][texture_unit_index] = None;
                 unsafe { self.ctx.bind_texture(texture_type.to_gl(), None) }
             }
@@ -609,7 +631,6 @@ impl texture::TextureUpdate for Context {
                 gl_type,
                 data,
             );
-            self.ctx.generate_mipmap(gl_target);
         }
     }
 

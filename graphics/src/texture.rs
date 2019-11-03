@@ -33,6 +33,15 @@ impl TextureType {
             TextureType::Cube,
         ]
     }
+
+    pub fn is_supported(&self) -> bool {
+        match self {
+            TextureType::Tex2D => true,
+            TextureType::Volume => false,
+            TextureType::Tex2DArray => false,
+            TextureType::Cube => false,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
