@@ -127,6 +127,31 @@ struct GLConstants {
     max_texture_units: usize,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum DrawMode {
+    Points,
+    Lines,
+    LineLoop,
+    LineStrip,
+    Triangles,
+    TriangleStrip,
+    TriangleFan,
+}
+
+impl DrawMode {
+    pub fn to_gl(&self) -> u32 {
+        match self {
+            DrawMode::Points => glow::POINTS,
+            DrawMode::Lines => glow::LINES,
+            DrawMode::LineLoop => glow::LINE_LOOP,
+            DrawMode::LineStrip => glow::LINE_STRIP,
+            DrawMode::Triangles => glow::TRIANGLES,
+            DrawMode::TriangleStrip => glow::TRIANGLE_STRIP,
+            DrawMode::TriangleFan => glow::TRIANGLE_FAN,
+        }
+    }
+}
+
 // a caching, convenience and safety layer around glow
 pub struct Context {
     ctx: glow::Context,
@@ -236,7 +261,6 @@ impl Context {
     ) -> BufferKey {
         // the implementation of Buffer::new leaks here in that we bind the buffer after we
         // create it so it's tracked in the active buffers by necessity
-        println!("new buffer: size: {}, usage: {:?}", size, usage);
         let buffer = buffer::Buffer::new(&self.ctx, size, buffer_type, usage);
         let buffer_key = self.buffers.insert(buffer);
         self.active_buffers.insert(buffer_type, buffer_key);
@@ -275,37 +299,28 @@ impl Context {
 
     fn buffer_static_draw(
         &self,
-        buffer_key: BufferKey,
         buffer: &buffer::Buffer,
         modified_offset: usize,
         modified_size: usize,
     ) {
         let target = buffer.buffer_type().into();
-        println!(
-            "static, offset: {}, size: {}",
-            modified_offset, modified_size
-        );
-
+        let data = &buffer.memory_map()[modified_offset..(modified_offset + modified_size)];
         unsafe {
-            self.ctx.buffer_sub_data_u8_slice(
-                target,
-                modified_offset as i32,
-                &buffer.memory_map()[modified_offset..(modified_offset + modified_size)],
-            )
+            self.ctx
+                .buffer_sub_data_u8_slice(target, modified_offset as i32, data)
         }
     }
 
-    fn buffer_stream_draw(&self, buffer_key: BufferKey, buffer: &buffer::Buffer) {
+    fn buffer_stream_draw(&self, buffer: &buffer::Buffer) {
         let target = buffer.buffer_type().into();
-        println!("stream, size: {}", buffer.size());
+        let data = buffer.memory_map();
 
         unsafe {
             // "orphan" current buffer to avoid implicit synchronisation on the GPU:
             // http://www.seas.upenn.edu/~pcozzi/OpenGLInsights/OpenGLInsights-AsynchronousBufferTransfers.pdf
             self.ctx
                 .buffer_data_size(target, buffer.size() as i32, buffer.usage().to_gl());
-            self.ctx
-                .buffer_sub_data_u8_slice(target, 0, buffer.memory_map())
+            self.ctx.buffer_sub_data_u8_slice(target, 0, data);
         }
     }
 
@@ -317,28 +332,16 @@ impl Context {
                 std::cmp::min(buffer.modified_size(), buffer.size() - modified_offset);
 
             if buffer.modified_size() > 0 {
-                log::debug!(
-                    "buffer: {:?}, size: {}, modified: {}, offset: {}",
-                    buffer_key,
-                    buffer.size(),
-                    modified_size,
-                    modified_offset
-                );
                 match buffer.usage() {
-                    Usage::Stream => self.buffer_stream_draw(buffer_key, buffer),
+                    Usage::Stream => self.buffer_stream_draw(buffer),
                     Usage::Static => {
-                        self.buffer_static_draw(buffer_key, buffer, modified_offset, modified_size)
+                        self.buffer_static_draw(buffer, modified_offset, modified_size)
                     }
                     Usage::Dynamic => {
                         if modified_size >= buffer.size() / 3 {
-                            self.buffer_stream_draw(buffer_key, buffer);
+                            self.buffer_stream_draw(buffer);
                         } else {
-                            self.buffer_static_draw(
-                                buffer_key,
-                                buffer,
-                                modified_offset,
-                                modified_size,
-                            );
+                            self.buffer_static_draw(buffer, modified_offset, modified_size);
                         }
                     }
                 }
@@ -618,15 +621,16 @@ impl Context {
         }
     }
 
-    pub fn draw_arrays(&self, mode: u32, first: i32, count: i32) {
+    pub fn draw_arrays(&self, mode: DrawMode, first: i32, count: i32) {
         unsafe {
-            self.ctx.draw_arrays(mode, first, count);
+            self.ctx.draw_arrays(mode.to_gl(), first, count);
         }
     }
 
-    pub fn draw_elements(&self, mode: u32, count: i32, element_type: u32, offset: i32) {
+    pub fn draw_elements(&self, mode: DrawMode, count: i32, element_type: u32, offset: i32) {
         unsafe {
-            self.ctx.draw_elements(mode, count, element_type, offset);
+            self.ctx
+                .draw_elements(mode.to_gl(), count, element_type, offset);
         }
     }
 

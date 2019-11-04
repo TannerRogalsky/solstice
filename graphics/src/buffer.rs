@@ -48,7 +48,7 @@ impl Buffer {
             use glow::HasContext;
             let vbo = gl.create_buffer().expect("Count not create GPU buffer.");
             gl.bind_buffer(buffer_type.into(), Some(vbo));
-            gl.buffer_data_size(buffer_type.into(), 0, usage.to_gl());
+            gl.buffer_data_size(buffer_type.into(), size as i32, usage.to_gl());
             vbo
         };
         let memory_map = vec![0u8; size].into_boxed_slice();

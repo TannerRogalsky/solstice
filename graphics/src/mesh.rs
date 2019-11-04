@@ -9,14 +9,32 @@ use std::rc::Rc;
 pub type Index = u32;
 const INDEX_GL: u32 = glow::UNSIGNED_INT;
 
+pub enum IndexType {
+    UnsignedByte(u8),
+    UnsignedShort(u16),
+    UnsignedInt(u32),
+}
+
+impl IndexType {
+    pub fn to_gl(&self) -> u32 {
+        match self {
+            IndexType::UnsignedByte(_) => glow::UNSIGNED_BYTE,
+            IndexType::UnsignedShort(_) => glow::UNSIGNED_SHORT,
+            IndexType::UnsignedInt(_) => glow::UNSIGNED_INT,
+        }
+    }
+}
+
 pub struct Mesh<T> {
     gl: Rc<RefCell<Context>>,
     vbo: BufferKey,
     ibo: BufferKey,
+    use_indices: bool,
     vertex_count: usize,
     index_count: usize,
     draw_range: Option<std::ops::Range<usize>>,
     vertex_marker: std::marker::PhantomData<T>,
+    draw_mode: super::DrawMode,
 }
 
 impl<T> Mesh<T>
@@ -27,20 +45,22 @@ where
         let vbo = gl.borrow_mut().new_buffer(
             size * std::mem::size_of::<T>(),
             BufferType::Vertex,
-            Usage::Stream,
+            Usage::Dynamic,
         );
         let ibo = gl.borrow_mut().new_buffer(
             size * std::mem::size_of::<Index>(),
             BufferType::Index,
-            Usage::Static,
+            Usage::Dynamic,
         );
         Self {
             gl,
             vbo,
             ibo,
+            use_indices: false,
             vertex_count: 0,
             index_count: 0,
             draw_range: None,
+            draw_mode: super::DrawMode::Triangles,
             vertex_marker: std::marker::PhantomData,
         }
     }
@@ -68,6 +88,7 @@ where
     }
 
     pub fn set_indices(&mut self, indices: &[Index], offset: usize) {
+        self.use_indices = true;
         self.index_count = indices.len();
         self.set_buffer(self.ibo, indices, offset);
     }
@@ -104,12 +125,20 @@ where
         gl.set_vertex_attributes(desired, stride, &attributes);
 
         gl.unmap_buffer(self.vbo);
-        gl.unmap_buffer(self.ibo);
-        let (count, offset) = match &self.draw_range {
-            None => (self.index_count as i32, 0),
-            Some(range) => ((range.end - range.start) as i32, range.start as i32),
-        };
-        gl.draw_elements(glow::TRIANGLES, count, INDEX_GL, offset);
+        if self.use_indices {
+            gl.unmap_buffer(self.ibo);
+            let (count, offset) = match &self.draw_range {
+                None => (self.index_count as i32, 0),
+                Some(range) => ((range.end - range.start) as i32, range.start as i32),
+            };
+            gl.draw_elements(self.draw_mode, count, INDEX_GL, offset);
+        } else {
+            let (count, offset) = match &self.draw_range {
+                None => (self.vertex_count as i32, 0),
+                Some(range) => ((range.end - range.start) as i32, range.start as i32),
+            };
+            gl.draw_arrays(self.draw_mode, offset, count);
+        }
     }
 }
 
