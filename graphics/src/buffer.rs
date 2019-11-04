@@ -22,12 +22,12 @@ pub enum Usage {
     Dynamic,
 }
 
-impl Into<u32> for Usage {
-    fn into(self) -> u32 {
+impl Usage {
+    pub fn to_gl(&self) -> u32 {
         match self {
             Usage::Stream => glow::STREAM_DRAW,
             Usage::Static => glow::STATIC_DRAW,
-            Usage::Dynamic => glow::STREAM_DRAW, // todo: usage guessing logic here
+            Usage::Dynamic => glow::DYNAMIC_DRAW,
         }
     }
 }
@@ -48,7 +48,7 @@ impl Buffer {
             use glow::HasContext;
             let vbo = gl.create_buffer().expect("Count not create GPU buffer.");
             gl.bind_buffer(buffer_type.into(), Some(vbo));
-            gl.buffer_data_size(buffer_type.into(), 0, usage.into());
+            gl.buffer_data_size(buffer_type.into(), 0, usage.to_gl());
             vbo
         };
         let memory_map = vec![0u8; size].into_boxed_slice();
@@ -81,6 +81,10 @@ impl Buffer {
     pub fn reset_modified_range(&mut self) {
         self.modified_offset = 0;
         self.modified_size = 0;
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     pub fn modified_size(&self) -> usize {

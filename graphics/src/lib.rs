@@ -10,6 +10,7 @@ pub mod texture;
 pub mod vertex;
 pub mod viewport;
 
+use crate::buffer::Usage;
 use glow::HasContext;
 use slotmap::DenseSlotMap;
 use std::collections::{hash_map::Entry, HashMap};
@@ -235,6 +236,7 @@ impl Context {
     ) -> BufferKey {
         // the implementation of Buffer::new leaks here in that we bind the buffer after we
         // create it so it's tracked in the active buffers by necessity
+        println!("new buffer: size: {}, usage: {:?}", size, usage);
         let buffer = buffer::Buffer::new(&self.ctx, size, buffer_type, usage);
         let buffer_key = self.buffers.insert(buffer);
         self.active_buffers.insert(buffer_type, buffer_key);
@@ -271,15 +273,74 @@ impl Context {
         }
     }
 
+    fn buffer_static_draw(
+        &self,
+        buffer_key: BufferKey,
+        buffer: &buffer::Buffer,
+        modified_offset: usize,
+        modified_size: usize,
+    ) {
+        let target = buffer.buffer_type().into();
+        println!(
+            "static, offset: {}, size: {}",
+            modified_offset, modified_size
+        );
+
+        unsafe {
+            self.ctx.buffer_sub_data_u8_slice(
+                target,
+                modified_offset as i32,
+                &buffer.memory_map()[modified_offset..(modified_offset + modified_size)],
+            )
+        }
+    }
+
+    fn buffer_stream_draw(&self, buffer_key: BufferKey, buffer: &buffer::Buffer) {
+        let target = buffer.buffer_type().into();
+        println!("stream, size: {}", buffer.size());
+
+        unsafe {
+            // "orphan" current buffer to avoid implicit synchronisation on the GPU:
+            // http://www.seas.upenn.edu/~pcozzi/OpenGLInsights/OpenGLInsights-AsynchronousBufferTransfers.pdf
+            self.ctx
+                .buffer_data_size(target, buffer.size() as i32, buffer.usage().to_gl());
+            self.ctx
+                .buffer_sub_data_u8_slice(target, 0, buffer.memory_map())
+        }
+    }
+
     pub fn unmap_buffer(&mut self, buffer_key: BufferKey) {
         self.bind_buffer(buffer_key);
         self.get_buffer(buffer_key).map(|buffer| {
+            let modified_offset = std::cmp::min(buffer.modified_offset(), buffer.size() - 1);
+            let modified_size =
+                std::cmp::min(buffer.modified_size(), buffer.size() - modified_offset);
+
             if buffer.modified_size() > 0 {
-                let target = buffer.buffer_type().into();
-                let data = buffer.memory_map();
-                let usage = buffer.usage().into();
-                unsafe {
-                    self.ctx.buffer_data_u8_slice(target, data, usage);
+                log::debug!(
+                    "buffer: {:?}, size: {}, modified: {}, offset: {}",
+                    buffer_key,
+                    buffer.size(),
+                    modified_size,
+                    modified_offset
+                );
+                match buffer.usage() {
+                    Usage::Stream => self.buffer_stream_draw(buffer_key, buffer),
+                    Usage::Static => {
+                        self.buffer_static_draw(buffer_key, buffer, modified_offset, modified_size)
+                    }
+                    Usage::Dynamic => {
+                        if modified_size >= buffer.size() / 3 {
+                            self.buffer_stream_draw(buffer_key, buffer);
+                        } else {
+                            self.buffer_static_draw(
+                                buffer_key,
+                                buffer,
+                                modified_offset,
+                                modified_size,
+                            );
+                        }
+                    }
                 }
             }
         });

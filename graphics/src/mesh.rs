@@ -27,12 +27,12 @@ where
         let vbo = gl.borrow_mut().new_buffer(
             size * std::mem::size_of::<T>(),
             BufferType::Vertex,
-            Usage::Dynamic,
+            Usage::Stream,
         );
         let ibo = gl.borrow_mut().new_buffer(
             size * std::mem::size_of::<Index>(),
             BufferType::Index,
-            Usage::Dynamic,
+            Usage::Static,
         );
         Self {
             gl,
