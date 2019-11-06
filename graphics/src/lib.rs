@@ -596,7 +596,10 @@ impl Context {
         location: shader::UniformLocation,
         data: &shader::RawUniformValue,
     ) {
-        assert!(self.active_shader.is_some(), "Setting a uniform without an active shader.");
+        assert!(
+            self.active_shader.is_some(),
+            "Setting a uniform without an active shader."
+        );
         use shader::RawUniformValue;
         let location = Some(location.0);
         unsafe {

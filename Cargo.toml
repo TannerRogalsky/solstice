@@ -4,12 +4,14 @@ members = [
     "engine",
     "engine_examples",
     "vfs",
+    "websocket",
 ]
 default-members = [
     "graphics",
     "engine",
     "engine_examples",
     "vfs",
+    "websocket",
 ]
 
 [patch.crates-io]
