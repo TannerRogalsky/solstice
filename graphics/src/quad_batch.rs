@@ -6,6 +6,7 @@ use std::{cell::RefCell, rc::Rc};
 
 pub struct QuadIndex(usize);
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Quad<T> {
     pub vertices: [T; 4],
 }
@@ -49,6 +50,10 @@ where
             count: 0,
             capacity,
         }
+    }
+
+    pub fn count(&self) -> usize {
+        self.count
     }
 
     pub fn push(&mut self, quad: Quad<T>) -> QuadIndex {
