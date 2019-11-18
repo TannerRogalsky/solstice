@@ -358,6 +358,15 @@ pub trait Texture {
 }
 
 pub trait TextureUpdate {
+    fn set_texture_sub_data(
+        &mut self,
+        texture_key: super::TextureKey,
+        texture: TextureInfo,
+        texture_type: TextureType,
+        data: Option<&[u8]>,
+        x_offset: u32,
+        y_offset: u32,
+    );
     fn set_texture_data(
         &mut self,
         texture_key: super::TextureKey,

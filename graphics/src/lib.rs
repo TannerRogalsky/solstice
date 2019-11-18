@@ -11,6 +11,7 @@ pub mod vertex;
 pub mod viewport;
 
 use crate::buffer::Usage;
+use crate::texture::{TextureInfo, TextureType};
 use glow::HasContext;
 use slotmap::DenseSlotMap;
 use std::collections::{hash_map::Entry, HashMap};
@@ -199,6 +200,7 @@ impl Context {
         unsafe { ctx.active_texture(glow::TEXTURE0) }
         unsafe {
             // TODO: this should be left to the consumer
+            ctx.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
             ctx.enable(glow::BLEND);
             ctx.blend_equation(glow::FUNC_ADD);
             ctx.blend_func_separate(
@@ -675,6 +677,35 @@ impl Context {
 }
 
 impl texture::TextureUpdate for Context {
+    fn set_texture_sub_data(
+        &mut self,
+        texture_key: TextureKey,
+        texture: TextureInfo,
+        texture_type: TextureType,
+        data: Option<&[u8]>,
+        x_offset: u32,
+        y_offset: u32,
+    ) {
+        let (_internal, external, gl_type) = texture.format().to_gl();
+        let width = texture.width();
+        let height = texture.height();
+        let gl_target = texture_type.to_gl();
+        self.bind_texture_to_unit(texture_type, texture_key, 0);
+        unsafe {
+            self.ctx.tex_sub_image_2d_u8_slice(
+                gl_target,
+                0,
+                x_offset as i32,
+                y_offset as i32,
+                width as i32,
+                height as i32,
+                external,
+                gl_type,
+                data,
+            );
+        }
+    }
+
     fn set_texture_data(
         &mut self,
         texture_key: TextureKey,
