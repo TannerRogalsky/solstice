@@ -15,6 +15,8 @@ use crate::texture::{TextureInfo, TextureType};
 use glow::HasContext;
 use slotmap::DenseSlotMap;
 use std::collections::{hash_map::Entry, HashMap};
+use std::fmt::{Debug, Error, Formatter};
+use std::str::FromStr;
 
 type GLBuffer = <glow::Context as HasContext>::Buffer;
 type GLProgram = <glow::Context as HasContext>::Program;
@@ -153,9 +155,43 @@ impl DrawMode {
     }
 }
 
+#[derive(Copy, Clone, Default)]
+pub struct GLVersion {
+    major: u32,
+    minor: u32,
+    gles: bool,
+}
+
+impl FromStr for GLVersion {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (major, minor, gles) = if s.contains("OpenGL ES ") {
+            (s.chars().nth(10), s.chars().nth(12), true)
+        } else {
+            (s.chars().nth(0), s.chars().nth(2), false)
+        };
+        match (major, minor) {
+            (Some(major), Some(minor)) => Ok(Self { major: major as u32, minor: minor as u32, gles }),
+            _ => Err(()),
+        }
+    }
+}
+
+impl Debug for GLVersion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(
+            f,
+            "GLVersion {{ major: {}, minor: {}, ES: {} }}",
+            self.major, self.minor, self.gles
+        )
+    }
+}
+
 // a caching, convenience and safety layer around glow
 pub struct Context {
     ctx: glow::Context,
+    version: GLVersion,
     gl_constants: GLConstants,
     shaders: DenseSlotMap<ShaderKey, shader::Shader>,
     active_shader: Option<ShaderKey>,
@@ -212,8 +248,15 @@ impl Context {
 
             ctx.bind_vertex_array(ctx.create_vertex_array().ok());
         }
+
+        let version = {
+            let str_version = unsafe { ctx.get_parameter_string(glow::VERSION) };
+            str_version.parse::<GLVersion>().unwrap_or_default()
+        };
+
         let mut ctx = Self {
             ctx,
+            version,
             gl_constants,
             shaders: DenseSlotMap::with_key(),
             active_shader: None,
@@ -686,7 +729,7 @@ impl texture::TextureUpdate for Context {
         x_offset: u32,
         y_offset: u32,
     ) {
-        let (_internal, external, gl_type) = texture.format().to_gl();
+        let (_internal, external, gl_type) = texture.format().to_gl(&self.version);
         let width = texture.width();
         let height = texture.height();
         let gl_target = texture_type.to_gl();
@@ -714,7 +757,7 @@ impl texture::TextureUpdate for Context {
         data: Option<&[u8]>,
     ) {
         self.new_debug_group("Buffer Image Data");
-        let (_internal, external, gl_type) = texture.format().to_gl();
+        let (internal, external, gl_type) = texture.format().to_gl(&self.version);
         let width = texture.width();
         let height = texture.height();
         let gl_target = texture_type.to_gl();
@@ -723,7 +766,7 @@ impl texture::TextureUpdate for Context {
             self.ctx.tex_image_2d(
                 gl_target,
                 0,
-                external as i32,
+                internal as i32,
                 width as i32,
                 height as i32,
                 0,

@@ -110,10 +110,16 @@ impl PixelFormat {
         }
     }
 
-    pub fn to_gl(&self) -> (u32, u32, u32) {
-        match self {
+    pub fn to_gl(&self, version: &super::GLVersion) -> (u32, u32, u32) {
+        let format = match self {
             PixelFormat::Unknown => panic!("Unknown pixel format!"),
-            PixelFormat::R8 => (glow::R8, glow::RED, glow::UNSIGNED_BYTE),
+            PixelFormat::R8 => {
+                if version.gles {
+                    (glow::LUMINANCE, glow::LUMINANCE, glow::UNSIGNED_BYTE)
+                } else {
+                    (glow::R8, glow::RED, glow::UNSIGNED_BYTE)
+                }
+            }
             PixelFormat::RG8 => (glow::RG8, glow::RG, glow::UNSIGNED_BYTE),
             PixelFormat::RGB8 => (glow::RGB8, glow::RGB, glow::UNSIGNED_BYTE),
             PixelFormat::RGBA8 => (glow::RGB8, glow::RGBA, glow::UNSIGNED_BYTE),
@@ -149,6 +155,12 @@ impl PixelFormat {
                 glow::DEPTH_STENCIL,
                 glow::FLOAT_32_UNSIGNED_INT_24_8_REV,
             ),
+        };
+
+        if version.gles {
+            (format.1, format.1, format.2)
+        } else {
+            format
         }
     }
 }
