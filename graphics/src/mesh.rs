@@ -105,9 +105,14 @@ where
         let bindings = T::build_bindings();
 
         let shader = gl.get_shader(gl.get_active_shader().unwrap()).unwrap();
-        let attributes = shader
-            .attributes()
-            .iter()
+        let bound_attributes = shader.attributes().iter().filter(|attr| {
+            bindings
+                .iter()
+                .find(|&binding| binding.name == attr.name.as_str())
+                .is_some()
+        });
+        let attributes = bound_attributes
+            .clone()
             .map(|attr| {
                 (
                     bindings
@@ -118,10 +123,7 @@ where
                 )
             })
             .collect::<Vec<(&super::vertex::VertexFormat, super::BufferKey)>>();
-        let desired = shader
-            .attributes()
-            .iter()
-            .fold(0u32, |acc, attr| acc | (1 << attr.location));
+        let desired = bound_attributes.fold(0u32, |acc, attr| acc | (1 << attr.location));
         gl.set_vertex_attributes(desired, stride, &attributes);
 
         gl.unmap_buffer(self.vbo);
@@ -138,6 +140,57 @@ where
                 Some(range) => ((range.end - range.start) as i32, range.start as i32),
             };
             gl.draw_arrays(self.draw_mode, offset, count);
+        }
+    }
+
+    pub fn draw_instanced(&mut self, instance_count: usize) {
+        let mut gl = self.gl.borrow_mut();
+        gl.bind_buffer(self.vbo);
+
+        let stride = std::mem::size_of::<T>();
+        let bindings = T::build_bindings();
+
+        let shader = gl.get_shader(gl.get_active_shader().unwrap()).unwrap();
+        let bound_attributes = shader.attributes().iter().filter(|attr| {
+            bindings
+                .iter()
+                .find(|&binding| binding.name == attr.name.as_str())
+                .is_some()
+        });
+        let attributes = bound_attributes
+            .clone()
+            .map(|attr| {
+                (
+                    bindings
+                        .iter()
+                        .find(|&binding| binding.name == attr.name.as_str())
+                        .unwrap(),
+                    self.vbo,
+                )
+            })
+            .collect::<Vec<(&super::vertex::VertexFormat, super::BufferKey)>>();
+        let desired = bound_attributes.fold(0u32, |acc, attr| acc | (1 << attr.location));
+        gl.set_vertex_attributes(desired, stride, &attributes);
+
+        gl.unmap_buffer(self.vbo);
+        if self.use_indices {
+            gl.unmap_buffer(self.ibo);
+            let (count, offset) = match &self.draw_range {
+                None => (self.index_count as i32, 0),
+                Some(range) => ((range.end - range.start) as i32, range.start as i32),
+            };
+            gl.draw_elements_instanced(
+                self.draw_mode,
+                count,
+                INDEX_GL,
+                offset,
+                instance_count as i32,
+            );
+            let (count, offset) = match &self.draw_range {
+                None => (self.vertex_count as i32, 0),
+                Some(range) => ((range.end - range.start) as i32, range.start as i32),
+            };
+            gl.draw_arrays_instanced(self.draw_mode, offset, count, instance_count as i32);
         }
     }
 }

@@ -7,6 +7,8 @@ pub enum AttributeType {
     F32x2x2,
     F32x3x3,
     F32x4x4,
+
+    I32,
 }
 
 impl AttributeType {
@@ -20,12 +22,13 @@ impl AttributeType {
             AttributeType::F32x2x2 => 4 * size_of::<f32>(),
             AttributeType::F32x3x3 => 9 * size_of::<f32>(),
             AttributeType::F32x4x4 => 16 * size_of::<f32>(),
+            AttributeType::I32 => 1 * size_of::<i32>(),
         }
     }
 
     pub fn get_num_components(&self) -> usize {
         match *self {
-            AttributeType::F32 => 1,
+            AttributeType::F32 | AttributeType::I32 => 1,
             AttributeType::F32F32 => 2,
             AttributeType::F32F32F32 => 3,
             AttributeType::F32F32F32F32 => 4,
@@ -44,6 +47,7 @@ impl AttributeType {
             AttributeType::F32x2x2 => (glow::FLOAT, 2, 2),
             AttributeType::F32x3x3 => (glow::FLOAT, 3, 3),
             AttributeType::F32x4x4 => (glow::FLOAT, 4, 4),
+            AttributeType::I32 => (glow::INT, 1, 1),
         }
     }
 }

@@ -172,7 +172,11 @@ impl FromStr for GLVersion {
             (s.chars().nth(0), s.chars().nth(2), false)
         };
         match (major, minor) {
-            (Some(major), Some(minor)) => Ok(Self { major: major as u32, minor: minor as u32, gles }),
+            (Some(major), Some(minor)) => Ok(Self {
+                major: major as u32,
+                minor: minor as u32,
+                gles,
+            }),
             _ => Err(()),
         }
     }
@@ -621,6 +625,7 @@ impl Context {
                 self.bind_buffer(buffer_key);
                 let (data_type, elements_count, instances_count) = binding.atype.to_gl();
                 unsafe {
+                    self.ctx.vertex_attrib_divisor(i, 0);
                     self.ctx.vertex_attrib_pointer_f32(
                         i,
                         elements_count,
@@ -680,6 +685,38 @@ impl Context {
         unsafe {
             self.ctx
                 .draw_elements(mode.to_gl(), count, element_type, offset);
+        }
+    }
+
+    pub fn draw_arrays_instanced(
+        &self,
+        mode: DrawMode,
+        first: i32,
+        count: i32,
+        instance_count: i32,
+    ) {
+        unsafe {
+            self.ctx
+                .draw_arrays_instanced(mode.to_gl(), first, count, instance_count)
+        }
+    }
+
+    pub fn draw_elements_instanced(
+        &self,
+        mode: DrawMode,
+        count: i32,
+        element_type: u32,
+        offset: i32,
+        instance_count: i32,
+    ) {
+        unsafe {
+            self.ctx.draw_elements_instanced(
+                mode.to_gl(),
+                count,
+                element_type as u32,
+                offset,
+                instance_count,
+            )
         }
     }
 

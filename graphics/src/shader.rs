@@ -12,7 +12,8 @@ fn glenum_to_attribute_type(atype: u32) -> AttributeType {
         glow::FLOAT_MAT2 => AttributeType::F32x2x2,
         glow::FLOAT_MAT3 => AttributeType::F32x3x3,
         glow::FLOAT_MAT4 => AttributeType::F32x4x4,
-        v => panic!("Unknown value returned by OpenGL attribute type: {}", v),
+        glow::INT => AttributeType::I32,
+        v => panic!("Unknown value returned by OpenGL attribute type: {:#x}", v),
     }
 }
 
@@ -72,7 +73,7 @@ impl Shader {
         let mut uniforms = HashMap::new();
 
         let program = unsafe {
-            let vertex = gl.create_shader(glow::VERTEX_SHADER).unwrap();
+            let vertex = gl.create_shader(glow::VERTEX_SHADER).expect("Failed to create vertex shader.");
             gl.shader_source(vertex, vertex_source);
             gl.compile_shader(vertex);
             if !gl.get_shader_compile_status(vertex) {
@@ -80,7 +81,7 @@ impl Shader {
                 gl.delete_shader(vertex);
                 return err;
             }
-            let fragment = gl.create_shader(glow::FRAGMENT_SHADER).unwrap();
+            let fragment = gl.create_shader(glow::FRAGMENT_SHADER).expect("Failed to create Fragment shader.");
             gl.shader_source(fragment, fragment_source);
             gl.compile_shader(fragment);
             if !gl.get_shader_compile_status(fragment) {
@@ -88,7 +89,7 @@ impl Shader {
                 gl.delete_shader(fragment);
                 return err;
             }
-            let program = gl.create_program().unwrap();
+            let program = gl.create_program().expect("Failed to create program.");
             gl.attach_shader(program, vertex);
             gl.attach_shader(program, fragment);
             gl.link_program(program);
@@ -114,21 +115,47 @@ impl Shader {
             for index in 0..gl.get_active_uniforms(program) {
                 let glow::ActiveUniform { name, size, utype } =
                     gl.get_active_uniform(program, index).unwrap();
-                let location =
-                    UniformLocation(gl.get_uniform_location(program, name.as_str()).unwrap());
-                uniforms.insert(
-                    name.clone(),
-                    Uniform {
-                        name,
-                        size,
-                        utype,
-                        location,
-                    },
-                );
+                if size > 1 {
+                    let name = name.trim_end_matches("[0]");
+                    uniforms.extend((0..size).map(|i| {
+                        let name = format!("{}[{}]", name, i);
+                        let location = gl.get_uniform_location(program, name.as_str());
+                        let location = UniformLocation(location.unwrap());
+                        (
+                            name.clone(),
+                            Uniform {
+                                name,
+                                size: 1,
+                                utype,
+                                location,
+                            },
+                        )
+                    }));
+                } else {
+                    let location =
+                        UniformLocation(gl.get_uniform_location(program, name.as_str()).expect("Failed to get uniform?!"));
+                    log::error!("{}, {:?}", name, location);
+                    uniforms.insert(
+                        name.clone(),
+                        Uniform {
+                            name,
+                            size,
+                            utype,
+                            location,
+                        },
+                    );
+                }
             }
 
             program
         };
+
+        log::trace!(
+            "Shader {{ id: {:?}, attributes: {:#?}, uniforms: {:#?} }}",
+            program,
+            attributes,
+            uniforms.values()
+        );
 
         Ok(Self {
             program,
