@@ -134,7 +134,6 @@ impl Shader {
                 } else {
                     let location =
                         UniformLocation(gl.get_uniform_location(program, name.as_str()).expect("Failed to get uniform?!"));
-                    log::error!("{}, {:?}", name, location);
                     uniforms.insert(
                         name.clone(),
                         Uniform {
