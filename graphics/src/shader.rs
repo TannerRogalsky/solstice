@@ -73,7 +73,9 @@ impl Shader {
         let mut uniforms = HashMap::new();
 
         let program = unsafe {
-            let vertex = gl.create_shader(glow::VERTEX_SHADER).expect("Failed to create vertex shader.");
+            let vertex = gl
+                .create_shader(glow::VERTEX_SHADER)
+                .expect("Failed to create vertex shader.");
             gl.shader_source(vertex, vertex_source);
             gl.compile_shader(vertex);
             if !gl.get_shader_compile_status(vertex) {
@@ -81,7 +83,9 @@ impl Shader {
                 gl.delete_shader(vertex);
                 return err;
             }
-            let fragment = gl.create_shader(glow::FRAGMENT_SHADER).expect("Failed to create Fragment shader.");
+            let fragment = gl
+                .create_shader(glow::FRAGMENT_SHADER)
+                .expect("Failed to create Fragment shader.");
             gl.shader_source(fragment, fragment_source);
             gl.compile_shader(fragment);
             if !gl.get_shader_compile_status(fragment) {
@@ -132,8 +136,10 @@ impl Shader {
                         )
                     }));
                 } else {
-                    let location =
-                        UniformLocation(gl.get_uniform_location(program, name.as_str()).expect("Failed to get uniform?!"));
+                    let location = UniformLocation(
+                        gl.get_uniform_location(program, name.as_str())
+                            .expect("Failed to get uniform?!"),
+                    );
                     uniforms.insert(
                         name.clone(),
                         Uniform {

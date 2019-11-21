@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "graphics",
+    "graphics-macro",
     "engine",
     "engine_examples",
     "vfs",
@@ -8,6 +9,7 @@ members = [
 ]
 default-members = [
     "graphics",
+    "graphics-macro",
     "engine",
     "engine_examples",
     "vfs",
