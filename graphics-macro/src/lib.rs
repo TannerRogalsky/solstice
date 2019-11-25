@@ -3,8 +3,120 @@
 #![feature(proc_macro_quote)]
 extern crate proc_macro;
 
+mod attrib;
+mod semantics;
+mod vertex;
+
+use crate::semantics::generate_enum_semantics_impl;
+use crate::vertex::generate_vertex_impl;
 use glsl::syntax::{ArraySpecifier, TypeSpecifierNonArray};
 use proc_macro::TokenStream;
+use syn::{self, parse_macro_input, Data, DeriveInput};
+
+/// The [`Vertex`] derive proc-macro.
+///
+/// That proc-macro allows you to create custom vertex types easily without having to care about
+/// implementing the required traits for your types to be usable with the rest of the crate.
+///
+/// # The `Vertex` trait
+///
+/// The [`Vertex`] trait must be implemented if you want to use a type as vertex (passed-in via
+/// slices to [`Tess`]). Either you can decide to implement it on your own, or you could just let
+/// this crate do the job for you.
+///
+/// > Important: the [`Vertex`] trait is `unsafe`, which means that all of its implementors must be
+/// > as well. This is due to the fact that vertex formats include information about raw-level
+/// > GPU memory and a bad implementation can have undefined behaviors.
+///
+/// # Deriving `Vertex`
+///
+/// You can derive the [`Vertex`] trait if your type follows these conditions:
+///
+///   - It must be a `struct` with named fields. This is just a temporary limitation that will get
+///     dropped as soon as the crate is stable enough.
+///   - Its fields must have a type that implements [`VertexAttrib`]. This is mandatory so that the
+///     backend knows enough about the types used in the structure to correctly align memory, pick
+///     the right types, etc.
+///   - Its fields must have a type that implements [`HasSemantics`] as well. This trait is just a
+///     type family that associates a single constant (i.e. the semantics) that the vertex attribute
+///     uses.
+///
+/// Once all those requirements are met, you can derive [`Vertex`] pretty easily.
+///
+/// > Note: feel free to look at the [`Semantics`] proc-macro as well, that provides a way
+/// > to generate semantics types in order to completely both implement [`Semantics`] for an
+/// > `enum` of your choice, but also generate *field* types you can use when defining your vertex
+/// > type.
+///
+/// ## Syntax
+///
+/// The syntax is the following:
+///
+/// ```rust
+/// # use luminance_derive::{Vertex, Semantics};
+///
+/// // visit the Semantics proc-macro documentation for further details
+/// #[derive(Clone, Copy, Debug, PartialEq, Semantics)]
+/// pub enum Semantics {
+///   #[sem(name = "position", repr = "[f32; 3]", wrapper = "VertexPosition")]
+///   Position,
+///   #[sem(name = "color", repr = "[f32; 4]", wrapper = "VertexColor")]
+///   Color
+/// }
+///
+/// #[derive(Clone, Copy, Debug, PartialEq, Vertex)] // just add Vertex to the list of derived traits
+/// #[vertex(sem = "Semantics")] // specify the semantics to use for this type
+/// struct MyVertex {
+///   position: VertexPosition,
+///   color: VertexColor
+/// }
+/// ```
+///
+/// > Note: the `Semantics` enum must be public because of the implementation of [`HasSemantics`]
+/// > trait.
+///
+/// Besides the `Semantics`-related code, this will:
+///
+///   - Create a type called `MyVertex`, a struct that will hold a single vertex.
+///   - Implement `Vertex for MyVertex`.
+///
+/// The proc-macro also supports an optional `#[vertex(instanced = "<bool>")]` struct attribute.
+/// This attribute allows you to specify whether the fields are to be instanced or not. For more
+/// about that, have a look at [`VertexInstancing`].
+///
+/// [`Vertex`]: https://docs.rs/luminance/latest/luminance/vertex/trait.Vertex.html
+#[proc_macro_derive(Vertex, attributes(vertex))]
+pub fn derive_vertex(input: TokenStream) -> TokenStream {
+    let di: DeriveInput = parse_macro_input!(input);
+
+    match di.data {
+        // for now, we only handle structs
+        Data::Struct(struct_) => match generate_vertex_impl(di.ident, di.attrs.iter(), struct_) {
+            Ok(impl_) => impl_,
+            Err(e) => panic!("{}", e),
+        },
+
+        _ => panic!("only structs are currently supported for deriving Vertex"),
+    }
+}
+
+/// The [`Semantics`] derive proc-macro.
+///
+/// [`Semantics`]: https://docs.rs/luminance/latest/luminance/vertex/trait.Semantics.html
+#[proc_macro_derive(Semantics, attributes(sem))]
+pub fn derive_semantics(input: TokenStream) -> TokenStream {
+    let di: DeriveInput = parse_macro_input!(input);
+
+    match di.data {
+        // for now, we only handle enums
+        Data::Enum(enum_) => match generate_enum_semantics_impl(di.ident, enum_) {
+            Ok(impl_) => impl_,
+            Err(e) => panic!("{}", e),
+        },
+
+        _ => panic!("only enums are currently supported for deriving VertexAttribSem"),
+    }
+}
 
 #[proc_macro]
 pub fn include_str(input: TokenStream) -> TokenStream {
@@ -36,20 +148,27 @@ pub fn shader(attr: TokenStream, item: TokenStream) -> TokenStream {
     path.pop();
 
     let t: syn::ExprTuple = syn::parse(attr.clone()).unwrap();
-    let mut srcs = t.elems.iter().map(|e| match e {
-        syn::Expr::Lit(syn::ExprLit{ lit: syn::Lit::Str(lit), ..}) => {
-            let mut path = path.clone();
-            lit.value()
-        },
-        _ => panic!("oh god oh no")
-    }).collect::<Vec<_>>();
+    let mut srcs = t
+        .elems
+        .iter()
+        .map(|e| match e {
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(lit),
+                ..
+            }) => {
+                let mut path = path.clone();
+                lit.value()
+            }
+            _ => panic!("oh god oh no"),
+        })
+        .collect::<Vec<_>>();
 
-    let shader_stage = ShaderSource {
-        vertex: srcs.pop().unwrap().value(),
-        fragment: srcs.pop().unwrap().value()
-    };
-
-    println!("attr: {:#?}", shader_stage);
+    //    let shader_stage = ShaderSource {
+    //        vertex: srcs.pop().unwrap().value(),
+    //        fragment: srcs.pop().unwrap().value()
+    //    };
+    //
+    //    println!("attr: {:#?}", shader_stage);
     println!("item: \"{}\"", item.to_string());
     item
 }
