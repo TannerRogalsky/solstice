@@ -602,7 +602,7 @@ impl Context {
         &mut self,
         desired: u32,
         stride: usize,
-        stuff: &Vec<(&vertex::VertexFormat, BufferKey)>,
+        stuff: &[Option<(vertex::AttributeType, bool, i32, BufferKey)>],
     ) {
         let diff = desired ^ self.enabled_attributes;
         for i in 0..self.gl_constants.max_vertex_attributes as u32 {
@@ -621,18 +621,18 @@ impl Context {
             }
 
             if desired & bit != 0 {
-                let (binding, buffer_key) = stuff[i as usize];
+                let (atype, normalized, offset, buffer_key) = stuff[i as usize].unwrap();
                 self.bind_buffer(buffer_key);
-                let (data_type, elements_count, instances_count) = binding.atype.to_gl();
+                let (data_type, elements_count, instances_count) = atype.to_gl();
                 unsafe {
-                    self.ctx.vertex_attrib_divisor(i, 0);
+//                    self.ctx.vertex_attrib_divisor(i, 0);
                     self.ctx.vertex_attrib_pointer_f32(
                         i,
                         elements_count,
                         data_type,
-                        binding.normalize,
+                        normalized,
                         stride as i32,
-                        binding.offset as i32,
+                        offset,
                     );
                 }
             }

@@ -105,26 +105,24 @@ where
         let bindings = T::build_bindings();
 
         let shader = gl.get_shader(gl.get_active_shader().unwrap()).unwrap();
-        let bound_attributes = shader.attributes().iter().filter(|attr| {
-            bindings
-                .iter()
-                .find(|&binding| binding.name == attr.name.as_str())
-                .is_some()
-        });
-        let attributes = bound_attributes
-            .clone()
-            .map(|attr| {
-                (
-                    bindings
-                        .iter()
-                        .find(|&binding| binding.name == attr.name.as_str())
-                        .unwrap(),
-                    self.vbo,
-                )
-            })
-            .collect::<Vec<(&super::vertex::VertexFormat, super::BufferKey)>>();
-        let desired = bound_attributes.fold(0u32, |acc, attr| acc | (1 << attr.location));
-        gl.set_vertex_attributes(desired, stride, &attributes);
+        let mut desired_attribute_state = 0u32;
+        let mut offset = 0;
+        let mut attributes = Vec::new();
+        attributes.resize(32, None);
+        bindings
+            .iter()
+            .for_each(|binding| {
+                let attr = shader
+                    .attributes()
+                    .iter()
+                    .find(|attr| binding.name == attr.name.as_str());
+                if let Some(attr) = attr {
+                    desired_attribute_state |= (1 << attr.location);
+                    attributes[attr.location as usize] = Some((binding.atype, binding.normalize, offset as i32, self.vbo));
+                    offset += binding.atype.get_size_bytes();
+                }
+            });
+        gl.set_vertex_attributes(desired_attribute_state, stride, &attributes);
 
         gl.unmap_buffer(self.vbo);
         if self.use_indices {
@@ -151,26 +149,24 @@ where
         let bindings = T::build_bindings();
 
         let shader = gl.get_shader(gl.get_active_shader().unwrap()).unwrap();
-        let bound_attributes = shader.attributes().iter().filter(|attr| {
-            bindings
-                .iter()
-                .find(|&binding| binding.name == attr.name.as_str())
-                .is_some()
-        });
-        let attributes = bound_attributes
-            .clone()
-            .map(|attr| {
-                (
-                    bindings
-                        .iter()
-                        .find(|&binding| binding.name == attr.name.as_str())
-                        .unwrap(),
-                    self.vbo,
-                )
-            })
-            .collect::<Vec<(&super::vertex::VertexFormat, super::BufferKey)>>();
-        let desired = bound_attributes.fold(0u32, |acc, attr| acc | (1 << attr.location));
-        gl.set_vertex_attributes(desired, stride, &attributes);
+        let mut desired_attribute_state = 0u32;
+        let mut offset = 0;
+        let mut attributes = Vec::new();
+        attributes.resize(32, None);
+        bindings
+            .iter()
+            .for_each(|binding| {
+                let attr = shader
+                    .attributes()
+                    .iter()
+                    .find(|attr| binding.name == attr.name.as_str());
+                if let Some(attr) = attr {
+                    desired_attribute_state |= (1 << attr.location);
+                    attributes[attr.location as usize] = Some((binding.atype, binding.normalize, offset as i32, self.vbo));
+                    offset += binding.atype.get_size_bytes();
+                }
+            });
+        gl.set_vertex_attributes(desired_attribute_state, stride, &attributes);
 
         gl.unmap_buffer(self.vbo);
         if self.use_indices {

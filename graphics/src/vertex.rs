@@ -56,7 +56,6 @@ impl AttributeType {
 
 pub struct VertexFormat {
     pub name: &'static str,
-    pub offset: usize,
     pub atype: AttributeType,
     pub normalize: bool,
 }
