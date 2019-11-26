@@ -164,6 +164,7 @@ where
             .filter(Option::is_some)
             .map(Option::unwrap)
             .collect::<Vec<_>>();
+        gl.set_vertex_attributes(desired_attribute_state, stride, &attributes);
 
         gl.unmap_buffer(self.vbo);
         if self.use_indices {
