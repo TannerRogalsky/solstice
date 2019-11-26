@@ -106,22 +106,21 @@ where
 
         let shader = gl.get_shader(gl.get_active_shader().unwrap()).unwrap();
         let mut desired_attribute_state = 0u32;
-        let mut offset = 0;
-        let mut attributes = Vec::new();
-        attributes.resize(32, None);
-        bindings
+        let attributes = shader
+            .attributes()
             .iter()
-            .for_each(|binding| {
-                let attr = shader
-                    .attributes()
+            .map(|attr| {
+                let vertex_format = bindings
                     .iter()
-                    .find(|attr| binding.name == attr.name.as_str());
-                if let Some(attr) = attr {
+                    .find(|binding| binding.name == attr.name.as_str());
+                if let Some(vertex_format) = vertex_format {
                     desired_attribute_state |= (1 << attr.location);
-                    attributes[attr.location as usize] = Some((binding.atype, binding.normalize, offset as i32, self.vbo));
-                    offset += binding.atype.get_size_bytes();
                 }
-            });
+                vertex_format.map(|v| (v, self.vbo))
+            })
+            .filter(Option::is_some)
+            .map(Option::unwrap)
+            .collect::<Vec<_>>();
         gl.set_vertex_attributes(desired_attribute_state, stride, &attributes);
 
         gl.unmap_buffer(self.vbo);
@@ -150,23 +149,21 @@ where
 
         let shader = gl.get_shader(gl.get_active_shader().unwrap()).unwrap();
         let mut desired_attribute_state = 0u32;
-        let mut offset = 0;
-        let mut attributes = Vec::new();
-        attributes.resize(32, None);
-        bindings
+        let attributes = shader
+            .attributes()
             .iter()
-            .for_each(|binding| {
-                let attr = shader
-                    .attributes()
+            .map(|attr| {
+                let vertex_format = bindings
                     .iter()
-                    .find(|attr| binding.name == attr.name.as_str());
-                if let Some(attr) = attr {
+                    .find(|binding| binding.name == attr.name.as_str());
+                if let Some(vertex_format) = vertex_format {
                     desired_attribute_state |= (1 << attr.location);
-                    attributes[attr.location as usize] = Some((binding.atype, binding.normalize, offset as i32, self.vbo));
-                    offset += binding.atype.get_size_bytes();
                 }
-            });
-        gl.set_vertex_attributes(desired_attribute_state, stride, &attributes);
+                vertex_format.map(|v| (v, self.vbo))
+            })
+            .filter(Option::is_some)
+            .map(Option::unwrap)
+            .collect::<Vec<_>>();
 
         gl.unmap_buffer(self.vbo);
         if self.use_indices {
