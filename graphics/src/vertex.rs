@@ -72,16 +72,12 @@ macro_rules! impl_vertex_attribute {
         impl VertexAttributeType for $t {
             const A_TYPE: AttributeType = $q;
         }
-    }
+    };
 }
 
 pub trait VertexAttributeType {
     const A_TYPE: AttributeType;
 }
-
-//impl VertexAttributeType for f32 {
-//    const A_TYPE: AttributeType = AttributeType::F32;
-//}
 
 impl_vertex_attribute!(f32, AttributeType::F32);
 impl_vertex_attribute!([f32; 2], AttributeType::F32F32);
@@ -90,7 +86,3 @@ impl_vertex_attribute!([f32; 4], AttributeType::F32F32F32F32);
 impl_vertex_attribute!([f32; 9], AttributeType::F32x3x3);
 impl_vertex_attribute!([f32; 16], AttributeType::F32x4x4);
 impl_vertex_attribute!(i32, AttributeType::I32);
-
-
-
-

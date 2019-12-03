@@ -820,8 +820,6 @@ impl texture::TextureUpdate for Context {
         texture_type: texture::TextureType,
         wrap: texture::Wrap,
     ) {
-        use texture::TextureType;
-
         let gl_target = texture_type.to_gl();
         unsafe {
             self.bind_texture_to_unit(texture_type, texture_key, 0);
