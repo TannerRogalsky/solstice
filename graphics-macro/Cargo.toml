@@ -10,6 +10,8 @@ proc-macro = true
 [dependencies]
 graphics = { path = "../graphics" }
 proc-macro2 = "1.0"
-syn = { version = "1.0", features = ["full", "parsing"] }
+syn = { version = "1.0", features = ["full"] }
 quote = "1.0"
-glsl = { path = "../../glsl/glsl" }
+
+[dev-dependencies]
+memoffset = "0.5"
