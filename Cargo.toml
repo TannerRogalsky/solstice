@@ -6,6 +6,8 @@ members = [
     "engine_examples",
     "vfs",
     "websocket",
+    "image",
+    "data",
 ]
 default-members = [
     "graphics",
@@ -14,4 +16,6 @@ default-members = [
     "engine_examples",
     "vfs",
     "websocket",
+    "image",
+    "data",
 ]

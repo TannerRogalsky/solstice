@@ -1,5 +1,8 @@
-use super::texture::{Filter, PixelFormat, Texture, TextureInfo, TextureType, TextureUpdate, Wrap};
-use super::Context;
+use super::{
+    texture::{Filter, Texture, TextureInfo, TextureType, TextureUpdate, Wrap},
+    Context,
+};
+use data::PixelFormat;
 
 pub enum MipmapMode {
     None,

@@ -45,127 +45,6 @@ impl TextureType {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum PixelFormat {
-    Unknown,
-
-    // "regular" formats
-    R8,
-    RG8,
-    RGB8,
-    RGBA8,
-    SRGBA8,
-    R16,
-    RG16,
-    RGBA16,
-    R16F,
-    RG16F,
-    RGBA16F,
-    R32F,
-    RG32F,
-    RGBA32F,
-
-    // depth/stencil formats
-    Stencil8,
-    Depth16,
-    Depth24,
-    Depth32F,
-    Depth24Stencil8,
-    Depth32fStencil8,
-}
-
-impl PixelFormat {
-    pub fn size(&self) -> usize {
-        match self {
-            PixelFormat::Unknown => 0,
-            PixelFormat::R8 | PixelFormat::Stencil8 => 1,
-            PixelFormat::RG8 | PixelFormat::R16 | PixelFormat::R16F | PixelFormat::Depth16 => 2,
-            PixelFormat::RGB8 => 3,
-            PixelFormat::RGBA8
-            | PixelFormat::SRGBA8
-            | PixelFormat::RG16
-            | PixelFormat::RG16F
-            | PixelFormat::R32F
-            | PixelFormat::Depth24
-            | PixelFormat::Depth32F
-            | PixelFormat::Depth24Stencil8 => 4,
-            PixelFormat::RGBA16
-            | PixelFormat::RGBA16F
-            | PixelFormat::RG32F
-            | PixelFormat::Depth32fStencil8 => 8,
-            PixelFormat::RGBA32F => 16,
-        }
-    }
-
-    pub fn color_components(&self) -> usize {
-        match self {
-            PixelFormat::R8 | PixelFormat::R16 | PixelFormat::R16F | PixelFormat::R32F => 1,
-            PixelFormat::RG8 | PixelFormat::RG16 | PixelFormat::RG16F | PixelFormat::RG32F => 2,
-            PixelFormat::RGB8 => 3,
-            PixelFormat::RGBA8
-            | PixelFormat::SRGBA8
-            | PixelFormat::RGBA16
-            | PixelFormat::RGBA16F
-            | PixelFormat::RGBA32F => 4,
-            _ => 0,
-        }
-    }
-
-    pub fn to_gl(&self, version: &super::GLVersion) -> (u32, u32, u32) {
-        let format = match self {
-            PixelFormat::Unknown => panic!("Unknown pixel format!"),
-            PixelFormat::R8 => {
-                if version.gles {
-                    (glow::LUMINANCE, glow::LUMINANCE, glow::UNSIGNED_BYTE)
-                } else {
-                    (glow::R8, glow::RED, glow::UNSIGNED_BYTE)
-                }
-            }
-            PixelFormat::RG8 => (glow::RG8, glow::RG, glow::UNSIGNED_BYTE),
-            PixelFormat::RGB8 => (glow::RGB8, glow::RGB, glow::UNSIGNED_BYTE),
-            PixelFormat::RGBA8 => (glow::RGBA8, glow::RGBA, glow::UNSIGNED_BYTE),
-            PixelFormat::SRGBA8 => (glow::SRGB8, glow::SRGB, glow::UNSIGNED_BYTE),
-            PixelFormat::R16 => (glow::R16, glow::RED, glow::UNSIGNED_SHORT),
-            PixelFormat::RG16 => (glow::RG16, glow::RG, glow::UNSIGNED_SHORT),
-            PixelFormat::RGBA16 => (glow::RGBA16, glow::RGBA, glow::UNSIGNED_SHORT),
-            PixelFormat::R16F => (glow::R16F, glow::RED, glow::HALF_FLOAT),
-            PixelFormat::RG16F => (glow::RG16F, glow::RG, glow::HALF_FLOAT),
-            PixelFormat::RGBA16F => (glow::RGBA16F, glow::RGBA, glow::HALF_FLOAT),
-            PixelFormat::R32F => (glow::R32F, glow::RED, glow::FLOAT),
-            PixelFormat::RG32F => (glow::RG32F, glow::RG, glow::FLOAT),
-            PixelFormat::RGBA32F => (glow::RGBA32F, glow::RGBA, glow::FLOAT),
-            PixelFormat::Stencil8 => (glow::STENCIL_INDEX8, glow::STENCIL, glow::UNSIGNED_BYTE),
-            PixelFormat::Depth16 => (
-                glow::DEPTH_COMPONENT16,
-                glow::DEPTH_COMPONENT,
-                glow::UNSIGNED_SHORT,
-            ),
-            PixelFormat::Depth24 => (
-                glow::DEPTH_COMPONENT24,
-                glow::DEPTH_COMPONENT,
-                glow::UNSIGNED_INT_24_8,
-            ),
-            PixelFormat::Depth32F => (glow::DEPTH_COMPONENT32F, glow::DEPTH_COMPONENT, glow::FLOAT),
-            PixelFormat::Depth24Stencil8 => (
-                glow::DEPTH24_STENCIL8,
-                glow::DEPTH_STENCIL,
-                glow::UNSIGNED_INT_24_8,
-            ),
-            PixelFormat::Depth32fStencil8 => (
-                glow::DEPTH32F_STENCIL8,
-                glow::DEPTH_STENCIL,
-                glow::FLOAT_32_UNSIGNED_INT_24_8_REV,
-            ),
-        };
-
-        if version.gles {
-            (format.1, format.1, format.2)
-        } else {
-            format
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
 pub enum WrapMode {
     Clamp,
     ClampZero,
@@ -290,7 +169,7 @@ impl Default for Wrap {
 
 #[derive(Copy, Clone, Debug)]
 pub struct TextureInfo {
-    format: PixelFormat,
+    format: data::PixelFormat,
     width: usize,
     height: usize,
     filter: Filter,
@@ -300,7 +179,7 @@ pub struct TextureInfo {
 impl Default for TextureInfo {
     fn default() -> Self {
         Self {
-            format: PixelFormat::Unknown,
+            format: data::PixelFormat::Unknown,
             width: 0,
             height: 0,
             filter: Default::default(),
@@ -311,7 +190,7 @@ impl Default for TextureInfo {
 
 impl TextureInfo {
     pub fn new(
-        format: PixelFormat,
+        format: data::PixelFormat,
         width: usize,
         height: usize,
         filter: Filter,
@@ -342,8 +221,12 @@ impl TextureInfo {
         self.height = height
     }
 
-    pub fn format(&self) -> PixelFormat {
+    pub fn get_format(&self) -> data::PixelFormat {
         self.format
+    }
+
+    pub fn set_format(&mut self, format: data::PixelFormat) {
+        self.format = format;
     }
 
     pub fn wrap(&self) -> Wrap {

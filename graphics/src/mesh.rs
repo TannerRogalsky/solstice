@@ -113,8 +113,8 @@ where
                 let vertex_format = bindings
                     .iter()
                     .find(|binding| binding.name == attr.name.as_str());
-                if let Some(vertex_format) = vertex_format {
-                    desired_attribute_state |= (1 << attr.location);
+                if let Some(_vertex_format) = vertex_format {
+                    desired_attribute_state |= 1 << attr.location;
                 }
                 vertex_format.map(|v| (v, self.vbo))
             })
@@ -156,8 +156,8 @@ where
                 let vertex_format = bindings
                     .iter()
                     .find(|binding| binding.name == attr.name.as_str());
-                if let Some(vertex_format) = vertex_format {
-                    desired_attribute_state |= (1 << attr.location);
+                if let Some(_vertex_format) = vertex_format {
+                    desired_attribute_state |= 1 << attr.location;
                 }
                 vertex_format.map(|v| (v, self.vbo))
             })

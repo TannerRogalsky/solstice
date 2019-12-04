@@ -1,7 +1,8 @@
-use super::texture::{
-    Filter, FilterMode, PixelFormat, Texture, TextureInfo, TextureType, TextureUpdate, Wrap,
+use super::{
+    texture::{Filter, FilterMode, Texture, TextureInfo, TextureType, TextureUpdate, Wrap},
+    Context,
 };
-use super::Context;
+use data::PixelFormat;
 
 pub struct Settings {
     mipmaps: bool,
