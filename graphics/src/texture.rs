@@ -122,7 +122,7 @@ impl PixelFormat {
             }
             PixelFormat::RG8 => (glow::RG8, glow::RG, glow::UNSIGNED_BYTE),
             PixelFormat::RGB8 => (glow::RGB8, glow::RGB, glow::UNSIGNED_BYTE),
-            PixelFormat::RGBA8 => (glow::RGB8, glow::RGBA, glow::UNSIGNED_BYTE),
+            PixelFormat::RGBA8 => (glow::RGBA8, glow::RGBA, glow::UNSIGNED_BYTE),
             PixelFormat::SRGBA8 => (glow::SRGB8, glow::SRGB, glow::UNSIGNED_BYTE),
             PixelFormat::R16 => (glow::R16, glow::RED, glow::UNSIGNED_SHORT),
             PixelFormat::RG16 => (glow::RG16, glow::RG, glow::UNSIGNED_SHORT),
