@@ -98,46 +98,7 @@ where
     }
 
     pub fn draw(&mut self) {
-        let mut gl = self.gl.borrow_mut();
-        gl.bind_buffer(self.vbo);
-
-        let stride = std::mem::size_of::<T>();
-        let bindings = T::build_bindings();
-
-        let shader = gl.get_shader(gl.get_active_shader().unwrap()).unwrap();
-        let mut desired_attribute_state = 0u32;
-        let attributes = shader
-            .attributes()
-            .iter()
-            .map(|attr| {
-                let vertex_format = bindings
-                    .iter()
-                    .find(|binding| binding.name == attr.name.as_str());
-                if let Some(_vertex_format) = vertex_format {
-                    desired_attribute_state |= 1 << attr.location;
-                }
-                vertex_format.map(|v| (v, self.vbo))
-            })
-            .filter(Option::is_some)
-            .map(Option::unwrap)
-            .collect::<Vec<_>>();
-        gl.set_vertex_attributes(desired_attribute_state, stride, &attributes);
-
-        gl.unmap_buffer(self.vbo);
-        if self.use_indices {
-            gl.unmap_buffer(self.ibo);
-            let (count, offset) = match &self.draw_range {
-                None => (self.index_count as i32, 0),
-                Some(range) => ((range.end - range.start) as i32, range.start as i32),
-            };
-            gl.draw_elements(self.draw_mode, count, INDEX_GL, offset);
-        } else {
-            let (count, offset) = match &self.draw_range {
-                None => (self.vertex_count as i32, 0),
-                Some(range) => ((range.end - range.start) as i32, range.start as i32),
-            };
-            gl.draw_arrays(self.draw_mode, offset, count);
-        }
+        self.draw_instanced(1);
     }
 
     pub fn draw_instanced(&mut self, instance_count: usize) {
@@ -173,18 +134,27 @@ where
                 None => (self.index_count as i32, 0),
                 Some(range) => ((range.end - range.start) as i32, range.start as i32),
             };
-            gl.draw_elements_instanced(
-                self.draw_mode,
-                count,
-                INDEX_GL,
-                offset,
-                instance_count as i32,
-            );
+            if instance_count > 1 {
+                gl.draw_elements_instanced(
+                    self.draw_mode,
+                    count,
+                    INDEX_GL,
+                    offset,
+                    instance_count as i32,
+                );
+            } else {
+                gl.draw_elements(self.draw_mode, count, INDEX_GL, offset);
+            }
+        } else {
             let (count, offset) = match &self.draw_range {
                 None => (self.vertex_count as i32, 0),
                 Some(range) => ((range.end - range.start) as i32, range.start as i32),
             };
-            gl.draw_arrays_instanced(self.draw_mode, offset, count, instance_count as i32);
+            if instance_count > 1 {
+                gl.draw_arrays_instanced(self.draw_mode, offset, count, instance_count as i32);
+            } else {
+                gl.draw_arrays(self.draw_mode, offset, count);
+            }
         }
     }
 }
