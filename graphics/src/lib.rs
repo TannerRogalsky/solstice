@@ -767,7 +767,8 @@ impl texture::TextureUpdate for Context {
         x_offset: u32,
         y_offset: u32,
     ) {
-        let (_internal, external, gl_type) = gl::pixel_format::to_gl(&texture.get_format(), &self.version);
+        let (_internal, external, gl_type) =
+            gl::pixel_format::to_gl(&texture.get_format(), &self.version);
         let width = texture.width();
         let height = texture.height();
         let gl_target = texture_type.to_gl();
@@ -795,7 +796,8 @@ impl texture::TextureUpdate for Context {
         data: Option<&[u8]>,
     ) {
         self.new_debug_group("Buffer Image Data");
-        let (internal, external, gl_type) = gl::pixel_format::to_gl(&texture.get_format(), &self.version);
+        let (internal, external, gl_type) =
+            gl::pixel_format::to_gl(&texture.get_format(), &self.version);
         let width = texture.width();
         let height = texture.height();
         let gl_target = texture_type.to_gl();
