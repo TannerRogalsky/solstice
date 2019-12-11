@@ -102,13 +102,21 @@ where
     }
 
     pub fn draw_instanced(&mut self, instance_count: usize) {
+        if let Some(draw_range) = &self.draw_range {
+            if !(draw_range.start <= draw_range.end) {
+                return;
+            }
+        }
+
         let mut gl = self.gl.borrow_mut();
         gl.bind_buffer(self.vbo);
 
         let stride = std::mem::size_of::<T>();
         let bindings = T::build_bindings();
 
-        let shader = gl.get_shader(gl.get_active_shader().unwrap()).unwrap();
+        let shader = gl
+            .get_shader(gl.get_active_shader().expect("No active shader."))
+            .unwrap();
         let mut desired_attribute_state = 0u32;
         let attributes = shader
             .attributes()
