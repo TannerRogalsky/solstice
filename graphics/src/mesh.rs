@@ -30,8 +30,6 @@ pub struct Mesh<T> {
     vbo: BufferKey,
     ibo: BufferKey,
     use_indices: bool,
-    vertex_count: usize,
-    index_count: usize,
     draw_range: Option<std::ops::Range<usize>>,
     vertex_marker: std::marker::PhantomData<T>,
     draw_mode: super::DrawMode,
@@ -57,8 +55,6 @@ where
             vbo,
             ibo,
             use_indices: false,
-            vertex_count: 0,
-            index_count: 0,
             draw_range: None,
             draw_mode: super::DrawMode::Triangles,
             vertex_marker: std::marker::PhantomData,
@@ -83,13 +79,11 @@ where
     }
 
     pub fn set_vertices(&mut self, vertices: &[T], offset: usize) {
-        self.vertex_count = vertices.len();
         self.set_buffer(self.vbo, vertices, offset);
     }
 
     pub fn set_indices(&mut self, indices: &[Index], offset: usize) {
         self.use_indices = true;
-        self.index_count = indices.len();
         self.set_buffer(self.ibo, indices, offset);
     }
 
@@ -139,7 +133,7 @@ where
         if self.use_indices {
             gl.unmap_buffer(self.ibo);
             let (count, offset) = match &self.draw_range {
-                None => (self.index_count as i32, 0),
+                None => (gl.get_buffer(self.ibo).unwrap().size() as i32, 0),
                 Some(range) => ((range.end - range.start) as i32, range.start as i32),
             };
             if instance_count > 1 {
@@ -155,7 +149,7 @@ where
             }
         } else {
             let (count, offset) = match &self.draw_range {
-                None => (self.vertex_count as i32, 0),
+                None => (gl.get_buffer(self.vbo).unwrap().size() as i32, 0),
                 Some(range) => ((range.end - range.start) as i32, range.start as i32),
             };
             if instance_count > 1 {
