@@ -8,6 +8,7 @@ members = [
     "websocket",
     "image",
     "data",
+    "conrod_graphics"
 ]
 default-members = [
     "graphics",
@@ -18,4 +19,5 @@ default-members = [
     "websocket",
     "image",
     "data",
+    "conrod_graphics"
 ]
