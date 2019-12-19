@@ -198,9 +198,9 @@ pub struct Context {
     ctx: glow::Context,
     version: GLVersion,
     gl_constants: GLConstants,
-    shaders: DenseSlotMap<ShaderKey, shader::Shader>,
+    shaders: DenseSlotMap<ShaderKey, shader::Shader>, // TODO: evaluate the correctness of this. all other tracking is on GL primitives
     active_shader: Option<ShaderKey>,
-    buffers: DenseSlotMap<BufferKey, buffer::Buffer>,
+    buffers: DenseSlotMap<BufferKey, GLBuffer>,
     active_buffers: HashMap<buffer::BufferType, BufferKey>,
     textures: DenseSlotMap<TextureKey, GLTexture>,
     bound_textures: Vec<Vec<Option<GLTexture>>>,
@@ -309,39 +309,41 @@ impl Context {
         buffer_type: buffer::BufferType,
         usage: buffer::Usage,
     ) -> BufferKey {
-        // the implementation of Buffer::new leaks here in that we bind the buffer after we
-        // create it so it's tracked in the active buffers by necessity
-        let buffer = buffer::Buffer::new(&self.ctx, size, buffer_type, usage);
-        let buffer_key = self.buffers.insert(buffer);
+        let vbo = unsafe {
+            let vbo = self
+                .ctx
+                .create_buffer()
+                .expect("Could not create GPU buffer.");
+            self.ctx.bind_buffer(buffer_type.into(), Some(vbo));
+            self.ctx
+                .buffer_data_size(buffer_type.into(), size as _, usage.to_gl());
+            vbo
+        };
+        let buffer_key = self.buffers.insert(vbo);
         self.active_buffers.insert(buffer_type, buffer_key);
         buffer_key
     }
 
-    pub fn destroy_buffer(&mut self, buffer: BufferKey) {
-        self.buffers.remove(buffer).map(|buffer| unsafe {
-            self.ctx.delete_buffer(buffer.handle());
+    pub fn destroy_buffer(&mut self, buffer: &buffer::Buffer) {
+        self.buffers.remove(buffer.handle()).map(|gl_buffer| unsafe {
+            self.ctx.delete_buffer(gl_buffer);
         });
     }
 
-    pub fn bind_buffer(&mut self, buffer_key: BufferKey) {
+    pub fn bind_buffer(&mut self, buffer: &buffer::Buffer) {
+        let buffer_key = buffer.handle();
         match self.buffers.get(buffer_key) {
             None => (),
-            Some(buffer) => match self.active_buffers.entry(buffer.buffer_type()) {
+            Some(&vbo) => match self.active_buffers.entry(buffer.buffer_type()) {
                 Entry::Occupied(mut o) => {
                     if *o.get() != buffer_key {
                         o.insert(buffer_key);
-                        unsafe {
-                            self.ctx
-                                .bind_buffer(buffer.buffer_type().into(), Some(buffer.handle()))
-                        }
+                        unsafe { self.ctx.bind_buffer(buffer.buffer_type().into(), Some(vbo)) }
                     }
                 }
                 Entry::Vacant(v) => {
                     v.insert(buffer_key);
-                    unsafe {
-                        self.ctx
-                            .bind_buffer(buffer.buffer_type().into(), Some(buffer.handle()))
-                    }
+                    unsafe { self.ctx.bind_buffer(buffer.buffer_type().into(), Some(vbo)) }
                 }
             },
         }
@@ -374,9 +376,9 @@ impl Context {
         }
     }
 
-    pub fn unmap_buffer(&mut self, buffer_key: BufferKey) {
-        self.bind_buffer(buffer_key);
-        self.get_buffer(buffer_key).map(|buffer| {
+    pub fn unmap_buffer(&mut self, buffer: &mut buffer::Buffer) {
+        self.bind_buffer(buffer);
+        self.buffers.get(buffer.handle()).map(|_| {
             let modified_offset = std::cmp::min(buffer.modified_offset(), buffer.size() - 1);
             let modified_size =
                 std::cmp::min(buffer.modified_size(), buffer.size() - modified_offset);
@@ -396,17 +398,8 @@ impl Context {
                     }
                 }
             }
+            buffer.reset_modified_range();
         });
-        self.get_buffer_mut(buffer_key)
-            .map(|buffer| buffer.reset_modified_range());
-    }
-
-    pub fn get_buffer(&self, buffer: BufferKey) -> Option<&buffer::Buffer> {
-        self.buffers.get(buffer)
-    }
-
-    pub fn get_buffer_mut(&mut self, buffer: BufferKey) -> Option<&mut buffer::Buffer> {
-        self.buffers.get_mut(buffer)
     }
 
     pub fn new_shader(&mut self, vertex_source: &str, fragment_source: &str) -> ShaderKey {
@@ -603,7 +596,7 @@ impl Context {
         &mut self,
         desired: u32,
         stride: usize,
-        stuff: &[(&vertex::VertexFormat, BufferKey)],
+        stuff: &[(&vertex::VertexFormat, &buffer::Buffer)],
     ) {
         let diff = desired ^ self.enabled_attributes;
         for i in 0..self.gl_constants.max_vertex_attributes as u32 {
@@ -622,8 +615,8 @@ impl Context {
             }
 
             if desired & bit != 0 {
-                let (vertex_format, buffer_key) = stuff[i as usize];
-                self.bind_buffer(buffer_key);
+                let (vertex_format, buffer) = stuff[i as usize];
+                self.bind_buffer(buffer);
                 let (data_type, elements_count, instances_count) = vertex_format.atype.to_gl();
                 unsafe {
                     //                    self.ctx.vertex_attrib_divisor(i, 0);
@@ -888,8 +881,8 @@ impl Drop for Context {
             }
         }
 
-        for buffer in self.buffers.values() {
-            unsafe { self.ctx.delete_buffer(buffer.handle()) }
+        for (_, buffer) in self.buffers.drain() {
+            unsafe { self.ctx.delete_buffer(buffer) }
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::GLBuffer;
+use super::BufferKey;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum BufferType {
@@ -37,34 +37,33 @@ pub struct Buffer {
     size: usize,
     modified_offset: usize,
     modified_size: usize,
-    vbo: GLBuffer,
+    handle: BufferKey,
     buffer_type: BufferType,
     usage: Usage,
 }
 
 impl Buffer {
-    pub fn new(gl: &glow::Context, size: usize, buffer_type: BufferType, usage: Usage) -> Self {
-        let vbo = unsafe {
-            use glow::HasContext;
-            let vbo = gl.create_buffer().expect("Count not create GPU buffer.");
-            gl.bind_buffer(buffer_type.into(), Some(vbo));
-            gl.buffer_data_size(buffer_type.into(), size as i32, usage.to_gl());
-            vbo
-        };
+    pub fn new(
+        gl: &mut super::Context,
+        size: usize,
+        buffer_type: BufferType,
+        usage: Usage,
+    ) -> Self {
+        let handle = gl.new_buffer(size, buffer_type, usage);
         let memory_map = vec![0u8; size].into_boxed_slice();
         Self {
             memory_map,
             size,
             modified_offset: 0,
             modified_size: 0,
-            vbo,
+            handle,
             buffer_type,
             usage,
         }
     }
 
-    pub fn handle(&self) -> GLBuffer {
-        self.vbo
+    pub fn handle(&self) -> BufferKey {
+        self.handle
     }
 
     pub fn set_modified_range(&mut self, offset: usize, modified_size: usize) {

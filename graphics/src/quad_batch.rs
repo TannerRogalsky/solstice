@@ -2,7 +2,6 @@ use super::{
     mesh::{Index, Mesh},
     Context,
 };
-use std::{cell::RefCell, rc::Rc};
 
 pub struct QuadIndex(usize);
 
@@ -21,7 +20,7 @@ impl<T> QuadBatch<T>
 where
     T: super::vertex::Vertex,
 {
-    pub fn new(gl: Rc<RefCell<Context>>, capacity: usize) -> Self {
+    pub fn new(gl: &mut Context, capacity: usize) -> Self {
         let vertex_capacity = capacity * 4;
         let index_capacity = capacity * 6;
 
@@ -73,7 +72,7 @@ where
         self.mesh.set_draw_range(Some(0..0));
     }
 
-    pub fn draw(&mut self) {
-        self.mesh.draw()
+    pub fn draw(&mut self, gl: &mut Context) {
+        self.mesh.draw(gl)
     }
 }
