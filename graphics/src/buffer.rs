@@ -23,7 +23,7 @@ pub enum Usage {
 }
 
 impl Usage {
-    pub fn to_gl(&self) -> u32 {
+    pub fn to_gl(self) -> u32 {
         match self {
             Usage::Stream => glow::STREAM_DRAW,
             Usage::Static => glow::STATIC_DRAW,

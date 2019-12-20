@@ -7,16 +7,7 @@ pub enum TextureType {
 }
 
 impl TextureType {
-    pub fn to_gl(&self) -> u32 {
-        match self {
-            TextureType::Tex2D => glow::TEXTURE_2D,
-            TextureType::Volume => glow::TEXTURE_3D,
-            TextureType::Tex2DArray => glow::TEXTURE_2D_ARRAY,
-            TextureType::Cube => glow::TEXTURE_CUBE_MAP,
-        }
-    }
-
-    pub fn to_index(&self) -> usize {
+    pub fn to_index(self) -> usize {
         match self {
             TextureType::Tex2D => 0,
             TextureType::Volume => 1,
@@ -34,7 +25,7 @@ impl TextureType {
         ]
     }
 
-    pub fn is_supported(&self) -> bool {
+    pub fn is_supported(self) -> bool {
         match self {
             TextureType::Tex2D => true,
             TextureType::Volume => false,
@@ -50,17 +41,6 @@ pub enum WrapMode {
     ClampZero,
     Repeat,
     MirroredRepeat,
-}
-
-impl WrapMode {
-    pub fn to_gl(&self) -> u32 {
-        match self {
-            WrapMode::Clamp => glow::CLAMP_TO_EDGE,
-            WrapMode::ClampZero => glow::CLAMP_TO_BORDER,
-            WrapMode::Repeat => glow::REPEAT,
-            WrapMode::MirroredRepeat => glow::MIRRORED_REPEAT,
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -88,7 +68,7 @@ impl Filter {
         }
     }
 
-    pub fn min(&self) -> FilterMode {
+    pub fn min(self) -> FilterMode {
         self.min
     }
 
@@ -96,7 +76,7 @@ impl Filter {
         self.min = min;
     }
 
-    pub fn mag(&self) -> FilterMode {
+    pub fn mag(self) -> FilterMode {
         self.mag
     }
 
@@ -104,7 +84,7 @@ impl Filter {
         self.mag = mag;
     }
 
-    pub fn mipmap(&self) -> FilterMode {
+    pub fn mipmap(self) -> FilterMode {
         self.mipmap
     }
 
@@ -112,7 +92,7 @@ impl Filter {
         self.mipmap = mipmap;
     }
 
-    pub fn anisotropy(&self) -> f32 {
+    pub fn anisotropy(self) -> f32 {
         self.anisotropy
     }
 
@@ -144,15 +124,15 @@ impl Wrap {
         Self { s, t, r }
     }
 
-    pub fn s(&self) -> WrapMode {
+    pub fn s(self) -> WrapMode {
         self.s
     }
 
-    pub fn t(&self) -> WrapMode {
+    pub fn t(self) -> WrapMode {
         self.t
     }
 
-    pub fn r(&self) -> WrapMode {
+    pub fn r(self) -> WrapMode {
         self.r
     }
 }

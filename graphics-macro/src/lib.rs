@@ -16,7 +16,7 @@ pub fn derive_vertex(item: TokenStream) -> TokenStream {
                     Some(state.clone())
                 });
 
-                let vertex_formats = field_types.into_iter().zip(fields.named.iter()).map(|(mut types, ident)| {
+                let vertex_formats = field_types.zip(fields.named.iter()).map(|(mut types, ident)| {
                         let this_type = types.pop().unwrap();
                         let name = format!("{:}", ident.ident.as_ref().unwrap());
                         let offset = if types.is_empty() {

@@ -157,7 +157,7 @@ pub enum Target {
 }
 
 impl Target {
-    pub fn to_gl(&self) -> u32 {
+    pub fn to_gl(self) -> u32 {
         match self {
             Target::Draw => glow::DRAW_FRAMEBUFFER,
             Target::Read => glow::READ_FRAMEBUFFER,

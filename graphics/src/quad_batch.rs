@@ -34,7 +34,7 @@ where
             let mut indices: Vec<Index> = Vec::with_capacity(index_capacity);
             for i in 0..capacity {
                 let vi = (i * 4) as Index;
-                indices.push(vi + 0);
+                indices.push(vi);
                 indices.push(vi + 1);
                 indices.push(vi + 2);
                 indices.push(vi + 2);

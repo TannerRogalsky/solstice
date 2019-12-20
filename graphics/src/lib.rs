@@ -70,15 +70,6 @@ pub enum VertexWinding {
     CounterClockWise,
 }
 
-impl VertexWinding {
-    pub fn to_gl(&self) -> u32 {
-        match self {
-            VertexWinding::ClockWise => glow::CW,
-            VertexWinding::CounterClockWise => glow::CCW,
-        }
-    }
-}
-
 pub enum DepthFunction {
     Never,
     Less,
@@ -123,7 +114,7 @@ impl CullFace {
 
 pub enum Feature {
     DepthTest(DepthFunction),
-    CullFace(CullFace),
+    CullFace(CullFace, VertexWinding),
 }
 
 struct GLConstants {
@@ -140,20 +131,6 @@ pub enum DrawMode {
     Triangles,
     TriangleStrip,
     TriangleFan,
-}
-
-impl DrawMode {
-    pub fn to_gl(&self) -> u32 {
-        match self {
-            DrawMode::Points => glow::POINTS,
-            DrawMode::Lines => glow::LINES,
-            DrawMode::LineLoop => glow::LINE_LOOP,
-            DrawMode::LineStrip => glow::LINE_STRIP,
-            DrawMode::Triangles => glow::TRIANGLES,
-            DrawMode::TriangleStrip => glow::TRIANGLE_STRIP,
-            DrawMode::TriangleFan => glow::TRIANGLE_FAN,
-        }
-    }
 }
 
 #[derive(Copy, Clone, Default)]
@@ -233,7 +210,7 @@ impl Context {
                 // do this for every supported texture type
                 for texture_type in texture::TextureType::enumerate() {
                     if texture_type.is_supported() {
-                        ctx.bind_texture(texture_type.to_gl(), None);
+                        ctx.bind_texture(gl::texture::to_gl(*texture_type), None);
                     }
                 }
             }
@@ -275,7 +252,7 @@ impl Context {
             current_viewport: viewport::Viewport::default(),
             enabled_attributes: std::u32::MAX,
         };
-        ctx.set_vertex_attributes(0, 0, &vec![]);
+        ctx.set_vertex_attributes(0, 0, &[]);
         ctx
     }
 
@@ -285,9 +262,11 @@ impl Context {
                 self.ctx.enable(glow::DEPTH_TEST);
                 self.ctx.depth_func(func.to_gl());
             },
-            Feature::CullFace(cull_face) => unsafe {
+            Feature::CullFace(cull_face, winding_order) => unsafe {
                 self.ctx.enable(glow::CULL_FACE);
                 self.ctx.cull_face(cull_face.to_gl());
+                self.ctx
+                    .front_face(gl::vertex_winding::to_gl(winding_order));
             },
         }
     }
@@ -295,7 +274,7 @@ impl Context {
     pub fn disable(&mut self, feature: Feature) {
         match feature {
             Feature::DepthTest(_) => unsafe { self.ctx.disable(glow::DEPTH_TEST) },
-            Feature::CullFace(_) => unsafe { self.ctx.disable(glow::CULL_FACE) },
+            Feature::CullFace(_, _) => unsafe { self.ctx.disable(glow::CULL_FACE) },
         }
     }
 
@@ -325,11 +304,11 @@ impl Context {
     }
 
     pub fn destroy_buffer(&mut self, buffer: &buffer::Buffer) {
-        self.buffers
-            .remove(buffer.handle())
-            .map(|gl_buffer| unsafe {
+        if let Some(gl_buffer) = self.buffers.remove(buffer.handle()) {
+            unsafe {
                 self.ctx.delete_buffer(gl_buffer);
-            });
+            }
+        }
     }
 
     pub fn bind_buffer(&mut self, buffer: &buffer::Buffer) {
@@ -380,7 +359,7 @@ impl Context {
 
     pub fn unmap_buffer(&mut self, buffer: &mut buffer::Buffer) {
         self.bind_buffer(buffer);
-        self.buffers.get(buffer.handle()).map(|_| {
+        if self.buffers.get(buffer.handle()).is_some() {
             let modified_offset = std::cmp::min(buffer.modified_offset(), buffer.size() - 1);
             let modified_size =
                 std::cmp::min(buffer.modified_size(), buffer.size() - modified_offset);
@@ -401,7 +380,7 @@ impl Context {
                 }
             }
             buffer.reset_modified_range();
-        });
+        }
     }
 
     pub fn new_shader(&mut self, vertex_source: &str, fragment_source: &str) -> ShaderKey {
@@ -480,7 +459,7 @@ impl Context {
                     self.current_texture_unit = texture_unit;
                 }
                 self.bound_textures[texture_type.to_index()][texture_unit_index] = Some(texture);
-                unsafe { self.ctx.bind_texture(texture_type.to_gl(), Some(texture)) }
+                unsafe { self.ctx.bind_texture(gl::texture::to_gl(texture_type), Some(texture)) }
             }
             (Some(&texture), Some(bound_texture)) => {
                 if texture != bound_texture {
@@ -492,7 +471,7 @@ impl Context {
                     }
                     self.bound_textures[texture_type.to_index()][texture_unit_index] =
                         Some(texture);
-                    unsafe { self.ctx.bind_texture(texture_type.to_gl(), Some(texture)) }
+                    unsafe { self.ctx.bind_texture(gl::texture::to_gl(texture_type), Some(texture)) }
                 }
             }
             (None, Some(_)) => {
@@ -503,7 +482,7 @@ impl Context {
                     self.current_texture_unit = texture_unit;
                 }
                 self.bound_textures[texture_type.to_index()][texture_unit_index] = None;
-                unsafe { self.ctx.bind_texture(texture_type.to_gl(), None) }
+                unsafe { self.ctx.bind_texture(gl::texture::to_gl(texture_type), None) }
             }
             (None, None) => (),
         }
@@ -587,8 +566,8 @@ impl Context {
             self.ctx.framebuffer_texture_2d(
                 target.to_gl(),
                 attachment.to_gl(),
-                texture_type.to_gl(), // TODO: I don't think this actually maps to TextureType correctly
-                self.textures.get(texture_key).map(|t| *t),
+                gl::texture::to_gl(texture_type),
+                self.textures.get(texture_key).copied(),
                 level as i32,
             )
         }
@@ -673,14 +652,15 @@ impl Context {
 
     pub fn draw_arrays(&self, mode: DrawMode, first: i32, count: i32) {
         unsafe {
-            self.ctx.draw_arrays(mode.to_gl(), first, count);
+            self.ctx
+                .draw_arrays(gl::draw_mode::to_gl(mode), first, count);
         }
     }
 
     pub fn draw_elements(&self, mode: DrawMode, count: i32, element_type: u32, offset: i32) {
         unsafe {
             self.ctx
-                .draw_elements(mode.to_gl(), count, element_type, offset);
+                .draw_elements(gl::draw_mode::to_gl(mode), count, element_type, offset);
         }
     }
 
@@ -693,7 +673,7 @@ impl Context {
     ) {
         unsafe {
             self.ctx
-                .draw_arrays_instanced(mode.to_gl(), first, count, instance_count)
+                .draw_arrays_instanced(gl::draw_mode::to_gl(mode), first, count, instance_count)
         }
     }
 
@@ -707,7 +687,7 @@ impl Context {
     ) {
         unsafe {
             self.ctx.draw_elements_instanced(
-                mode.to_gl(),
+                gl::draw_mode::to_gl(mode),
                 count,
                 element_type as u32,
                 offset,
@@ -763,10 +743,10 @@ impl texture::TextureUpdate for Context {
         y_offset: u32,
     ) {
         let (_internal, external, gl_type) =
-            gl::pixel_format::to_gl(&texture.get_format(), &self.version);
+            gl::pixel_format::to_gl(texture.get_format(), &self.version);
         let width = texture.width();
         let height = texture.height();
-        let gl_target = texture_type.to_gl();
+        let gl_target = gl::texture::to_gl(texture_type);
         self.bind_texture_to_unit(texture_type, texture_key, 0);
         unsafe {
             self.ctx.tex_sub_image_2d_u8_slice(
@@ -792,10 +772,10 @@ impl texture::TextureUpdate for Context {
     ) {
         self.new_debug_group("Buffer Image Data");
         let (internal, external, gl_type) =
-            gl::pixel_format::to_gl(&texture.get_format(), &self.version);
+            gl::pixel_format::to_gl(texture.get_format(), &self.version);
         let width = texture.width();
         let height = texture.height();
-        let gl_target = texture_type.to_gl();
+        let gl_target = gl::texture::to_gl(texture_type);
         self.bind_texture_to_unit(texture_type, texture_key, 0);
         unsafe {
             self.ctx.tex_image_2d(
@@ -818,19 +798,19 @@ impl texture::TextureUpdate for Context {
         texture_type: texture::TextureType,
         wrap: texture::Wrap,
     ) {
-        let gl_target = texture_type.to_gl();
+        let gl_target = gl::texture::to_gl(texture_type);
         unsafe {
             self.bind_texture_to_unit(texture_type, texture_key, 0);
             self.ctx
-                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_S, wrap.s().to_gl() as i32);
+                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_S, gl::wrap_mode::to_gl(wrap.s()) as i32);
             self.ctx
-                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_T, wrap.t().to_gl() as i32);
+                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_T, gl::wrap_mode::to_gl(wrap.t()) as i32);
             match texture_type {
                 TextureType::Tex2D | TextureType::Tex2DArray | TextureType::Cube => (),
                 TextureType::Volume => self.ctx.tex_parameter_i32(
                     gl_target,
                     glow::TEXTURE_WRAP_R,
-                    wrap.r().to_gl() as i32,
+                    gl::wrap_mode::to_gl(wrap.r()) as i32,
                 ),
             }
         }
@@ -864,7 +844,7 @@ impl texture::TextureUpdate for Context {
             },
         };
 
-        let gl_target = texture_type.to_gl();
+        let gl_target = gl::texture::to_gl(texture_type);
         unsafe {
             self.bind_texture_to_unit(texture_type, texture_key, 0);
             self.ctx

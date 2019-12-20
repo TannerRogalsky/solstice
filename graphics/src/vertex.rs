@@ -14,22 +14,22 @@ pub enum AttributeType {
 }
 
 impl AttributeType {
-    pub fn get_size_bytes(&self) -> usize {
+    pub fn get_size_bytes(self) -> usize {
         use std::mem::size_of;
-        match *self {
-            AttributeType::F32 => 1 * size_of::<f32>(),
+        match self {
+            AttributeType::F32 => size_of::<f32>(),
             AttributeType::F32F32 => 2 * size_of::<f32>(),
             AttributeType::F32F32F32 => 3 * size_of::<f32>(),
             AttributeType::F32F32F32F32 => 4 * size_of::<f32>(),
             AttributeType::F32x2x2 => 4 * size_of::<f32>(),
             AttributeType::F32x3x3 => 9 * size_of::<f32>(),
             AttributeType::F32x4x4 => 16 * size_of::<f32>(),
-            AttributeType::I32 => 1 * size_of::<i32>(),
+            AttributeType::I32 => size_of::<i32>(),
         }
     }
 
-    pub fn get_num_components(&self) -> usize {
-        match *self {
+    pub fn get_num_components(self) -> usize {
+        match self {
             AttributeType::F32 | AttributeType::I32 => 1,
             AttributeType::F32F32 => 2,
             AttributeType::F32F32F32 => 3,
@@ -40,8 +40,8 @@ impl AttributeType {
         }
     }
 
-    pub fn to_gl(&self) -> (u32, i32, i32) {
-        match *self {
+    pub fn to_gl(self) -> (u32, i32, i32) {
+        match self {
             AttributeType::F32 => (glow::FLOAT, 1, 1),
             AttributeType::F32F32 => (glow::FLOAT, 2, 1),
             AttributeType::F32F32F32 => (glow::FLOAT, 3, 1),

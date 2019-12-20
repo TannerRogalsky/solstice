@@ -1,7 +1,7 @@
 use data::PixelFormat;
 
 #[allow(unused)]
-pub fn size(format: &PixelFormat) -> usize {
+pub fn size(format: PixelFormat) -> usize {
     match format {
         PixelFormat::Unknown => 0,
         PixelFormat::R8 | PixelFormat::Stencil8 => 1,
@@ -24,7 +24,7 @@ pub fn size(format: &PixelFormat) -> usize {
 }
 
 #[allow(unused)]
-pub fn color_components(format: &PixelFormat) -> usize {
+pub fn color_components(format: PixelFormat) -> usize {
     match format {
         PixelFormat::R8 | PixelFormat::R16 | PixelFormat::R16F | PixelFormat::R32F => 1,
         PixelFormat::RG8 | PixelFormat::RG16 | PixelFormat::RG16F | PixelFormat::RG32F => 2,
@@ -38,7 +38,7 @@ pub fn color_components(format: &PixelFormat) -> usize {
     }
 }
 
-pub fn to_gl(format: &PixelFormat, version: &crate::GLVersion) -> (u32, u32, u32) {
+pub fn to_gl(format: PixelFormat, version: &crate::GLVersion) -> (u32, u32, u32) {
     let format = match format {
         PixelFormat::Unknown => panic!("Unknown pixel format!"),
         PixelFormat::R8 => {
