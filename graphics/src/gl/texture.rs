@@ -1,4 +1,4 @@
-use crate::TextureType;
+use crate::texture::TextureType;
 
 // TODO: I don't think this actually maps to TextureType correctly because of platform differences with framebuffers
 pub fn to_gl(v: TextureType) -> u32 {

@@ -11,13 +11,12 @@ pub mod viewport;
 
 mod gl;
 
-use crate::buffer::Usage;
-use crate::texture::{TextureInfo, TextureType};
 use glow::HasContext;
 use slotmap::{DenseSlotMap, SlotMap};
-use std::collections::{hash_map::Entry, HashMap};
-use std::fmt::{Debug, Error, Formatter};
-use std::str::FromStr;
+use std::{
+    fmt::{Debug, Error, Formatter},
+    str::FromStr,
+};
 
 type GLBuffer = <glow::Context as HasContext>::Buffer;
 type GLProgram = <glow::Context as HasContext>::Program;
@@ -57,11 +56,18 @@ impl<'a> Drop for DebugGroup<'a> {
     }
 }
 
-fn to_index(target: canvas::Target) -> usize {
+fn target_to_index(target: canvas::Target) -> usize {
     match target {
         canvas::Target::Draw => 0,
         canvas::Target::Read => 1,
         canvas::Target::All => 0,
+    }
+}
+
+fn buffer_type_to_index(buffer_type: buffer::BufferType) -> usize {
+    match buffer_type {
+        buffer::BufferType::Vertex => 0,
+        buffer::BufferType::Index => 1,
     }
 }
 
@@ -178,7 +184,7 @@ pub struct Context {
     shaders: DenseSlotMap<ShaderKey, shader::Shader>, // TODO: evaluate the correctness of this. all other tracking is on GL primitives
     active_shader: Option<ShaderKey>,
     buffers: SlotMap<BufferKey, GLBuffer>,
-    active_buffers: HashMap<buffer::BufferType, BufferKey>,
+    active_buffers: [Option<BufferKey>; 2],
     textures: SlotMap<TextureKey, GLTexture>,
     bound_textures: Vec<Vec<Option<GLTexture>>>,
     framebuffers: SlotMap<FramebufferKey, GLFrameBuffer>,
@@ -243,7 +249,7 @@ impl Context {
             shaders: DenseSlotMap::with_key(),
             active_shader: None,
             buffers: SlotMap::with_key(),
-            active_buffers: HashMap::new(),
+            active_buffers: [None; 2],
             textures: SlotMap::with_key(),
             bound_textures,
             framebuffers: SlotMap::with_key(),
@@ -299,7 +305,7 @@ impl Context {
             vbo
         };
         let buffer_key = self.buffers.insert(vbo);
-        self.active_buffers.insert(buffer_type, buffer_key);
+        self.active_buffers[buffer_type_to_index(buffer_type)] = Some(buffer_key);
         buffer_key
     }
 
@@ -312,21 +318,22 @@ impl Context {
     }
 
     pub fn bind_buffer(&mut self, buffer: &buffer::Buffer) {
-        let buffer_key = buffer.handle();
-        match self.buffers.get(buffer_key) {
-            None => (),
-            Some(&vbo) => match self.active_buffers.entry(buffer.buffer_type()) {
-                Entry::Occupied(mut o) => {
-                    if *o.get() != buffer_key {
-                        o.insert(buffer_key);
-                        unsafe { self.ctx.bind_buffer(buffer.buffer_type().into(), Some(vbo)) }
+        //        let buffer_key = buffer.handle();
+
+        if let Some(&vbo) = self.buffers.get(buffer.handle()) {
+            let buffer_index = buffer_type_to_index(buffer.buffer_type());
+            match self.active_buffers.get_mut(buffer_index) {
+                _ => {
+                    self.active_buffers[buffer_index] = Some(buffer.handle());
+                    unsafe { self.ctx.bind_buffer(buffer.buffer_type().into(), Some(vbo)) };
+                }
+                Some(Some(active_buffer)) => {
+                    if active_buffer != &buffer.handle() {
+                        *active_buffer = buffer.handle();
+                        unsafe { self.ctx.bind_buffer(buffer.buffer_type().into(), Some(vbo)) };
                     }
                 }
-                Entry::Vacant(v) => {
-                    v.insert(buffer_key);
-                    unsafe { self.ctx.bind_buffer(buffer.buffer_type().into(), Some(vbo)) }
-                }
-            },
+            }
         }
     }
 
@@ -366,11 +373,11 @@ impl Context {
 
             if buffer.modified_size() > 0 {
                 match buffer.usage() {
-                    Usage::Stream => self.buffer_stream_draw(buffer),
-                    Usage::Static => {
+                    buffer::Usage::Stream => self.buffer_stream_draw(buffer),
+                    buffer::Usage::Static => {
                         self.buffer_static_draw(buffer, modified_offset, modified_size)
                     }
-                    Usage::Dynamic => {
+                    buffer::Usage::Dynamic => {
                         if modified_size >= buffer.size() / 3 {
                             self.buffer_stream_draw(buffer);
                         } else {
@@ -459,7 +466,10 @@ impl Context {
                     self.current_texture_unit = texture_unit;
                 }
                 self.bound_textures[texture_type.to_index()][texture_unit_index] = Some(texture);
-                unsafe { self.ctx.bind_texture(gl::texture::to_gl(texture_type), Some(texture)) }
+                unsafe {
+                    self.ctx
+                        .bind_texture(gl::texture::to_gl(texture_type), Some(texture))
+                }
             }
             (Some(&texture), Some(bound_texture)) => {
                 if texture != bound_texture {
@@ -471,7 +481,10 @@ impl Context {
                     }
                     self.bound_textures[texture_type.to_index()][texture_unit_index] =
                         Some(texture);
-                    unsafe { self.ctx.bind_texture(gl::texture::to_gl(texture_type), Some(texture)) }
+                    unsafe {
+                        self.ctx
+                            .bind_texture(gl::texture::to_gl(texture_type), Some(texture))
+                    }
                 }
             }
             (None, Some(_)) => {
@@ -482,7 +495,10 @@ impl Context {
                     self.current_texture_unit = texture_unit;
                 }
                 self.bound_textures[texture_type.to_index()][texture_unit_index] = None;
-                unsafe { self.ctx.bind_texture(gl::texture::to_gl(texture_type), None) }
+                unsafe {
+                    self.ctx
+                        .bind_texture(gl::texture::to_gl(texture_type), None)
+                }
             }
             (None, None) => (),
         }
@@ -505,7 +521,7 @@ impl Context {
         target: canvas::Target,
         framebuffer_key: Option<FramebufferKey>,
     ) {
-        let target_index = to_index(target);
+        let target_index = target_to_index(target);
         match (framebuffer_key, self.active_framebuffer[target_index]) {
             (None, None) => (),
             (Some(framebuffer_key), None) => match self.framebuffers.get(framebuffer_key) {
@@ -551,7 +567,7 @@ impl Context {
     }
 
     pub fn get_active_framebuffer(&self, target: canvas::Target) -> Option<FramebufferKey> {
-        self.active_framebuffer[to_index(target)]
+        self.active_framebuffer[target_to_index(target)]
     }
 
     pub fn framebuffer_texture(
@@ -736,8 +752,8 @@ impl texture::TextureUpdate for Context {
     fn set_texture_sub_data(
         &mut self,
         texture_key: TextureKey,
-        texture: TextureInfo,
-        texture_type: TextureType,
+        texture: texture::TextureInfo,
+        texture_type: texture::TextureType,
         data: Option<&[u8]>,
         x_offset: u32,
         y_offset: u32,
@@ -801,10 +817,17 @@ impl texture::TextureUpdate for Context {
         let gl_target = gl::texture::to_gl(texture_type);
         unsafe {
             self.bind_texture_to_unit(texture_type, texture_key, 0);
-            self.ctx
-                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_S, gl::wrap_mode::to_gl(wrap.s()) as i32);
-            self.ctx
-                .tex_parameter_i32(gl_target, glow::TEXTURE_WRAP_T, gl::wrap_mode::to_gl(wrap.t()) as i32);
+            self.ctx.tex_parameter_i32(
+                gl_target,
+                glow::TEXTURE_WRAP_S,
+                gl::wrap_mode::to_gl(wrap.s()) as i32,
+            );
+            self.ctx.tex_parameter_i32(
+                gl_target,
+                glow::TEXTURE_WRAP_T,
+                gl::wrap_mode::to_gl(wrap.t()) as i32,
+            );
+            use texture::TextureType;
             match texture_type {
                 TextureType::Tex2D | TextureType::Tex2DArray | TextureType::Cube => (),
                 TextureType::Volume => self.ctx.tex_parameter_i32(
