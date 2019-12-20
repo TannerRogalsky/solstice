@@ -128,7 +128,7 @@ where
         if self.use_indices {
             gl.unmap_buffer(&mut self.ibo);
             let (count, offset) = match &self.draw_range {
-                None => (self.ibo.size() as i32, 0),
+                None => ((self.ibo.size() / std::mem::size_of::<Index>()) as i32, 0),
                 Some(range) => ((range.end - range.start) as i32, range.start as i32),
             };
             if instance_count > 1 {
@@ -144,7 +144,7 @@ where
             }
         } else {
             let (count, offset) = match &self.draw_range {
-                None => (self.vbo.size() as i32, 0),
+                None => ((self.vbo.size() / std::mem::size_of::<Index>()) as i32, 0),
                 Some(range) => ((range.end - range.start) as i32, range.start as i32),
             };
             if instance_count > 1 {
