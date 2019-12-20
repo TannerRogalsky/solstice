@@ -34,7 +34,6 @@ impl Usage {
 
 pub struct Buffer {
     memory_map: Box<[u8]>,
-    size: usize,
     modified_offset: usize,
     modified_size: usize,
     handle: BufferKey,
@@ -53,7 +52,6 @@ impl Buffer {
         let memory_map = vec![0u8; size].into_boxed_slice();
         Self {
             memory_map,
-            size,
             modified_offset: 0,
             modified_size: 0,
             handle,
@@ -83,7 +81,7 @@ impl Buffer {
     }
 
     pub fn size(&self) -> usize {
-        self.size
+        self.memory_map.len()
     }
 
     pub fn modified_size(&self) -> usize {
@@ -108,11 +106,11 @@ impl Buffer {
 
     pub fn write(&mut self, data: &[u8], offset: usize) {
         assert!(
-            data.len() + offset <= self.size,
+            data.len() + offset <= self.size(),
             "Overfilled buffer memory map. Length ({}) + offset ({}) > {}",
             data.len(),
             offset,
-            self.size
+            self.size()
         );
         self.memory_map[offset..(offset + data.len())].copy_from_slice(data);
         self.set_modified_range(offset, data.len());
