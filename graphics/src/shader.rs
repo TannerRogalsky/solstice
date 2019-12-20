@@ -106,7 +106,7 @@ impl Shader {
             for index in 0..gl.get_active_attributes(program) {
                 let glow::ActiveAttribute { name, size, atype } =
                     gl.get_active_attribute(program, index).unwrap();
-                let location = gl.get_attrib_location(program, name.as_str()) as u32;
+                let location = gl.get_attrib_location(program, name.as_str()).unwrap();
                 attributes.push(Attribute {
                     name,
                     size,
