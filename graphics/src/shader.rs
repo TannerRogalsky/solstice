@@ -25,7 +25,7 @@ pub struct Attribute {
     pub location: u32,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UniformLocation(pub(crate) super::GLUniformLocation);
 
 #[derive(Clone, Debug)]
