@@ -14,7 +14,7 @@ mod gl;
 use crate::buffer::Usage;
 use crate::texture::{TextureInfo, TextureType};
 use glow::HasContext;
-use slotmap::DenseSlotMap;
+use slotmap::{SlotMap, DenseSlotMap};
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{Debug, Error, Formatter};
 use std::str::FromStr;
@@ -200,11 +200,11 @@ pub struct Context {
     gl_constants: GLConstants,
     shaders: DenseSlotMap<ShaderKey, shader::Shader>, // TODO: evaluate the correctness of this. all other tracking is on GL primitives
     active_shader: Option<ShaderKey>,
-    buffers: DenseSlotMap<BufferKey, GLBuffer>,
+    buffers: SlotMap<BufferKey, GLBuffer>,
     active_buffers: HashMap<buffer::BufferType, BufferKey>,
-    textures: DenseSlotMap<TextureKey, GLTexture>,
+    textures: SlotMap<TextureKey, GLTexture>,
     bound_textures: Vec<Vec<Option<GLTexture>>>,
-    framebuffers: DenseSlotMap<FramebufferKey, GLFrameBuffer>,
+    framebuffers: SlotMap<FramebufferKey, GLFrameBuffer>,
     active_framebuffer: [Option<FramebufferKey>; 2],
     current_texture_unit: u32,
     current_viewport: viewport::Viewport<i32>,
@@ -265,11 +265,11 @@ impl Context {
             gl_constants,
             shaders: DenseSlotMap::with_key(),
             active_shader: None,
-            buffers: DenseSlotMap::with_key(),
+            buffers: SlotMap::with_key(),
             active_buffers: HashMap::new(),
-            textures: DenseSlotMap::with_key(),
+            textures: SlotMap::with_key(),
             bound_textures,
-            framebuffers: DenseSlotMap::with_key(),
+            framebuffers: SlotMap::with_key(),
             active_framebuffer: [None; 2],
             current_texture_unit: 0u32,
             current_viewport: viewport::Viewport::default(),
