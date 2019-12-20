@@ -93,7 +93,7 @@ where
 
     pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {
         if let Some(draw_range) = &self.draw_range {
-            if draw_range.start > draw_range.end {
+            if draw_range.start >= draw_range.end {
                 return;
             }
         }
