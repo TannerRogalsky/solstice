@@ -88,7 +88,7 @@ where
     }
 
     pub fn draw(&mut self, gl: &mut Context) {
-        self.draw_instanced(gl,1);
+        self.draw_instanced(gl, 1);
     }
 
     pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {

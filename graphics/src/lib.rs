@@ -14,7 +14,7 @@ mod gl;
 use crate::buffer::Usage;
 use crate::texture::{TextureInfo, TextureType};
 use glow::HasContext;
-use slotmap::{SlotMap, DenseSlotMap};
+use slotmap::{DenseSlotMap, SlotMap};
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{Debug, Error, Formatter};
 use std::str::FromStr;
@@ -325,9 +325,11 @@ impl Context {
     }
 
     pub fn destroy_buffer(&mut self, buffer: &buffer::Buffer) {
-        self.buffers.remove(buffer.handle()).map(|gl_buffer| unsafe {
-            self.ctx.delete_buffer(gl_buffer);
-        });
+        self.buffers
+            .remove(buffer.handle())
+            .map(|gl_buffer| unsafe {
+                self.ctx.delete_buffer(gl_buffer);
+            });
     }
 
     pub fn bind_buffer(&mut self, buffer: &buffer::Buffer) {
