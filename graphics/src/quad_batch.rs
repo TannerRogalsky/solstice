@@ -24,7 +24,7 @@ where
         let vertex_capacity = capacity * 4;
         let index_capacity = capacity * 6;
 
-        let mut mesh = Mesh::new(gl, index_capacity);
+        let mut mesh = Mesh::with_capacities(gl, vertex_capacity, index_capacity);
         mesh.set_draw_range(Some(0..0));
 
         {
@@ -56,6 +56,10 @@ where
     }
 
     pub fn push(&mut self, quad: Quad<T>) -> QuadIndex {
+        assert!(
+            self.count < self.capacity,
+            "Adding too many quads to QuadBatch"
+        );
         let index = QuadIndex(self.count);
         self.mesh.set_vertices(&quad.vertices, self.count * 4);
         self.count += 1;

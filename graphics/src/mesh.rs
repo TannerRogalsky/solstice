@@ -7,22 +7,6 @@ use super::{
 pub type Index = u32;
 const INDEX_GL: u32 = glow::UNSIGNED_INT;
 
-pub enum IndexType {
-    UnsignedByte(u8),
-    UnsignedShort(u16),
-    UnsignedInt(u32),
-}
-
-impl IndexType {
-    pub fn to_gl(&self) -> u32 {
-        match self {
-            IndexType::UnsignedByte(_) => glow::UNSIGNED_BYTE,
-            IndexType::UnsignedShort(_) => glow::UNSIGNED_SHORT,
-            IndexType::UnsignedInt(_) => glow::UNSIGNED_INT,
-        }
-    }
-}
-
 pub struct Mesh<T> {
     vbo: Buffer,
     ibo: Buffer,
@@ -37,15 +21,19 @@ where
     T: Vertex,
 {
     pub fn new(gl: &mut Context, size: usize) -> Self {
+        Self::with_capacities(gl, size, size)
+    }
+
+    pub fn with_capacities(gl: &mut Context, vertex_count: usize, index_count: usize) -> Self {
         let vbo = Buffer::new(
             gl,
-            size * std::mem::size_of::<T>(),
+            vertex_count * std::mem::size_of::<T>(),
             BufferType::Vertex,
             Usage::Dynamic,
         );
         let ibo = Buffer::new(
             gl,
-            size * std::mem::size_of::<Index>(),
+            index_count * std::mem::size_of::<Index>(),
             BufferType::Index,
             Usage::Dynamic,
         );
