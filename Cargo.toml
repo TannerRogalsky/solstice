@@ -8,16 +8,15 @@ members = [
     "websocket",
     "image",
     "data",
-    "conrod_graphics"
+    "conrod_graphics",
+    "audio",
 ]
 default-members = [
     "graphics",
     "graphics-macro",
     "engine",
-    "engine_examples",
     "vfs",
     "websocket",
     "image",
     "data",
-    "conrod_graphics"
 ]
