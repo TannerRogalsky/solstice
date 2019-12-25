@@ -642,7 +642,7 @@ impl Context {
             "Setting a uniform without an active shader."
         );
         use shader::RawUniformValue;
-        let location = Some(location.0.clone()); // TODO: worse is better: this should be passed by value
+        let location = Some(&location.0);
         unsafe {
             match data {
                 RawUniformValue::SignedInt(data) => self.ctx.uniform_1_i32(location, *data),
