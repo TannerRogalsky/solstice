@@ -735,6 +735,22 @@ impl Context {
         }
     }
 
+    pub fn read_pixels(
+        &self,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        format: data::PixelFormat,
+        data: &mut [u8],
+    ) {
+        let (_, format, gl_type) = gl::pixel_format::to_gl(format, &self.version);
+        unsafe {
+            self.ctx
+                .read_pixels(x, y, width, height, format, gl_type, data)
+        }
+    }
+
     pub fn debug_message_callback<F>(&self, callback: F)
     where
         F: FnMut(u32, u32, u32, u32, &str),
