@@ -62,6 +62,27 @@ where
         );
     }
 
+    fn get_buffer<V>(buffer: &Buffer) -> &[V]
+    where
+        V: Sized,
+    {
+        let data = buffer.memory_map();
+        unsafe {
+            std::slice::from_raw_parts(
+                data.as_ptr() as *const V,
+                data.len() / std::mem::size_of::<V>(),
+            )
+        }
+    }
+
+    pub fn get_vertices(&self) -> &[T] {
+        Self::get_buffer(&self.vbo)
+    }
+
+    pub fn get_indices(&self) -> &[Index] {
+        Self::get_buffer(&self.ibo)
+    }
+
     pub fn set_vertices(&mut self, vertices: &[T], offset: usize) {
         Self::set_buffer(&mut self.vbo, vertices, offset);
     }
