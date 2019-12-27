@@ -75,6 +75,10 @@ where
         self.draw_range = draw_range;
     }
 
+    pub fn set_draw_mode(&mut self, draw_mode: super::DrawMode) {
+        self.draw_mode = draw_mode;
+    }
+
     pub fn draw(&mut self, gl: &mut Context) {
         self.draw_instanced(gl, 1);
     }
