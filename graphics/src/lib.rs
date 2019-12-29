@@ -390,9 +390,8 @@ impl Context {
         }
     }
 
-    pub fn new_shader(&mut self, vertex_source: &str, fragment_source: &str) -> ShaderKey {
-        let shader = shader::Shader::new(&self.ctx, vertex_source, fragment_source).unwrap();
-        self.shaders.insert(shader)
+    pub fn new_shader(&mut self, vertex_source: &str, fragment_source: &str) -> Result<ShaderKey, String> {
+        shader::Shader::new(&self.ctx, vertex_source, fragment_source).map(|shader| self.shaders.insert(shader))
     }
 
     pub fn destroy_shader(&mut self, shader: ShaderKey) {
