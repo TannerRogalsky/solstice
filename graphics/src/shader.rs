@@ -257,3 +257,60 @@ const FRAG_HEADER: &str = r#"
 #else
     #define fragColor gl_FragColor
 #endif"#;
+
+impl From<[f32; 16]> for RawUniformValue {
+    fn from(m: [f32; 16]) -> Self {
+        RawUniformValue::Mat4(m)
+    }
+}
+
+pub trait UniformTrait {
+    type Value;
+
+    fn get_location(&self) -> Option<&UniformLocation>;
+}
+
+pub trait ShaderTrait {
+    fn get_handle(&self) -> super::ShaderKey;
+}
+
+pub trait UniformGetterMut<U>
+where
+    U: UniformTrait,
+{
+    fn get_uniform_mut(&mut self) -> &mut U;
+}
+
+pub trait BasicUniformSetter<U>: UniformGetterMut<U>
+where
+    U: UniformTrait,
+{
+    fn set_uniform(&mut self, gl: &mut super::Context, value: U::Value)
+    where
+        U::Value: Into<RawUniformValue>,
+    {
+        let uniform = self.get_uniform_mut();
+        if let Some(location) = uniform.get_location() {
+            gl.set_uniform_by_location(location, &value.into());
+        }
+    }
+}
+
+pub trait TextureUniformSetter<U>: UniformGetterMut<U>
+where
+    U: UniformTrait,
+{
+    fn set_uniform<T>(&mut self, gl: &mut super::Context, texture: T)
+    where
+        T: super::texture::Texture,
+    {
+        let uniform = self.get_uniform_mut();
+        if let Some(location) = uniform.get_location() {
+            gl.bind_texture_to_unit(texture.get_texture_type(), texture.get_texture_key(), 0);
+            gl.set_uniform_by_location(
+                location,
+                &super::shader::RawUniformValue::SignedInt(0),
+            );
+        }
+    }
+}
