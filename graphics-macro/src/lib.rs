@@ -2,7 +2,17 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{self, parse_macro_input, Data, DeriveInput, Fields};
+use syn::{self, parse_macro_input, Data, DeriveInput, Fields, Field};
+
+fn has_attr(field: &Field, i: &str) -> bool {
+    field.attrs.iter().any(|attr| {
+        if let Some(attr_ident) = attr.path.get_ident() {
+            attr_ident == i
+        } else {
+            false
+        }
+    })
+}
 
 #[proc_macro_derive(Shader, attributes(uniform))]
 pub fn derive_shader(item: TokenStream) -> TokenStream {
@@ -16,12 +26,7 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                 .named
                 .iter()
                 .filter(|field| {
-                    if let Some(attr) = field.attrs.iter().next() {
-                        if let Some(attr_ident) = attr.path.get_ident() {
-                            return attr_ident == "uniform";
-                        }
-                    }
-                    false
+                    has_attr(field, "uniform")
                 })
                 .map(|field| {
                     let field_ident = field.ident.as_ref().unwrap();
@@ -44,6 +49,45 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         #(#fields)*
         impl engine::graphics::shader::BasicUniformSetter for #ident {}
+    })
+}
+
+#[proc_macro_derive(Uniform, attributes(location))]
+pub fn derive_uniform(item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+
+    let ident = input.ident;
+
+    let fields = match input.data {
+        Data::Struct(s) => match s.fields {
+            Fields::Named(fields) => fields
+                .named
+                .iter()
+                .filter(|field| {
+                    has_attr(field, "location")
+                })
+                .map(|field| {
+                    let field_ident = field.ident.as_ref().unwrap();
+                    let field_ty = &field.ty;
+
+                    quote! {
+                        impl engine::graphics::shader::UniformTrait for #ident {
+                            type Value = [f32; 16];
+
+                            fn get_location(&self) -> Option<&engine::graphics::shader::UniformLocation> {
+                                self.#field_ident.as_ref()
+                            }
+                        }
+                    }
+                })
+                .collect::<Vec<_>>(),
+            _ => panic!("only named fields are supported"),
+        },
+        _ => panic!("only structs are supported"),
+    };
+
+    TokenStream::from(quote! {
+        #(#fields)*
     })
 }
 
