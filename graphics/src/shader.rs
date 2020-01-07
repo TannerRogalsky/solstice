@@ -281,36 +281,29 @@ where
     fn get_uniform_mut(&mut self) -> &mut U;
 }
 
-pub trait BasicUniformSetter<U>: UniformGetterMut<U>
-where
-    U: UniformTrait,
-{
-    fn set_uniform(&mut self, gl: &mut super::Context, value: U::Value)
+pub trait BasicUniformSetter {
+    fn set_uniform<U>(&mut self, gl: &mut super::Context, value: <U as UniformTrait>::Value)
     where
-        U::Value: Into<RawUniformValue>,
+        Self: UniformGetterMut<U>,
+        U: UniformTrait,
+        <U as UniformTrait>::Value: Into<RawUniformValue>,
     {
         let uniform = self.get_uniform_mut();
         if let Some(location) = uniform.get_location() {
             gl.set_uniform_by_location(location, &value.into());
         }
     }
-}
 
-pub trait TextureUniformSetter<U>: UniformGetterMut<U>
-where
-    U: UniformTrait,
-{
-    fn set_uniform<T>(&mut self, gl: &mut super::Context, texture: T)
+    fn bind_texture<U, T>(&mut self, gl: &mut super::Context, texture: T)
     where
+        Self: UniformGetterMut<U>,
+        U: UniformTrait,
         T: super::texture::Texture,
     {
         let uniform = self.get_uniform_mut();
         if let Some(location) = uniform.get_location() {
             gl.bind_texture_to_unit(texture.get_texture_type(), texture.get_texture_key(), 0);
-            gl.set_uniform_by_location(
-                location,
-                &super::shader::RawUniformValue::SignedInt(0),
-            );
+            gl.set_uniform_by_location(location, &super::shader::RawUniformValue::SignedInt(0));
         }
     }
 }

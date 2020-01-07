@@ -33,9 +33,6 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                                 &mut self.#field_ident
                             }
                         }
-
-                        impl engine::graphics::shader::BasicUniformSetter<#field_ty> for #ident {}
-                        impl engine::graphics::shader::TextureUniformSetter<#field_ty> for #ident {}
                     }
                 })
                 .collect::<Vec<_>>(),
@@ -46,6 +43,7 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         #(#fields)*
+        impl engine::graphics::shader::BasicUniformSetter for #ident {}
     })
 }
 
