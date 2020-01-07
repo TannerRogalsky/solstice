@@ -307,10 +307,7 @@ where
         let uniform = self.get_uniform_mut();
         if let Some(location) = uniform.get_location() {
             gl.bind_texture_to_unit(texture.get_texture_type(), texture.get_texture_key(), 0);
-            gl.set_uniform_by_location(
-                location,
-                &super::shader::RawUniformValue::SignedInt(0),
-            );
+            gl.set_uniform_by_location(location, &super::shader::RawUniformValue::SignedInt(0));
         }
     }
 }
