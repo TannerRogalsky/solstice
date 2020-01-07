@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{self, parse_macro_input, Data, DeriveInput, Fields, Field};
+use syn::{self, parse_macro_input, Data, DeriveInput, Fields, Field, NestedMeta, Meta};
 
 fn has_attr(field: &Field, i: &str) -> bool {
     field.attrs.iter().any(|attr| {
@@ -95,6 +95,30 @@ pub fn derive_uniform(item: TokenStream) -> TokenStream {
 pub fn derive_vertex(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
 
+    assert!(
+        input.attrs.iter().any(|attr| {
+            if let Some(ident) = attr.path.get_ident() {
+                if ident == "repr" {
+                    if let Ok(syn::Meta::List(ref meta_list)) = attr.parse_meta() {
+                        let reprs = meta_list
+                            .nested
+                            .iter()
+                            .filter_map(|nested| match nested {
+                                NestedMeta::Meta(Meta::Path(path)) => path.get_ident(),
+                                _ => None,
+                            })
+                            .collect::<Vec<_>>();
+                        return ["packed", "C"]
+                            .iter()
+                            .all(|repr| reprs.iter().find(|&r| r == repr).is_some());
+                    }
+                }
+            }
+            false
+        }),
+        "Vertex structs must be `#[repr(C, packed)]`"
+    );
+
     match input.data {
         Data::Struct(s) => match s.fields {
             Fields::Named(fields) => {
@@ -122,6 +146,7 @@ pub fn derive_vertex(item: TokenStream) -> TokenStream {
                                 offset: #offset,
                                 atype: <#this_type as ::graphics::vertex::VertexAttributeType>::A_TYPE,
                                 normalize: false,
+                                step: 0,
                             }
                         }
                     });
