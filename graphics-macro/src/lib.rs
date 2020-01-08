@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{self, parse_macro_input, Data, DeriveInput, Fields, Field, NestedMeta, Meta};
+use syn::{self, parse_macro_input, Data, DeriveInput, Field, Fields, Meta, NestedMeta};
 
 fn has_attr(field: &Field, i: &str) -> bool {
     field.attrs.iter().any(|attr| {
@@ -25,9 +25,7 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
             Fields::Named(fields) => fields
                 .named
                 .iter()
-                .filter(|field| {
-                    has_attr(field, "uniform")
-                })
+                .filter(|field| has_attr(field, "uniform"))
                 .map(|field| {
                     let field_ident = field.ident.as_ref().unwrap();
                     let field_ty = &field.ty;

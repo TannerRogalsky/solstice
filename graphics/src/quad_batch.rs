@@ -10,6 +10,54 @@ pub struct Quad<T> {
     pub vertices: [T; 4],
 }
 
+impl<T> Quad<T>
+where
+    T: Copy,
+{
+    pub fn map<N, F>(&self, f: F) -> Quad<N>
+    where
+        F: Fn(T) -> N,
+    {
+        Quad {
+            vertices: [
+                f(self.vertices[0]),
+                f(self.vertices[1]),
+                f(self.vertices[2]),
+                f(self.vertices[3]),
+            ],
+        }
+    }
+    pub fn zip<N>(&self, other: Quad<N>) -> Quad<(T, N)>
+    where
+        N: Copy,
+    {
+        Quad {
+            vertices: [
+                (self.vertices[0], other.vertices[0]),
+                (self.vertices[1], other.vertices[1]),
+                (self.vertices[2], other.vertices[2]),
+                (self.vertices[3], other.vertices[3]),
+            ],
+        }
+    }
+}
+
+impl<A> From<super::viewport::Viewport<A>> for Quad<(A, A)>
+where
+    A: Copy + std::ops::Add<Output = A>,
+{
+    fn from(viewport: super::viewport::Viewport<A>) -> Self {
+        let ((x, y), (width, height)) = (viewport.position(), viewport.dimensions());
+        let top_left = (x, y);
+        let bottom_left = (x, y + height);
+        let top_right = (x + width, y);
+        let bottom_right = (x + width, y + height);
+        Quad {
+            vertices: [top_left, bottom_left, top_right, bottom_right],
+        }
+    }
+}
+
 pub struct QuadBatch<T> {
     mesh: Mesh<T>,
     count: usize,
