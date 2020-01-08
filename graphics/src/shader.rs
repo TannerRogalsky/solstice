@@ -264,6 +264,10 @@ impl From<[f32; 16]> for RawUniformValue {
     }
 }
 
+impl From<u32> for RawUniformValue {
+    fn from(m: u32) -> Self { RawUniformValue::SignedInt(m as i32)}
+}
+
 pub trait UniformTrait {
     type Value;
 
@@ -294,16 +298,17 @@ pub trait BasicUniformSetter {
         }
     }
 
-    fn bind_texture<U, T>(&mut self, gl: &mut super::Context, texture: T)
+    fn bind_texture<U, T>(&mut self, gl: &mut super::Context, texture: T, texture_unit: <U as UniformTrait>::Value)
     where
         Self: UniformGetterMut<U>,
         U: UniformTrait,
-        T: super::texture::Texture,
+        <U as UniformTrait>::Value: Copy + Into<u32> + Into<RawUniformValue>,
+        T: super::texture::Texture
     {
         let uniform = self.get_uniform_mut();
         if let Some(location) = uniform.get_location() {
-            gl.bind_texture_to_unit(texture.get_texture_type(), texture.get_texture_key(), 0);
-            gl.set_uniform_by_location(location, &super::shader::RawUniformValue::SignedInt(0));
+            gl.bind_texture_to_unit(texture.get_texture_type(), texture.get_texture_key(), texture_unit.into());
+            self.set_uniform(gl, texture_unit);
         }
     }
 }
