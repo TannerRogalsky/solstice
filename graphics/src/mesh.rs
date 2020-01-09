@@ -62,14 +62,17 @@ where
         );
     }
 
-    fn get_buffer<V>(buffer: &Buffer) -> &[V]
+    fn get_buffer<'a, V>(buffer: &'a Buffer) -> &'a [V]
     where
         V: Sized,
     {
         let data = buffer.memory_map();
         unsafe {
-            std::slice::from_raw_parts(
-                data.as_ptr() as *const V,
+            // The lifetime of this slice is explicitly given because I'm not sure the compiler
+            // can safely infer it in this unsafe function call. It might be fine but better safe
+            // than sorry.
+            std::slice::from_raw_parts::<'a, V>(
+                data.as_ptr() as *const _,
                 data.len() / std::mem::size_of::<V>(),
             )
         }
