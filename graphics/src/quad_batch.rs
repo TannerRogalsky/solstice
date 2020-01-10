@@ -128,3 +128,12 @@ where
         self.mesh.draw(gl)
     }
 }
+
+impl<'a, T> super::mesh::MeshAttacher<'a, T> for &'a mut QuadBatch<T> {
+    fn attach_with_step<N>(self, other: &'a mut Mesh<N>, step: u32) -> super::mesh::MultiMesh<'a, T>
+    where
+        N: super::vertex::Vertex,
+    {
+        self.mesh.attach_with_step(other, step)
+    }
+}

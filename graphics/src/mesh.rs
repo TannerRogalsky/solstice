@@ -108,16 +108,36 @@ where
     }
 
     pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {
+        self.internal_draw(gl, instance_count, &mut []);
+    }
+
+    pub fn get_attributes(&mut self) -> AttachedAttributes {
+        AttachedAttributes {
+            buffer: &mut self.vbo,
+            formats: T::build_bindings(),
+            step: 0,
+            stride: std::mem::size_of::<T>(),
+        }
+    }
+
+    fn internal_draw(
+        &mut self,
+        gl: &mut Context,
+        instance_count: usize,
+        attached_attributes: &mut [AttachedAttributes],
+    ) {
         if let Some(draw_range) = &self.draw_range {
             if draw_range.start >= draw_range.end {
                 return;
             }
         }
 
-        gl.bind_buffer(&self.vbo);
-
         let stride = std::mem::size_of::<T>();
-        let bindings = T::build_bindings();
+
+        gl.unmap_buffer(&mut self.vbo);
+        for attr in attached_attributes.iter_mut() {
+            gl.unmap_buffer(attr.buffer);
+        }
 
         let shader = gl
             .get_shader(gl.get_active_shader().expect("No active shader."))
@@ -126,21 +146,50 @@ where
         let attributes = shader
             .attributes()
             .iter()
-            .map(|attr| {
-                let vertex_format = bindings
+            .filter_map(|attr| {
+                // for each attribute in the shader, try to map it to one of our attachements
+                // do self's bindings first and then try the attached attributes
+                // TODO: it would be great if this were less tiered and simpler
+                T::build_bindings()
                     .iter()
-                    .find(|binding| binding.name == attr.name.as_str());
-                if let Some(_vertex_format) = vertex_format {
-                    desired_attribute_state |= 1 << attr.location;
-                }
-                vertex_format.map(|v| (v, &self.vbo))
+                    .find(|binding| binding.name == attr.name.as_str())
+                    .map(|binding| {
+                        desired_attribute_state |= 1 << attr.location;
+                        (
+                            binding,
+                            stride,
+                            0,
+                            self.vbo.handle(),
+                            self.vbo.buffer_type(),
+                        )
+                    })
+                    .or_else(|| {
+                        attached_attributes
+                            .iter()
+                            .find_map(|attributes| {
+                                attributes
+                                    .formats
+                                    .iter()
+                                    .find(|binding| binding.name == attr.name.as_str())
+                                    .map(|binding| {
+                                        (
+                                            binding,
+                                            attributes.stride,
+                                            attributes.step,
+                                            attributes.buffer.handle(),
+                                            attributes.buffer.buffer_type(),
+                                        )
+                                    })
+                            })
+                            .map(|(format, stride, step, buffer_key, buffer_type)| {
+                                desired_attribute_state |= 1 << attr.location;
+                                (format, stride, step, buffer_key, buffer_type)
+                            })
+                    })
             })
-            .filter(Option::is_some)
-            .map(Option::unwrap)
             .collect::<Vec<_>>();
-        gl.set_vertex_attributes(desired_attribute_state, stride, &attributes);
+        gl.set_vertex_attributes(desired_attribute_state, &attributes);
 
-        gl.unmap_buffer(&mut self.vbo);
         if self.use_indices {
             gl.unmap_buffer(&mut self.ibo);
             let (count, offset) = match &self.draw_range {
@@ -168,6 +217,79 @@ where
             } else {
                 gl.draw_arrays(self.draw_mode, offset, count);
             }
+        }
+    }
+}
+
+pub struct AttachedAttributes<'a> {
+    buffer: &'a mut Buffer,
+    formats: &'a [super::vertex::VertexFormat],
+    step: u32,
+    stride: usize,
+}
+
+pub struct MultiMesh<'a, T> {
+    base: &'a mut Mesh<T>,
+    attachments: Vec<AttachedAttributes<'a>>,
+}
+
+impl<'a, T> MultiMesh<'a, T> {
+    pub fn new(base: &'a mut Mesh<T>, attachments: Vec<AttachedAttributes<'a>>) -> Self {
+        Self { base, attachments }
+    }
+}
+
+impl<'a, T> MultiMesh<'a, T>
+where
+    T: Vertex,
+{
+    pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {
+        self.base
+            .internal_draw(gl, instance_count, &mut self.attachments)
+    }
+}
+
+pub trait MeshAttacher<'a, T>
+where
+    Self: Sized,
+{
+    fn attach<N>(self, other: &'a mut Mesh<N>) -> MultiMesh<'a, T>
+    where
+        N: Vertex,
+    {
+        Self::attach_with_step(self, other, 0)
+    }
+
+    fn attach_with_step<N>(self, other: &'a mut Mesh<N>, step: u32) -> MultiMesh<'a, T>
+    where
+        N: Vertex;
+}
+
+impl<'a, T> MeshAttacher<'a, T> for &'a mut Mesh<T> {
+    fn attach_with_step<N>(self, other: &'a mut Mesh<N>, step: u32) -> MultiMesh<'a, T>
+    where
+        N: Vertex,
+    {
+        let mut attachments = other.get_attributes();
+        attachments.step = step;
+        MultiMesh {
+            base: self,
+            attachments: vec![attachments],
+        }
+    }
+}
+
+impl<'a, T> MeshAttacher<'a, T> for MultiMesh<'a, T> {
+    fn attach_with_step<N>(mut self, other: &'a mut Mesh<N>, step: u32) -> MultiMesh<'a, T>
+    where
+        N: Vertex,
+    {
+        let mut attachments = other.get_attributes();
+        attachments.step = step;
+        self.attachments.push(attachments);
+        MultiMesh {
+            base: self.base,
+            attachments: self.attachments,
         }
     }
 }

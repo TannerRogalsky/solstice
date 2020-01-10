@@ -258,7 +258,7 @@ impl Context {
             current_viewport: viewport::Viewport::default(),
             enabled_attributes: std::u32::MAX,
         };
-        ctx.set_vertex_attributes(0, 0, &[]);
+        ctx.set_vertex_attributes(0, &[]);
         ctx
     }
 
@@ -317,20 +317,18 @@ impl Context {
         }
     }
 
-    pub fn bind_buffer(&mut self, buffer: &buffer::Buffer) {
-        //        let buffer_key = buffer.handle();
-
-        if let Some(&vbo) = self.buffers.get(buffer.handle()) {
-            let buffer_index = buffer_type_to_index(buffer.buffer_type());
+    pub fn bind_buffer(&mut self, buffer_key: BufferKey, buffer_type: buffer::BufferType) {
+        if let Some(&vbo) = self.buffers.get(buffer_key) {
+            let buffer_index = buffer_type_to_index(buffer_type);
             match self.active_buffers.get_mut(buffer_index) {
                 _ => {
-                    self.active_buffers[buffer_index] = Some(buffer.handle());
-                    unsafe { self.ctx.bind_buffer(buffer.buffer_type().into(), Some(vbo)) };
+                    self.active_buffers[buffer_index] = Some(buffer_key);
+                    unsafe { self.ctx.bind_buffer(buffer_type.into(), Some(vbo)) };
                 }
                 Some(Some(active_buffer)) => {
-                    if active_buffer != &buffer.handle() {
-                        *active_buffer = buffer.handle();
-                        unsafe { self.ctx.bind_buffer(buffer.buffer_type().into(), Some(vbo)) };
+                    if active_buffer != &buffer_key {
+                        *active_buffer = buffer_key;
+                        unsafe { self.ctx.bind_buffer(buffer_type.into(), Some(vbo)) };
                     }
                 }
             }
@@ -365,7 +363,7 @@ impl Context {
     }
 
     pub fn unmap_buffer(&mut self, buffer: &mut buffer::Buffer) {
-        self.bind_buffer(buffer);
+        self.bind_buffer(buffer.handle(), buffer.buffer_type());
         if self.buffers.get(buffer.handle()).is_some() {
             let modified_offset = std::cmp::min(buffer.modified_offset(), buffer.size() - 1);
             let modified_size =
@@ -596,8 +594,13 @@ impl Context {
     pub fn set_vertex_attributes(
         &mut self,
         desired: u32,
-        stride: usize,
-        stuff: &[(&vertex::VertexFormat, &buffer::Buffer)],
+        stuff: &[(
+            &vertex::VertexFormat,
+            usize,
+            u32,
+            BufferKey,
+            buffer::BufferType,
+        )],
     ) {
         let diff = desired ^ self.enabled_attributes;
         for i in 0..self.gl_constants.max_vertex_attributes as u32 {
@@ -616,11 +619,11 @@ impl Context {
             }
 
             if desired & bit != 0 {
-                let (vertex_format, buffer) = stuff[i as usize];
-                self.bind_buffer(buffer);
+                let (vertex_format, stride, step, buffer_key, buffer_type) = stuff[i as usize];
+                self.bind_buffer(buffer_key, buffer_type);
                 let (data_type, elements_count, instances_count) = vertex_format.atype.to_gl();
                 unsafe {
-                    //                    self.ctx.vertex_attrib_divisor(i, 0);
+                    self.ctx.vertex_attrib_divisor(i, step);
                     self.ctx.vertex_attrib_pointer_f32(
                         i,
                         elements_count,
