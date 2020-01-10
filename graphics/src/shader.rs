@@ -106,13 +106,15 @@ impl Shader {
             for index in 0..gl.get_active_attributes(program) {
                 let glow::ActiveAttribute { name, size, atype } =
                     gl.get_active_attribute(program, index).unwrap();
-                let location = gl.get_attrib_location(program, name.as_str()).unwrap();
-                attributes.push(Attribute {
-                    name,
-                    size,
-                    atype: glenum_to_attribute_type(atype),
-                    location,
-                });
+                if let Some(location) = gl.get_attrib_location(program, name.as_str()) {
+                    // specifically this is for gl_InstanceID
+                    attributes.push(Attribute {
+                        name,
+                        size,
+                        atype: glenum_to_attribute_type(atype),
+                        location,
+                    });
+                }
             }
             attributes.sort_by(|a, b| a.location.partial_cmp(&b.location).unwrap());
 
