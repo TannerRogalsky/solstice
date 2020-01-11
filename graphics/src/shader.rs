@@ -40,22 +40,41 @@ pub enum RawUniformValue {
     SignedInt(i32),
     //    UnsignedInt(u32),
     Float(f32),
-    /// 2x2 column-major matrix.
-    Mat2([f32; 4]),
-    /// 3x3 column-major matrix.
-    Mat3([f32; 9]),
-    /// 4x4 column-major matrix.
-    Mat4([f32; 16]),
-    Vec2([f32; 2]),
-    Vec3([f32; 3]),
-    Vec4([f32; 4]),
-    IntVec2([i32; 2]),
-    IntVec3([i32; 3]),
-    IntVec4([i32; 4]),
+    Mat2(mint::ColumnMatrix2<f32>),
+    Mat3(mint::ColumnMatrix3<f32>),
+    Mat4(mint::ColumnMatrix4<f32>),
+    Vec2(mint::Vector2<f32>),
+    Vec3(mint::Vector3<f32>),
+    Vec4(mint::Vector4<f32>),
+    IntVec2(mint::Vector2<i32>),
+    IntVec3(mint::Vector3<i32>),
+    IntVec4(mint::Vector4<i32>),
     //    UnsignedIntVec2([u32; 2]),
     //    UnsignedIntVec3([u32; 3]),
     //    UnsignedIntVec4([u32; 4]),
 }
+
+macro_rules! raw_uniform_conv {
+    ($from:ty, $to:ident) => {
+        impl From<$from> for RawUniformValue {
+            fn from(v: $from) -> Self {
+                RawUniformValue::$to(v)
+            }
+        }
+    };
+}
+
+raw_uniform_conv!(i32, SignedInt);
+raw_uniform_conv!(f32, Float);
+raw_uniform_conv!(mint::ColumnMatrix2<f32>, Mat2);
+raw_uniform_conv!(mint::ColumnMatrix3<f32>, Mat3);
+raw_uniform_conv!(mint::ColumnMatrix4<f32>, Mat4);
+raw_uniform_conv!(mint::Vector2<f32>, Vec2);
+raw_uniform_conv!(mint::Vector3<f32>, Vec3);
+raw_uniform_conv!(mint::Vector4<f32>, Vec4);
+raw_uniform_conv!(mint::Vector2<i32>, IntVec2);
+raw_uniform_conv!(mint::Vector3<i32>, IntVec3);
+raw_uniform_conv!(mint::Vector4<i32>, IntVec4);
 
 pub struct Shader {
     program: GLProgram,
@@ -260,18 +279,6 @@ const FRAG_HEADER: &str = r#"
     #define fragColor gl_FragColor
 #endif"#;
 
-impl From<[f32; 16]> for RawUniformValue {
-    fn from(m: [f32; 16]) -> Self {
-        RawUniformValue::Mat4(m)
-    }
-}
-
-impl From<u32> for RawUniformValue {
-    fn from(m: u32) -> Self {
-        RawUniformValue::SignedInt(m as i32)
-    }
-}
-
 pub trait UniformTrait {
     type Value;
 
@@ -310,7 +317,7 @@ pub trait BasicUniformSetter {
     ) where
         Self: UniformGetterMut<U>,
         U: UniformTrait,
-        <U as UniformTrait>::Value: Copy + Into<u32> + Into<RawUniformValue>,
+        <U as UniformTrait>::Value: Copy + Into<super::TextureUnit> + Into<RawUniformValue>,
         T: super::texture::Texture,
     {
         let uniform = self.get_uniform_mut();

@@ -139,6 +139,21 @@ pub enum DrawMode {
     TriangleFan,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub struct TextureUnit(u32);
+
+impl From<u32> for TextureUnit {
+    fn from(v: u32) -> Self {
+        TextureUnit(v)
+    }
+}
+
+impl From<i32> for TextureUnit {
+    fn from(v: i32) -> Self {
+        TextureUnit(v as u32)
+    }
+}
+
 #[derive(Copy, Clone, Default)]
 pub struct GLVersion {
     major: u32,
@@ -189,7 +204,7 @@ pub struct Context {
     bound_textures: Vec<Vec<Option<GLTexture>>>,
     framebuffers: SlotMap<FramebufferKey, GLFrameBuffer>,
     active_framebuffer: [Option<FramebufferKey>; 2],
-    current_texture_unit: u32,
+    current_texture_unit: TextureUnit,
     current_viewport: viewport::Viewport<i32>,
     enabled_attributes: u32, // a bitmask that represents the vertex attribute state
 }
@@ -254,7 +269,7 @@ impl Context {
             bound_textures,
             framebuffers: SlotMap::with_key(),
             active_framebuffer: [None; 2],
-            current_texture_unit: 0u32,
+            current_texture_unit: TextureUnit(0),
             current_viewport: viewport::Viewport::default(),
             enabled_attributes: std::u32::MAX,
         };
@@ -437,7 +452,7 @@ impl Context {
             let handle = self.ctx.create_texture().unwrap();
             let texture = self.textures.insert(handle);
             self.ctx.active_texture(glow::TEXTURE0);
-            self.bind_texture_to_unit(texture_type, texture, 0);
+            self.bind_texture_to_unit(texture_type, texture, TextureUnit(0));
             texture
         }
     }
@@ -453,9 +468,9 @@ impl Context {
         &mut self,
         texture_type: texture::TextureType,
         texture_key: TextureKey,
-        texture_unit: u32,
+        texture_unit: TextureUnit,
     ) {
-        let texture_unit_index = texture_unit as usize;
+        let texture_unit_index = texture_unit.0 as usize;
         match (
             self.textures.get(texture_key),
             self.bound_textures[texture_type.to_index()][texture_unit_index],
@@ -463,7 +478,7 @@ impl Context {
             (Some(&texture), None) => {
                 if texture_unit != self.current_texture_unit {
                     unsafe {
-                        self.ctx.active_texture(texture_unit);
+                        self.ctx.active_texture(texture_unit.0);
                     }
                     self.current_texture_unit = texture_unit;
                 }
@@ -477,7 +492,7 @@ impl Context {
                 if texture != bound_texture {
                     if texture_unit != self.current_texture_unit {
                         unsafe {
-                            self.ctx.active_texture(texture_unit);
+                            self.ctx.active_texture(texture_unit.0);
                         }
                         self.current_texture_unit = texture_unit;
                     }
@@ -492,7 +507,7 @@ impl Context {
             (None, Some(_)) => {
                 if texture_unit != self.current_texture_unit {
                     unsafe {
-                        self.ctx.active_texture(texture_unit);
+                        self.ctx.active_texture(texture_unit.0);
                     }
                     self.current_texture_unit = texture_unit;
                 }
@@ -655,20 +670,20 @@ impl Context {
                 RawUniformValue::SignedInt(data) => self.ctx.uniform_1_i32(location, *data),
                 RawUniformValue::Float(data) => self.ctx.uniform_1_f32(location, *data),
                 RawUniformValue::Mat2(data) => {
-                    self.ctx.uniform_matrix_2_f32_slice(location, false, data)
+                    self.ctx.uniform_matrix_2_f32_slice(location, false, data.as_ref())
                 }
                 RawUniformValue::Mat3(data) => {
-                    self.ctx.uniform_matrix_3_f32_slice(location, false, data)
+                    self.ctx.uniform_matrix_3_f32_slice(location, false, data.as_ref())
                 }
                 RawUniformValue::Mat4(data) => {
-                    self.ctx.uniform_matrix_4_f32_slice(location, false, data)
+                    self.ctx.uniform_matrix_4_f32_slice(location, false, data.as_ref())
                 }
-                RawUniformValue::Vec2(data) => self.ctx.uniform_2_f32_slice(location, data),
-                RawUniformValue::Vec3(data) => self.ctx.uniform_3_f32_slice(location, data),
-                RawUniformValue::Vec4(data) => self.ctx.uniform_4_f32_slice(location, data),
-                RawUniformValue::IntVec2(data) => self.ctx.uniform_2_i32_slice(location, data),
-                RawUniformValue::IntVec3(data) => self.ctx.uniform_3_i32_slice(location, data),
-                RawUniformValue::IntVec4(data) => self.ctx.uniform_4_i32_slice(location, data),
+                RawUniformValue::Vec2(data) => self.ctx.uniform_2_f32_slice(location, data.as_ref()),
+                RawUniformValue::Vec3(data) => self.ctx.uniform_3_f32_slice(location, data.as_ref()),
+                RawUniformValue::Vec4(data) => self.ctx.uniform_4_f32_slice(location, data.as_ref()),
+                RawUniformValue::IntVec2(data) => self.ctx.uniform_2_i32_slice(location, data.as_ref()),
+                RawUniformValue::IntVec3(data) => self.ctx.uniform_3_i32_slice(location, data.as_ref()),
+                RawUniformValue::IntVec4(data) => self.ctx.uniform_4_i32_slice(location, data.as_ref()),
             }
         }
     }
@@ -786,7 +801,7 @@ impl texture::TextureUpdate for Context {
         let width = texture.width();
         let height = texture.height();
         let gl_target = gl::texture::to_gl(texture_type);
-        self.bind_texture_to_unit(texture_type, texture_key, 0);
+        self.bind_texture_to_unit(texture_type, texture_key, TextureUnit(0));
         unsafe {
             self.ctx.tex_sub_image_2d_u8_slice(
                 gl_target,
@@ -815,7 +830,7 @@ impl texture::TextureUpdate for Context {
         let width = texture.width();
         let height = texture.height();
         let gl_target = gl::texture::to_gl(texture_type);
-        self.bind_texture_to_unit(texture_type, texture_key, 0);
+        self.bind_texture_to_unit(texture_type, texture_key, TextureUnit(0));
         unsafe {
             self.ctx.tex_image_2d(
                 gl_target,
@@ -839,7 +854,7 @@ impl texture::TextureUpdate for Context {
     ) {
         let gl_target = gl::texture::to_gl(texture_type);
         unsafe {
-            self.bind_texture_to_unit(texture_type, texture_key, 0);
+            self.bind_texture_to_unit(texture_type, texture_key, TextureUnit(0));
             self.ctx.tex_parameter_i32(
                 gl_target,
                 glow::TEXTURE_WRAP_S,
@@ -892,7 +907,7 @@ impl texture::TextureUpdate for Context {
 
         let gl_target = gl::texture::to_gl(texture_type);
         unsafe {
-            self.bind_texture_to_unit(texture_type, texture_key, 0);
+            self.bind_texture_to_unit(texture_type, texture_key, TextureUnit(0));
             self.ctx
                 .tex_parameter_i32(gl_target, glow::TEXTURE_MIN_FILTER, gl_min as i32);
             self.ctx

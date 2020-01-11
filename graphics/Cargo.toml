@@ -14,3 +14,4 @@ glow = { git = "https://github.com/GrovesNL/glow.git" }
 #glow = { path = "../../glow" }
 log = "0.4"
 slotmap = "0.4"
+mint = "0.5"
