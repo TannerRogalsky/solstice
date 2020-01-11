@@ -670,20 +670,35 @@ impl Context {
                 RawUniformValue::SignedInt(data) => self.ctx.uniform_1_i32(location, *data),
                 RawUniformValue::Float(data) => self.ctx.uniform_1_f32(location, *data),
                 RawUniformValue::Mat2(data) => {
-                    self.ctx.uniform_matrix_2_f32_slice(location, false, data.as_ref())
+                    self.ctx
+                        .uniform_matrix_2_f32_slice(location, false, data.as_ref())
                 }
                 RawUniformValue::Mat3(data) => {
-                    self.ctx.uniform_matrix_3_f32_slice(location, false, data.as_ref())
+                    self.ctx
+                        .uniform_matrix_3_f32_slice(location, false, data.as_ref())
                 }
                 RawUniformValue::Mat4(data) => {
-                    self.ctx.uniform_matrix_4_f32_slice(location, false, data.as_ref())
+                    self.ctx
+                        .uniform_matrix_4_f32_slice(location, false, data.as_ref())
                 }
-                RawUniformValue::Vec2(data) => self.ctx.uniform_2_f32_slice(location, data.as_ref()),
-                RawUniformValue::Vec3(data) => self.ctx.uniform_3_f32_slice(location, data.as_ref()),
-                RawUniformValue::Vec4(data) => self.ctx.uniform_4_f32_slice(location, data.as_ref()),
-                RawUniformValue::IntVec2(data) => self.ctx.uniform_2_i32_slice(location, data.as_ref()),
-                RawUniformValue::IntVec3(data) => self.ctx.uniform_3_i32_slice(location, data.as_ref()),
-                RawUniformValue::IntVec4(data) => self.ctx.uniform_4_i32_slice(location, data.as_ref()),
+                RawUniformValue::Vec2(data) => {
+                    self.ctx.uniform_2_f32_slice(location, data.as_ref())
+                }
+                RawUniformValue::Vec3(data) => {
+                    self.ctx.uniform_3_f32_slice(location, data.as_ref())
+                }
+                RawUniformValue::Vec4(data) => {
+                    self.ctx.uniform_4_f32_slice(location, data.as_ref())
+                }
+                RawUniformValue::IntVec2(data) => {
+                    self.ctx.uniform_2_i32_slice(location, data.as_ref())
+                }
+                RawUniformValue::IntVec3(data) => {
+                    self.ctx.uniform_3_i32_slice(location, data.as_ref())
+                }
+                RawUniformValue::IntVec4(data) => {
+                    self.ctx.uniform_4_i32_slice(location, data.as_ref())
+                }
             }
         }
     }
