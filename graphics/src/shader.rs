@@ -283,10 +283,25 @@ pub trait UniformTrait {
     type Value;
 
     fn get_location(&self) -> Option<&UniformLocation>;
+    fn get_name() -> &'static str { "" }
 }
 
 pub trait ShaderTrait {
     fn get_handle(&self) -> super::ShaderKey;
+
+    fn bind(&self, gl: &mut super::Context) {
+        gl.use_shader(Some(self.get_handle()))
+    }
+
+    fn location(
+        gl: &super::Context,
+        handle: super::ShaderKey,
+        name: &str,
+    ) -> Option<UniformLocation> {
+        gl.get_shader(handle)
+            .and_then(|shader| shader.get_uniform_by_name(name))
+            .map(|uniform| uniform.location.clone())
+    }
 }
 
 pub trait UniformGetterMut<U>
