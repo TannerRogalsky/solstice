@@ -283,7 +283,9 @@ pub trait UniformTrait {
     type Value;
 
     fn get_location(&self) -> Option<&UniformLocation>;
-    fn get_name() -> &'static str { "" }
+    fn get_name() -> &'static str {
+        ""
+    }
 }
 
 pub trait ShaderTrait {
