@@ -165,17 +165,30 @@ impl FromStr for GLVersion {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (major, minor, gles) = if s.contains("OpenGL ES ") {
-            (s.chars().nth(10), s.chars().nth(12), true)
+        // the webgl property is about whether the string was parsed as webgl
+        // rather than whether the gl implementation is webgl
+        let (major, minor, gles, webgl) = if s.contains("OpenGL ES ") {
+            (s.chars().nth(10), s.chars().nth(12), true, false)
+        } else if s.starts_with("WebGL ") {
+            (s.chars().nth(6), s.chars().nth(8), true, true)
         } else {
-            (s.chars().nth(0), s.chars().nth(2), false)
+            (s.chars().nth(0), s.chars().nth(2), false, false)
         };
+        let major = major.and_then(|c| c.to_digit(10));
+        let minor= minor.and_then(|c| c.to_digit(10));
         match (major, minor) {
-            (Some(major), Some(minor)) => Ok(Self {
-                major: major as u32,
-                minor: minor as u32,
-                gles,
-            }),
+            (Some(mut major), Some(minor)) => {
+                if webgl {
+                    // this conflates WebGL X with OpenGL ES X+1 but
+                    // it's done intentionally so it's okay?
+                    major += 1;
+                }
+                Ok(Self {
+                    major: major as u32,
+                    minor: minor as u32,
+                    gles,
+                })
+            },
             _ => Err(()),
         }
     }
