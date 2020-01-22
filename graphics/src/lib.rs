@@ -177,22 +177,16 @@ impl FromStr for GLVersion {
 
         // this conflates WebGL X with OpenGL ES X+1 but
         // it's done intentionally so it's okay?
-        let major_incr = if webgl {
-            1
-        } else {
-            0
-        };
+        let major_incr = if webgl { 1 } else { 0 };
 
         let major = major.and_then(|c| c.to_digit(10));
-        let minor= minor.and_then(|c| c.to_digit(10));
+        let minor = minor.and_then(|c| c.to_digit(10));
         match (major, minor) {
-            (Some(major), Some(minor)) => {
-                Ok(Self {
-                    major: major + major_incr as u32,
-                    minor: minor as u32,
-                    gles,
-                })
-            },
+            (Some(major), Some(minor)) => Ok(Self {
+                major: major + major_incr as u32,
+                minor: minor as u32,
+                gles,
+            }),
             _ => Err(()),
         }
     }
