@@ -58,7 +58,7 @@ impl Graphics2D {
         angle1: f32,
         angle2: f32,
     ) {
-        unimplemented!()
+        self.arc_with_type(draw_mode, ArcType::Pie, x, y, radius, angle1, angle2)
     }
     pub fn arc_with_segments(
         &mut self,
@@ -70,7 +70,16 @@ impl Graphics2D {
         angle2: f32,
         segments: u32,
     ) {
-        unimplemented!()
+        self.arc_with_type_and_segments(
+            draw_mode,
+            ArcType::Pie,
+            x,
+            y,
+            radius,
+            angle1,
+            angle2,
+            segments,
+        )
     }
     pub fn arc_with_type(
         &mut self,
@@ -82,7 +91,16 @@ impl Graphics2D {
         angle1: f32,
         angle2: f32,
     ) {
-        unimplemented!()
+        self.arc_with_type_and_segments(
+            draw_mode,
+            arc_type,
+            x,
+            y,
+            radius,
+            angle1,
+            angle2,
+            radius.max(8.) as u32,
+        )
     }
     pub fn arc_with_type_and_segments(
         &mut self,
@@ -95,7 +113,60 @@ impl Graphics2D {
         angle2: f32,
         segments: u32,
     ) {
-        unimplemented!()
+        if segments == 0 || angle1 == angle2 {
+            return;
+        }
+
+        const TWO_PI: f32 = std::f32::consts::PI * 2.;
+        if (angle1 - angle2).abs() >= TWO_PI {
+            return self.circle_with_segments(draw_mode, x, y, radius, segments);
+        }
+
+        let angle_shift = (angle2 - angle1) / segments as f32;
+        if angle_shift == 0. {
+            return; // bail on precision fail
+        }
+
+        let mut phi = angle1;
+        let mut create_points = |coordinates: &mut [vertex::Vertex2D]| {
+            for coordinate in coordinates.iter_mut() {
+                phi += angle_shift;
+                coordinate.position[0] = x + radius * phi.cos();
+                coordinate.position[1] = y + radius * phi.sin();
+            }
+        };
+
+        let coords = match arc_type {
+            ArcType::Pie => {
+                let num_coords = segments as usize + 3;
+                let mut coords = vec![vertex::Vertex2D::default(); num_coords];
+                coords[0] = vertex::Vertex2D {
+                    position: [x, y],
+                    ..vertex::Vertex2D::default()
+                };
+                create_points(&mut coords[1..]);
+                coords
+            }
+            ArcType::Open => {
+                let num_coords = segments as usize + 1;
+                let mut coords = vec![vertex::Vertex2D::default(); num_coords];
+                create_points(&mut coords);
+                coords
+            }
+            ArcType::Closed => {
+                let num_coords = segments as usize + 2;
+                let mut coords = vec![vertex::Vertex2D::default(); num_coords];
+                create_points(&mut coords);
+                coords[num_coords - 1] = coords[0];
+                coords
+            }
+        };
+
+        self.default_shader.bind_texture(&self.default_texture);
+        self.mesh.set_draw_mode(graphics::DrawMode::TriangleFan);
+        self.mesh.set_vertices(&coords, 0);
+        self.mesh.set_draw_range(Some(0..coords.len()));
+        self.mesh.draw(&mut self.gfx.borrow_mut());
     }
     pub fn circle(&mut self, draw_mode: DrawMode, x: f32, y: f32, radius: f32) {
         self.ellipse(draw_mode, x, y, radius, radius);
@@ -168,10 +239,25 @@ impl Graphics2D {
         self.mesh.draw(&mut self.gfx.borrow_mut());
     }
     pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
-        unimplemented!()
+        self.mesh.set_vertices(
+            &[
+                vertex::Vertex2D::new([x1, y1], [1., 1., 1., 1.], [0.5, 0.5]),
+                vertex::Vertex2D::new([x2, y2], [1., 1., 1., 1.], [0.5, 0.5]),
+            ],
+            0,
+        );
+        self.mesh.set_draw_range(Some(0..2));
+        self.mesh.set_draw_mode(graphics::DrawMode::Lines);
+        self.mesh.draw(&mut self.gfx.borrow_mut());
     }
     pub fn point(&mut self, x: f32, y: f32) {
-        unimplemented!()
+        self.mesh.set_vertices(
+            &[vertex::Vertex2D::new([x, y], [1., 1., 1., 1.], [0.5, 0.5])],
+            0,
+        );
+        self.mesh.set_draw_range(Some(0..1));
+        self.mesh.set_draw_mode(graphics::DrawMode::Points);
+        self.mesh.draw(&mut self.gfx.borrow_mut());
     }
     pub fn rectangle(&mut self, draw_mode: DrawMode, x: f32, y: f32, width: f32, height: f32) {
         self.default_shader.bind_texture(&self.default_texture);
