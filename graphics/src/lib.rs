@@ -347,15 +347,15 @@ impl Context {
         if let Some(&vbo) = self.buffers.get(buffer_key) {
             let buffer_index = buffer_type_to_index(buffer_type);
             match self.active_buffers.get_mut(buffer_index) {
-                _ => {
-                    self.active_buffers[buffer_index] = Some(buffer_key);
-                    unsafe { self.ctx.bind_buffer(buffer_type.into(), Some(vbo)) };
-                }
                 Some(Some(active_buffer)) => {
                     if active_buffer != &buffer_key {
                         *active_buffer = buffer_key;
                         unsafe { self.ctx.bind_buffer(buffer_type.into(), Some(vbo)) };
                     }
+                }
+                _ => {
+                    self.active_buffers[buffer_index] = Some(buffer_key);
+                    unsafe { self.ctx.bind_buffer(buffer_type.into(), Some(vbo)) };
                 }
             }
         }
