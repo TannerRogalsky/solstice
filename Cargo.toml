@@ -10,6 +10,7 @@ members = [
     "data",
     "conrod_graphics",
     "audio",
+    "graphics-extras",
 ]
 default-members = [
     "graphics",
