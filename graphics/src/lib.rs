@@ -18,11 +18,16 @@ use std::{
     str::FromStr,
 };
 
-type GLBuffer = <glow::Context as HasContext>::Buffer;
-type GLProgram = <glow::Context as HasContext>::Program;
-type GLTexture = <glow::Context as HasContext>::Texture;
-type GLFrameBuffer = <glow::Context as HasContext>::Framebuffer;
-type GLUniformLocation = <glow::Context as HasContext>::UniformLocation;
+#[cfg(not(test))]
+type GLContext = glow::Context;
+#[cfg(test)]
+type GLContext = gl::null_context::NullContext;
+
+type GLBuffer = <GLContext as HasContext>::Buffer;
+type GLProgram = <GLContext as HasContext>::Program;
+type GLTexture = <GLContext as HasContext>::Texture;
+type GLFrameBuffer = <GLContext as HasContext>::Framebuffer;
+type GLUniformLocation = <GLContext as HasContext>::UniformLocation;
 
 slotmap::new_key_type! {
     pub struct ShaderKey;
@@ -32,11 +37,11 @@ slotmap::new_key_type! {
 }
 
 pub struct DebugGroup<'a> {
-    ctx: &'a glow::Context,
+    ctx: &'a GLContext,
 }
 
 impl<'a> DebugGroup<'a> {
-    pub fn new(ctx: &'a glow::Context, message: &str) -> Self {
+    pub fn new(ctx: &'a GLContext, message: &str) -> Self {
         if ctx.supports_debug() {
             unsafe {
                 ctx.push_debug_group(glow::DEBUG_SOURCE_APPLICATION, 0, message);
@@ -204,7 +209,7 @@ impl Debug for GLVersion {
 
 // a caching, convenience and safety layer around glow
 pub struct Context {
-    ctx: glow::Context,
+    ctx: GLContext,
     version: GLVersion,
     gl_constants: GLConstants,
     shaders: DenseSlotMap<ShaderKey, shader::Shader>, // TODO: evaluate the correctness of this. all other tracking is on GL primitives
@@ -221,7 +226,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(ctx: glow::Context) -> Self {
+    pub fn new(ctx: GLContext) -> Self {
         let gl_constants = GLConstants {
             max_vertex_attributes: unsafe {
                 ctx.get_parameter_i32(glow::MAX_VERTEX_ATTRIBS) as usize
@@ -953,5 +958,16 @@ impl Drop for Context {
         for (_, buffer) in self.buffers.drain() {
             unsafe { self.ctx.delete_buffer(buffer) }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic() {
+        let ctx = Context::new(GLContext {});
+        ctx.clear();
     }
 }

@@ -66,8 +66,6 @@ pub fn derive_uniform(item: TokenStream) -> TokenStream {
                 })
                 .map(|field| {
                     let field_ident = field.ident.as_ref().unwrap();
-                    let field_ty = &field.ty;
-
                     quote! {
                         impl engine::graphics::shader::UniformTrait for #ident {
                             type Value = [f32; 16];

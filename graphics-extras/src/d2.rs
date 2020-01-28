@@ -365,7 +365,12 @@ impl Graphics2D {
             DrawMode::Stroke => {
                 use lyon_tessellation::*;
                 let mut builder = path::Builder::new();
-                builder.polygon(&vertices.iter().map(|v| v.position.into()).collect::<Vec<_>>());
+                builder.polygon(
+                    &vertices
+                        .iter()
+                        .map(|v| v.position.into())
+                        .collect::<Vec<_>>(),
+                );
                 let path = builder.build();
 
                 let mut buffers: VertexBuffers<math::Point, u16> = VertexBuffers::new();
@@ -375,16 +380,20 @@ impl Graphics2D {
                     let _r = tessellator.tessellate(
                         &path,
                         &StrokeOptions::default(),
-                        &mut vertex_builder
+                        &mut vertex_builder,
                     );
                 }
-                let vertices = buffers.indices.iter().map(|i| {
-                    let i = *i as usize;
-                    vertex::Vertex2D {
-                        position: [buffers.vertices[i].x, buffers.vertices[i].y],
-                        ..vertex::Vertex2D::default()
-                    }
-                }).collect::<Vec<_>>();
+                let vertices = buffers
+                    .indices
+                    .iter()
+                    .map(|i| {
+                        let i = *i as usize;
+                        vertex::Vertex2D {
+                            position: [buffers.vertices[i].x, buffers.vertices[i].y],
+                            ..vertex::Vertex2D::default()
+                        }
+                    })
+                    .collect::<Vec<_>>();
                 self.mesh.set_vertices(&vertices, 0);
                 self.mesh.set_draw_mode(graphics::DrawMode::Triangles);
                 self.mesh.set_draw_range(Some(0..vertices.len()));

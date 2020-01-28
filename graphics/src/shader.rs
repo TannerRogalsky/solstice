@@ -84,7 +84,7 @@ pub struct Shader {
 
 impl Shader {
     pub fn new(
-        gl: &glow::Context,
+        gl: &super::GLContext,
         vertex_source: &str,
         fragment_source: &str,
     ) -> Result<Shader, String> {
@@ -338,7 +338,7 @@ pub trait BasicUniformSetter {
         T: super::texture::Texture,
     {
         let uniform = self.get_uniform_mut();
-        if let Some(location) = uniform.get_location() {
+        if uniform.get_location().is_some() {
             gl.bind_texture_to_unit(
                 texture.get_texture_type(),
                 texture.get_texture_key(),
