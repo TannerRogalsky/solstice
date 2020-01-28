@@ -13,3 +13,4 @@ data = { path = "../data" }
 mint = "0.5"
 
 cgmath = "0.17.0"
+lyon_tessellation = "0.15"

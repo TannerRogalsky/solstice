@@ -12,10 +12,93 @@ pub enum DrawMode {
     Stroke,
 }
 
+/// An angle, in radians.
+///
+/// This type is marked as `#[repr(C)]`.
+#[repr(C)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
+pub struct Rad(pub f32);
+
+/// An angle, in degrees.
+///
+/// This type is marked as `#[repr(C)]`.
+#[repr(C)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
+pub struct Deg(pub f32);
+
+impl From<Rad> for Deg {
+    #[inline]
+    fn from(rad: Rad) -> Deg {
+        Deg(rad.0 * 180.0 / std::f32::consts::PI)
+    }
+}
+
+impl From<Deg> for Rad {
+    #[inline]
+    fn from(deg: Deg) -> Rad {
+        Rad(deg.0 * std::f32::consts::PI / 180.0)
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct Arc {
+    pub arc_type: ArcType,
+    pub x: f32,
+    pub y: f32,
+    pub radius: f32,
+    pub angle1: Rad,
+    pub angle2: Rad,
+    pub segments: u32,
+}
+
+#[derive(Copy, Clone)]
 pub enum ArcType {
     Pie,
     Open,
     Closed,
+}
+
+impl Default for ArcType {
+    fn default() -> Self {
+        ArcType::Pie
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct Circle {
+    pub x: f32,
+    pub y: f32,
+    pub radius: f32,
+    pub segments: u32,
+}
+
+impl Into<Ellipse> for Circle {
+    fn into(self) -> Ellipse {
+        Ellipse {
+            x: self.x,
+            y: self.y,
+            radius_x: self.radius,
+            radius_y: self.radius,
+            segments: self.segments,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct Ellipse {
+    pub x: f32,
+    pub y: f32,
+    pub radius_x: f32,
+    pub radius_y: f32,
+    pub segments: u32,
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct Rectangle {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 pub struct Graphics2D {
@@ -49,77 +132,33 @@ impl Graphics2D {
         self.default_shader.set_color(color)
     }
 
-    pub fn arc(
-        &mut self,
-        draw_mode: DrawMode,
-        x: f32,
-        y: f32,
-        radius: f32,
-        angle1: f32,
-        angle2: f32,
-    ) {
-        self.arc_with_type(draw_mode, ArcType::Pie, x, y, radius, angle1, angle2)
-    }
-    pub fn arc_with_segments(
-        &mut self,
-        draw_mode: DrawMode,
-        x: f32,
-        y: f32,
-        radius: f32,
-        angle1: f32,
-        angle2: f32,
-        segments: u32,
-    ) {
-        self.arc_with_type_and_segments(
-            draw_mode,
-            ArcType::Pie,
-            x,
-            y,
-            radius,
-            angle1,
-            angle2,
-            segments,
-        )
-    }
-    pub fn arc_with_type(
-        &mut self,
-        draw_mode: DrawMode,
-        arc_type: ArcType,
-        x: f32,
-        y: f32,
-        radius: f32,
-        angle1: f32,
-        angle2: f32,
-    ) {
-        self.arc_with_type_and_segments(
-            draw_mode,
+    pub fn arc(&mut self, draw_mode: DrawMode, arc: Arc) {
+        let Arc {
             arc_type,
             x,
             y,
             radius,
             angle1,
             angle2,
-            radius.max(8.) as u32,
-        )
-    }
-    pub fn arc_with_type_and_segments(
-        &mut self,
-        draw_mode: DrawMode,
-        arc_type: ArcType,
-        x: f32,
-        y: f32,
-        radius: f32,
-        angle1: f32,
-        angle2: f32,
-        segments: u32,
-    ) {
+            segments,
+        } = arc;
+        let (angle1, angle2) = (angle1.0, angle2.0);
+
         if segments == 0 || angle1 == angle2 {
             return;
         }
 
         const TWO_PI: f32 = std::f32::consts::PI * 2.;
         if (angle1 - angle2).abs() >= TWO_PI {
-            return self.circle_with_segments(draw_mode, x, y, radius, segments);
+            return self.circle(
+                draw_mode,
+                Circle {
+                    x,
+                    y,
+                    radius,
+                    segments,
+                },
+            );
         }
 
         let angle_shift = (angle2 - angle1) / segments as f32;
@@ -163,43 +202,19 @@ impl Graphics2D {
         };
 
         self.default_shader.bind_texture(&self.default_texture);
-        self.mesh.set_draw_mode(graphics::DrawMode::TriangleFan);
-        self.mesh.set_vertices(&coords, 0);
-        self.mesh.set_draw_range(Some(0..coords.len()));
-        self.mesh.draw(&mut self.gfx.borrow_mut());
+        self.polygon(draw_mode, &coords, true);
     }
-    pub fn circle(&mut self, draw_mode: DrawMode, x: f32, y: f32, radius: f32) {
-        self.ellipse(draw_mode, x, y, radius, radius);
+    pub fn circle(&mut self, draw_mode: DrawMode, circle: Circle) {
+        self.ellipse(draw_mode, circle.into());
     }
-    pub fn circle_with_segments(
-        &mut self,
-        draw_mode: DrawMode,
-        x: f32,
-        y: f32,
-        radius: f32,
-        segments: u32,
-    ) {
-        self.ellipse_with_segments(draw_mode, x, y, radius, radius, segments);
-    }
-    pub fn ellipse(&mut self, draw_mode: DrawMode, x: f32, y: f32, radius_x: f32, radius_y: f32) {
-        self.ellipse_with_segments(
-            draw_mode,
+    pub fn ellipse(&mut self, draw_mode: DrawMode, ellipse: Ellipse) {
+        let Ellipse {
             x,
             y,
             radius_x,
             radius_y,
-            radius_x.max(radius_y).max(8.) as u32,
-        );
-    }
-    pub fn ellipse_with_segments(
-        &mut self,
-        draw_mode: DrawMode,
-        x: f32,
-        y: f32,
-        radius_x: f32,
-        radius_y: f32,
-        segments: u32,
-    ) {
+            segments,
+        } = ellipse;
         const TWO_PI: f32 = std::f32::consts::PI * 2.;
         if segments == 0 {
             return;
@@ -233,10 +248,7 @@ impl Graphics2D {
         vertices.push(vertices[extra_segments as usize - 1]);
 
         self.default_shader.bind_texture(&self.default_texture);
-        self.mesh.set_vertices(&vertices, 0);
-        self.mesh.set_draw_range(Some(0..vertices.len()));
-        self.mesh.set_draw_mode(graphics::DrawMode::TriangleFan);
-        self.mesh.draw(&mut self.gfx.borrow_mut());
+        self.polygon(draw_mode, &vertices, false);
     }
     pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
         self.mesh.set_vertices(
@@ -259,29 +271,125 @@ impl Graphics2D {
         self.mesh.set_draw_mode(graphics::DrawMode::Points);
         self.mesh.draw(&mut self.gfx.borrow_mut());
     }
-    pub fn rectangle(&mut self, draw_mode: DrawMode, x: f32, y: f32, width: f32, height: f32) {
+    pub fn rectangle(&mut self, draw_mode: DrawMode, rectangle: Rectangle) {
+        let Rectangle {
+            x,
+            y,
+            width,
+            height,
+        } = rectangle;
         self.default_shader.bind_texture(&self.default_texture);
-        let quad = graphics::quad_batch::Quad::from(graphics::viewport::Viewport::new(
-            x, y, width, height,
-        ))
-        .map(|(x, y)| vertex::Vertex2D::new([x, y], [1., 1., 1., 1.], [0.5, 0.5]));
-        self.mesh.set_vertices(&quad.vertices, 0);
-        self.mesh.set_draw_range(Some(0..4));
-        self.mesh.set_draw_mode(graphics::DrawMode::TriangleStrip);
-        self.mesh.draw(&mut self.gfx.borrow_mut());
+        let vertices = [
+            vertex::Vertex2D {
+                position: [x, y],
+                ..vertex::Vertex2D::default()
+            },
+            vertex::Vertex2D {
+                position: [x, y + height],
+                ..vertex::Vertex2D::default()
+            },
+            vertex::Vertex2D {
+                position: [x + width, y + height],
+                ..vertex::Vertex2D::default()
+            },
+            vertex::Vertex2D {
+                position: [x + width, y],
+                ..vertex::Vertex2D::default()
+            },
+            vertex::Vertex2D {
+                position: [x, y],
+                ..vertex::Vertex2D::default()
+            },
+        ];
+        self.polygon(draw_mode, &vertices, true);
     }
-    pub fn image<T>(&mut self, x: f32, y: f32, width: f32, height: f32, texture: T)
+    pub fn image<T>(&mut self, rectangle: Rectangle, texture: T)
     where
         T: graphics::texture::Texture,
     {
-        use graphics::{quad_batch::Quad, viewport::Viewport};
+        let Rectangle {
+            x,
+            y,
+            width,
+            height,
+        } = rectangle;
         self.default_shader.bind_texture(texture);
-        let quad = Quad::from(Viewport::new(x, y, width, height))
-            .zip(Quad::from(Viewport::new(0., 0., 1., 1.)))
-            .map(|((x, y), (s, t))| vertex::Vertex2D::new([x, y], [1., 1., 1., 1.], [s, t]));
-        self.mesh.set_vertices(&quad.vertices, 0);
-        self.mesh.set_draw_range(Some(0..4));
-        self.mesh.set_draw_mode(graphics::DrawMode::TriangleStrip);
-        self.mesh.draw(&mut self.gfx.borrow_mut());
+        let vertices = [
+            vertex::Vertex2D {
+                position: [x, y],
+                uv: [0., 0.],
+                ..vertex::Vertex2D::default()
+            },
+            vertex::Vertex2D {
+                position: [x, y + height],
+                uv: [0., 1.],
+                ..vertex::Vertex2D::default()
+            },
+            vertex::Vertex2D {
+                position: [x + width, y + height],
+                uv: [1., 1.],
+                ..vertex::Vertex2D::default()
+            },
+            vertex::Vertex2D {
+                position: [x + width, y],
+                uv: [1., 0.],
+                ..vertex::Vertex2D::default()
+            },
+            vertex::Vertex2D {
+                position: [x, y],
+                uv: [0., 0.],
+                ..vertex::Vertex2D::default()
+            },
+        ];
+        self.polygon(DrawMode::Fill, &vertices, true)
+    }
+
+    pub fn polygon(
+        &mut self,
+        draw_mode: DrawMode,
+        vertices: &[vertex::Vertex2D],
+        skip_last_filled: bool,
+    ) {
+        match draw_mode {
+            DrawMode::Fill => {
+                let vertices = if skip_last_filled {
+                    &vertices[0..vertices.len() - 1]
+                } else {
+                    &vertices
+                };
+                self.mesh.set_vertices(vertices, 0);
+                self.mesh.set_draw_mode(graphics::DrawMode::TriangleFan);
+                self.mesh.set_draw_range(Some(0..vertices.len()));
+                self.mesh.draw(&mut self.gfx.borrow_mut());
+            }
+            DrawMode::Stroke => {
+                use lyon_tessellation::*;
+                let mut builder = path::Builder::new();
+                builder.polygon(&vertices.iter().map(|v| v.position.into()).collect::<Vec<_>>());
+                let path = builder.build();
+
+                let mut buffers: VertexBuffers<math::Point, u16> = VertexBuffers::new();
+                {
+                    let mut vertex_builder = geometry_builder::simple_builder(&mut buffers);
+                    let mut tessellator = StrokeTessellator::new();
+                    let _r = tessellator.tessellate(
+                        &path,
+                        &StrokeOptions::default(),
+                        &mut vertex_builder
+                    );
+                }
+                let vertices = buffers.indices.iter().map(|i| {
+                    let i = *i as usize;
+                    vertex::Vertex2D {
+                        position: [buffers.vertices[i].x, buffers.vertices[i].y],
+                        ..vertex::Vertex2D::default()
+                    }
+                }).collect::<Vec<_>>();
+                self.mesh.set_vertices(&vertices, 0);
+                self.mesh.set_draw_mode(graphics::DrawMode::Triangles);
+                self.mesh.set_draw_range(Some(0..vertices.len()));
+                self.mesh.draw(&mut self.gfx.borrow_mut());
+            }
+        }
     }
 }
