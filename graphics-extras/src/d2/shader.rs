@@ -2,6 +2,12 @@ use graphics::shader::UniformLocation;
 use graphics::Context;
 use std::{cell::RefCell, rc::Rc};
 
+pub enum Shader2DError {
+    ShaderNotFound,
+    GraphicsError(graphics::GraphicsError),
+    UniformNotFound(String),
+}
+
 pub struct Shader2D {
     gfx: Rc<RefCell<Context>>,
     inner: graphics::ShaderKey,
@@ -28,23 +34,24 @@ fn get_location(
     gfx: &mut Context,
     inner: graphics::ShaderKey,
     name: &str,
-) -> Result<UniformLocation, String> {
+) -> Result<UniformLocation, Shader2DError> {
     gfx.get_shader(inner)
-        .ok_or("Shader not found after creation.".to_owned())
+        .ok_or(Shader2DError::ShaderNotFound)
         .and_then(|shader| {
             shader
                 .get_uniform_by_name(name)
-                .ok_or(format!("{} not found", name))
+                .ok_or(Shader2DError::UniformNotFound(name.to_owned()))
                 .map(|uniform| uniform.location.clone())
         })
 }
 
 impl Shader2D {
-    pub fn new(gfx: Rc<RefCell<Context>>, width: f32, height: f32) -> Result<Self, String> {
+    pub fn new(gfx: Rc<RefCell<Context>>, width: f32, height: f32) -> Result<Self, Shader2DError> {
         let (vertex, fragment) = graphics::shader::Shader::create_source(SHADER_SRC, SHADER_SRC);
         let inner = gfx
             .borrow_mut()
-            .new_shader(vertex.as_str(), fragment.as_str())?;
+            .new_shader(vertex.as_str(), fragment.as_str())
+            .map_err(Shader2DError::GraphicsError)?;
 
         let projection_location = get_location(&mut gfx.borrow_mut(), inner, "uProjection")?;
         let view_location = get_location(&mut gfx.borrow_mut(), inner, "uView")?;

@@ -34,14 +34,13 @@ impl Image {
         height: usize,
         slices: usize,
         settings: &Settings,
-    ) -> Self {
+    ) -> Result<Self, super::GraphicsError> {
         assert!(
             texture_type.is_supported(),
             "Unsupported Texture Type: {:?}",
             texture_type
         );
-        ctx.new_debug_group("Create Image");
-        let texture_key = ctx.new_texture(texture_type);
+        let texture_key = ctx.new_texture(texture_type)?;
         let filter = if settings.linear {
             Filter::new(
                 FilterMode::Linear,
@@ -68,7 +67,7 @@ impl Image {
         let wrap = Wrap::default();
         ctx.set_texture_filter(texture_key, texture_type, filter);
         ctx.set_texture_wrap(texture_key, texture_type, wrap);
-        Self {
+        Ok(Self {
             texture_type,
             texture_key,
             texture_info: TextureInfo::new(
@@ -78,7 +77,7 @@ impl Image {
                 filter,
                 wrap,
             ),
-        }
+        })
     }
 
     pub fn set_texture_info(&mut self, texture_info: TextureInfo) {

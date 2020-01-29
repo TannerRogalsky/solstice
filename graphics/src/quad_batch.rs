@@ -68,11 +68,11 @@ impl<T> QuadBatch<T>
 where
     T: super::vertex::Vertex,
 {
-    pub fn new(gl: &mut Context, capacity: usize) -> Self {
+    pub fn new(gl: &mut Context, capacity: usize) -> Result<Self, super::GraphicsError> {
         let vertex_capacity = capacity * 4;
         let index_capacity = capacity * 6;
 
-        let mut mesh = Mesh::with_capacities(gl, vertex_capacity, index_capacity);
+        let mut mesh = Mesh::with_capacities(gl, vertex_capacity, index_capacity)?;
         mesh.set_draw_range(Some(0..0));
 
         {
@@ -92,11 +92,11 @@ where
             mesh.set_indices(indices.as_slice(), 0);
         }
 
-        Self {
+        Ok(Self {
             mesh,
             count: 0,
             capacity,
-        }
+        })
     }
 
     pub fn count(&self) -> usize {

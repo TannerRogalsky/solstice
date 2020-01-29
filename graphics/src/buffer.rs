@@ -47,17 +47,17 @@ impl Buffer {
         size: usize,
         buffer_type: BufferType,
         usage: Usage,
-    ) -> Self {
-        let handle = gl.new_buffer(size, buffer_type, usage);
+    ) -> Result<Self, super::GraphicsError> {
+        let handle = gl.new_buffer(size, buffer_type, usage)?;
         let memory_map = vec![0u8; size].into_boxed_slice();
-        Self {
+        Ok(Self {
             memory_map,
             modified_offset: 0,
             modified_size: 0,
             handle,
             buffer_type,
             usage,
-        }
+        })
     }
 
     pub fn handle(&self) -> BufferKey {

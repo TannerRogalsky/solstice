@@ -47,7 +47,7 @@ pub struct Canvas {
 }
 
 impl Canvas {
-    pub fn new(ctx: &mut Context, settings: Settings) -> Self {
+    pub fn new(ctx: &mut Context, settings: Settings) -> Result<Self, super::GraphicsError> {
         let texture = TextureInfo::new(
             settings.format,
             (settings.width as f32 * settings.dpi_scale + 0.5) as usize,
@@ -56,7 +56,7 @@ impl Canvas {
             Wrap::default(),
         );
         let (framebuffer_key, texture_key) = {
-            let texture_key = ctx.new_texture(settings.texture_type);
+            let texture_key = ctx.new_texture(settings.texture_type)?;
             ctx.bind_texture_to_unit(settings.texture_type, texture_key, super::TextureUnit(0));
             ctx.set_texture_wrap(texture_key, settings.texture_type, texture.wrap());
             ctx.set_texture_filter(texture_key, settings.texture_type, texture.filter());
@@ -66,7 +66,7 @@ impl Canvas {
             let framebuffer_key = {
                 let target = Target::All;
                 let current_framebuffer = ctx.get_active_framebuffer(target);
-                let framebuffer_key = ctx.new_framebuffer();
+                let framebuffer_key = ctx.new_framebuffer()?;
                 ctx.bind_framebuffer(target, Some(framebuffer_key));
 
                 ctx.framebuffer_texture(
@@ -92,12 +92,12 @@ impl Canvas {
             };
             (framebuffer_key, texture_key)
         };
-        Self {
+        Ok(Self {
             texture_type: settings.texture_type,
             framebuffer_key,
             texture_key,
             texture_info: texture,
-        }
+        })
     }
 
     pub fn get_framebuffer_key(&self) -> super::FramebufferKey {

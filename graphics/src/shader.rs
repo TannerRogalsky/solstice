@@ -76,6 +76,14 @@ raw_uniform_conv!(mint::Vector2<i32>, IntVec2);
 raw_uniform_conv!(mint::Vector3<i32>, IntVec3);
 raw_uniform_conv!(mint::Vector4<i32>, IntVec4);
 
+#[derive(Debug)]
+pub enum ShaderError {
+    VertexCompileError(String),
+    FragmentCompileError(String),
+    LinkError(String),
+    ResourceCreationError,
+}
+
 pub struct Shader {
     program: GLProgram,
     attributes: Vec<Attribute>,
@@ -87,18 +95,20 @@ impl Shader {
         gl: &super::GLContext,
         vertex_source: &str,
         fragment_source: &str,
-    ) -> Result<Shader, String> {
+    ) -> Result<Shader, ShaderError> {
         let mut attributes = Vec::new();
         let mut uniforms = HashMap::new();
 
         let program = unsafe {
             let vertex = gl
                 .create_shader(glow::VERTEX_SHADER)
-                .expect("Failed to create vertex shader.");
+                .map_err(|_| ShaderError::ResourceCreationError)?;
             gl.shader_source(vertex, vertex_source);
             gl.compile_shader(vertex);
             if !gl.get_shader_compile_status(vertex) {
-                let err = Err(gl.get_shader_info_log(vertex));
+                let err = Err(ShaderError::VertexCompileError(
+                    gl.get_shader_info_log(vertex),
+                ));
                 gl.delete_shader(vertex);
                 return err;
             }
@@ -108,7 +118,9 @@ impl Shader {
             gl.shader_source(fragment, fragment_source);
             gl.compile_shader(fragment);
             if !gl.get_shader_compile_status(fragment) {
-                let err = Err(gl.get_shader_info_log(fragment));
+                let err = Err(ShaderError::FragmentCompileError(
+                    gl.get_shader_info_log(fragment),
+                ));
                 gl.delete_shader(fragment);
                 return err;
             }
@@ -117,7 +129,7 @@ impl Shader {
             gl.attach_shader(program, fragment);
             gl.link_program(program);
             if !gl.get_program_link_status(program) {
-                let err = Err(gl.get_program_info_log(program));
+                let err = Err(ShaderError::LinkError(gl.get_program_info_log(program)));
                 gl.delete_program(program);
                 return err;
             }

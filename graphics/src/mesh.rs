@@ -20,31 +20,35 @@ impl<T> Mesh<T>
 where
     T: Vertex,
 {
-    pub fn new(gl: &mut Context, size: usize) -> Self {
+    pub fn new(gl: &mut Context, size: usize) -> Result<Self, super::GraphicsError> {
         Self::with_capacities(gl, size, size)
     }
 
-    pub fn with_capacities(gl: &mut Context, vertex_count: usize, index_count: usize) -> Self {
+    pub fn with_capacities(
+        gl: &mut Context,
+        vertex_count: usize,
+        index_count: usize,
+    ) -> Result<Self, super::GraphicsError> {
         let vbo = Buffer::new(
             gl,
             vertex_count * std::mem::size_of::<T>(),
             BufferType::Vertex,
             Usage::Dynamic,
-        );
+        )?;
         let ibo = Buffer::new(
             gl,
             index_count * std::mem::size_of::<Index>(),
             BufferType::Index,
             Usage::Dynamic,
-        );
-        Self {
+        )?;
+        Ok(Self {
             vbo,
             ibo,
             use_indices: false,
             draw_range: None,
             draw_mode: super::DrawMode::Triangles,
             vertex_marker: std::marker::PhantomData,
-        }
+        })
     }
 
     fn set_buffer<V>(buffer: &mut Buffer, data: &[V], offset: usize)

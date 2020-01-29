@@ -17,7 +17,8 @@ fn create_default_texture(gl: &mut graphics::Context) -> graphics::image::Image 
         1,
         1,
         &Settings::new(false, false, 1.),
-    );
+    )
+    .unwrap();
     gl.set_texture_data(
         image.get_texture_key(),
         image.get_texture_info(),
@@ -37,7 +38,7 @@ where
     T: graphics::vertex::Vertex,
 {
     fn new(mut gfx: Rc<RefCell<graphics::Context>>, initial_size: usize) -> Self {
-        let inner = graphics::mesh::Mesh::new(&mut gfx.borrow_mut(), initial_size);
+        let inner = graphics::mesh::Mesh::new(&mut gfx.borrow_mut(), initial_size).unwrap();
         Self { gfx, inner }
     }
 
@@ -51,7 +52,8 @@ where
             let mut new_inner = graphics::mesh::Mesh::new(
                 &mut self.gfx.borrow_mut(),
                 (vertices.len() + offset) * 2,
-            );
+            )
+            .unwrap();
             new_inner.set_vertices(current_vertices, 0);
             new_inner.set_indices(self.inner.get_indices(), 0);
             self.inner = new_inner;
@@ -67,7 +69,8 @@ where
         let current_indices = self.inner.get_indices();
         if current_indices.len() < indices.len() + offset {
             let mut new_inner =
-                graphics::mesh::Mesh::new(&mut self.gfx.borrow_mut(), (indices.len() + offset) * 2);
+                graphics::mesh::Mesh::new(&mut self.gfx.borrow_mut(), (indices.len() + offset) * 2)
+                    .unwrap();
             new_inner.set_vertices(self.inner.get_vertices(), 0);
             new_inner.set_indices(current_indices, 0);
             self.inner = new_inner;

@@ -101,6 +101,11 @@ pub struct Rectangle {
     pub height: f32,
 }
 
+pub enum Graphics2DError {
+    ShaderError(shader::Shader2DError),
+    GraphicsError(graphics::GraphicsError),
+}
+
 pub struct Graphics2D {
     gfx: Rc<RefCell<Context>>,
     mesh: Mesh<vertex::Vertex2D>,
@@ -109,9 +114,15 @@ pub struct Graphics2D {
 }
 
 impl Graphics2D {
-    pub fn new(gfx: Rc<RefCell<Context>>, width: f32, height: f32) -> Result<Self, String> {
-        let mesh = Mesh::with_capacities(&mut gfx.borrow_mut(), 1000, 0);
-        let default_shader = shader::Shader2D::new(gfx.clone(), width, height)?;
+    pub fn new(
+        gfx: Rc<RefCell<Context>>,
+        width: f32,
+        height: f32,
+    ) -> Result<Self, Graphics2DError> {
+        let mesh = Mesh::with_capacities(&mut gfx.borrow_mut(), 1000, 0)
+            .map_err(Graphics2DError::GraphicsError)?;
+        let default_shader = shader::Shader2D::new(gfx.clone(), width, height)
+            .map_err(Graphics2DError::ShaderError)?;
         let default_texture = super::create_default_texture(&mut gfx.borrow_mut());
         Ok(Self {
             gfx,

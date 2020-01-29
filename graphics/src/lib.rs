@@ -18,6 +18,14 @@ use std::{
     str::FromStr,
 };
 
+#[derive(Debug)]
+pub enum GraphicsError {
+    ShaderError(shader::ShaderError),
+    TextureError,
+    BufferError,
+    FramebufferError,
+}
+
 #[cfg(not(test))]
 type GLContext = glow::Context;
 #[cfg(test)]
@@ -324,12 +332,12 @@ impl Context {
         size: usize,
         buffer_type: buffer::BufferType,
         usage: buffer::Usage,
-    ) -> BufferKey {
+    ) -> Result<BufferKey, GraphicsError> {
         let vbo = unsafe {
             let vbo = self
                 .ctx
                 .create_buffer()
-                .expect("Could not create GPU buffer.");
+                .map_err(|_| GraphicsError::BufferError)?;
             self.ctx.bind_buffer(buffer_type.into(), Some(vbo));
             self.ctx
                 .buffer_data_size(buffer_type.into(), size as _, usage.to_gl());
@@ -337,7 +345,7 @@ impl Context {
         };
         let buffer_key = self.buffers.insert(vbo);
         self.active_buffers[buffer_type_to_index(buffer_type)] = Some(buffer_key);
-        buffer_key
+        Ok(buffer_key)
     }
 
     pub fn destroy_buffer(&mut self, buffer: &buffer::Buffer) {
@@ -423,9 +431,10 @@ impl Context {
         &mut self,
         vertex_source: &str,
         fragment_source: &str,
-    ) -> Result<ShaderKey, String> {
+    ) -> Result<ShaderKey, GraphicsError> {
         shader::Shader::new(&self.ctx, vertex_source, fragment_source)
             .map(|shader| self.shaders.insert(shader))
+            .map_err(GraphicsError::ShaderError)
     }
 
     pub fn destroy_shader(&mut self, shader: ShaderKey) {
@@ -463,13 +472,19 @@ impl Context {
         self.active_shader
     }
 
-    pub fn new_texture(&mut self, texture_type: texture::TextureType) -> TextureKey {
+    pub fn new_texture(
+        &mut self,
+        texture_type: texture::TextureType,
+    ) -> Result<TextureKey, GraphicsError> {
         unsafe {
-            let handle = self.ctx.create_texture().unwrap();
+            let handle = self
+                .ctx
+                .create_texture()
+                .map_err(|_| GraphicsError::TextureError)?;
             let texture = self.textures.insert(handle);
             self.ctx.active_texture(glow::TEXTURE0);
             self.bind_texture_to_unit(texture_type, texture, TextureUnit(0));
-            texture
+            Ok(texture)
         }
     }
 
@@ -537,9 +552,13 @@ impl Context {
         }
     }
 
-    pub fn new_framebuffer(&mut self) -> FramebufferKey {
-        let framebuffer = unsafe { self.ctx.create_framebuffer().unwrap() };
-        self.framebuffers.insert(framebuffer)
+    pub fn new_framebuffer(&mut self) -> Result<FramebufferKey, GraphicsError> {
+        let framebuffer = unsafe {
+            self.ctx
+                .create_framebuffer()
+                .map_err(|_| GraphicsError::FramebufferError)?
+        };
+        Ok(self.framebuffers.insert(framebuffer))
     }
 
     pub fn destroy_framebuffer(&mut self, framebuffer_key: FramebufferKey) {
