@@ -1,5 +1,5 @@
 use super::{
-    mesh::{Index, Mesh},
+    mesh::{Index, IndexedMesh},
     Context,
 };
 
@@ -59,7 +59,7 @@ where
 }
 
 pub struct QuadBatch<T> {
-    mesh: Mesh<T>,
+    mesh: IndexedMesh<T, u16>,
     count: usize,
     capacity: usize,
 }
@@ -72,16 +72,16 @@ where
         let vertex_capacity = capacity * 4;
         let index_capacity = capacity * 6;
 
-        let mut mesh = Mesh::with_capacities(gl, vertex_capacity, index_capacity)?;
+        let mut mesh = IndexedMesh::new(gl, vertex_capacity, index_capacity)?;
         mesh.set_draw_range(Some(0..0));
 
         {
             // 0---2
             // | / |
             // 1---3
-            let mut indices: Vec<Index> = Vec::with_capacity(index_capacity);
+            let mut indices: Vec<u16> = Vec::with_capacity(index_capacity);
             for i in 0..capacity {
-                let vi = (i * 4) as Index;
+                let vi = (i * 4) as u16;
                 indices.push(vi);
                 indices.push(vi + 1);
                 indices.push(vi + 2);
@@ -129,10 +129,10 @@ where
     }
 }
 
-impl<'a, T> super::mesh::MeshAttacher<'a, T> for &'a mut QuadBatch<T> {
-    fn attach_with_step<N>(self, other: &'a mut Mesh<N>, step: u32) -> super::mesh::MultiMesh<'a, T>
+impl<'a, V> super::mesh::MeshAttacher<'a, V, u16> for &'a mut QuadBatch<V> {
+    fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> super::mesh::MultiMesh<'a, V, u16>
     where
-        N: super::vertex::Vertex,
+        T: super::mesh::HasAttributes,
     {
         self.mesh.attach_with_step(other, step)
     }

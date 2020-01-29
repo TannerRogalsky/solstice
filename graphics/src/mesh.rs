@@ -4,99 +4,69 @@ use super::{
     Context,
 };
 
-pub type Index = u32;
-const INDEX_GL: u32 = glow::UNSIGNED_INT;
-
-pub struct Mesh<T> {
-    vbo: Buffer,
-    ibo: Buffer,
-    use_indices: bool,
-    draw_range: Option<std::ops::Range<usize>>,
-    vertex_marker: std::marker::PhantomData<T>,
-    draw_mode: super::DrawMode,
+fn set_buffer<T>(buffer: &mut Buffer, data: &[T], offset: usize)
+where
+    T: Sized,
+{
+    buffer.write(
+        unsafe {
+            std::slice::from_raw_parts(
+                data.as_ptr() as *const u8,
+                data.len() * std::mem::size_of::<T>(),
+            )
+        },
+        offset * std::mem::size_of::<T>(),
+    );
 }
 
-impl<T> Mesh<T>
+fn get_buffer<'a, T>(buffer: &'a Buffer) -> &'a [T]
 where
-    T: Vertex,
+    T: Sized,
 {
-    pub fn new(gl: &mut Context, size: usize) -> Result<Self, super::GraphicsError> {
-        Self::with_capacities(gl, size, size)
+    let data = buffer.memory_map();
+    unsafe {
+        // The lifetime of this slice is explicitly given because I'm not sure the compiler
+        // can safely infer it in this unsafe function call. It might be fine but better safe
+        // than sorry.
+        std::slice::from_raw_parts::<'a, T>(
+            data.as_ptr() as *const _,
+            data.len() / std::mem::size_of::<T>(),
+        )
     }
+}
 
-    pub fn with_capacities(
-        gl: &mut Context,
-        vertex_count: usize,
-        index_count: usize,
-    ) -> Result<Self, super::GraphicsError> {
+pub struct Mesh<V> {
+    vbo: Buffer,
+    draw_range: Option<std::ops::Range<usize>>,
+    draw_mode: super::DrawMode,
+    type_marker: std::marker::PhantomData<V>,
+}
+
+impl<V> Mesh<V>
+where
+    V: Vertex,
+{
+    pub fn new(gl: &mut Context, vertex_count: usize) -> Result<Self, super::GraphicsError> {
         let vbo = Buffer::new(
             gl,
-            vertex_count * std::mem::size_of::<T>(),
+            vertex_count * std::mem::size_of::<V>(),
             BufferType::Vertex,
-            Usage::Dynamic,
-        )?;
-        let ibo = Buffer::new(
-            gl,
-            index_count * std::mem::size_of::<Index>(),
-            BufferType::Index,
             Usage::Dynamic,
         )?;
         Ok(Self {
             vbo,
-            ibo,
-            use_indices: false,
             draw_range: None,
             draw_mode: super::DrawMode::Triangles,
-            vertex_marker: std::marker::PhantomData,
+            type_marker: std::marker::PhantomData,
         })
     }
 
-    fn set_buffer<V>(buffer: &mut Buffer, data: &[V], offset: usize)
-    where
-        V: Sized,
-    {
-        buffer.write(
-            unsafe {
-                std::slice::from_raw_parts(
-                    data.as_ptr() as *const u8,
-                    data.len() * std::mem::size_of::<V>(),
-                )
-            },
-            offset * std::mem::size_of::<V>(),
-        );
+    pub fn get_vertices(&self) -> &[V] {
+        get_buffer(&self.vbo)
     }
 
-    fn get_buffer<'a, V>(buffer: &'a Buffer) -> &'a [V]
-    where
-        V: Sized,
-    {
-        let data = buffer.memory_map();
-        unsafe {
-            // The lifetime of this slice is explicitly given because I'm not sure the compiler
-            // can safely infer it in this unsafe function call. It might be fine but better safe
-            // than sorry.
-            std::slice::from_raw_parts::<'a, V>(
-                data.as_ptr() as *const _,
-                data.len() / std::mem::size_of::<V>(),
-            )
-        }
-    }
-
-    pub fn get_vertices(&self) -> &[T] {
-        Self::get_buffer(&self.vbo)
-    }
-
-    pub fn get_indices(&self) -> &[Index] {
-        Self::get_buffer(&self.ibo)
-    }
-
-    pub fn set_vertices(&mut self, vertices: &[T], offset: usize) {
-        Self::set_buffer(&mut self.vbo, vertices, offset);
-    }
-
-    pub fn set_indices(&mut self, indices: &[Index], offset: usize) {
-        self.use_indices = true;
-        Self::set_buffer(&mut self.ibo, indices, offset);
+    pub fn set_vertices(&mut self, vertices: &[V], offset: usize) {
+        set_buffer(&mut self.vbo, vertices, offset);
     }
 
     pub fn set_draw_range(&mut self, draw_range: Option<std::ops::Range<usize>>) {
@@ -107,21 +77,21 @@ where
         self.draw_mode = draw_mode;
     }
 
+    pub fn attributes(&mut self) -> AttachedAttributes {
+        AttachedAttributes {
+            buffer: &mut self.vbo,
+            formats: V::build_bindings(),
+            step: 0,
+            stride: std::mem::size_of::<V>(),
+        }
+    }
+
     pub fn draw(&mut self, gl: &mut Context) {
         self.draw_instanced(gl, 1);
     }
 
     pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {
         self.internal_draw(gl, instance_count, &mut []);
-    }
-
-    pub fn get_attributes(&mut self) -> AttachedAttributes {
-        AttachedAttributes {
-            buffer: &mut self.vbo,
-            formats: T::build_bindings(),
-            step: 0,
-            stride: std::mem::size_of::<T>(),
-        }
     }
 
     fn internal_draw(
@@ -136,12 +106,41 @@ where
             }
         }
 
-        let stride = std::mem::size_of::<T>();
+        let stride = std::mem::size_of::<V>();
 
         gl.unmap_buffer(&mut self.vbo);
         for attr in attached_attributes.iter_mut() {
             gl.unmap_buffer(attr.buffer);
         }
+
+        // there's likely a better way to accumulate all bindings into an easy to search collection
+        let attached_bindings = V::build_bindings()
+            .iter()
+            .map(|binding| {
+                (
+                    binding,
+                    stride,
+                    0,
+                    self.vbo.handle(),
+                    self.vbo.buffer_type(),
+                )
+            })
+            .chain(attached_attributes.iter().flat_map(|attributes| {
+                attributes
+                    .formats
+                    .iter()
+                    .map(|binding| {
+                        (
+                            binding,
+                            attributes.stride,
+                            attributes.step,
+                            attributes.buffer.handle(),
+                            attributes.buffer.buffer_type(),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            }))
+            .collect::<Vec<_>>();
 
         let shader = gl
             .get_shader(gl.get_active_shader().expect("No active shader."))
@@ -151,78 +150,202 @@ where
             .attributes()
             .iter()
             .filter_map(|attr| {
-                // for each attribute in the shader, try to map it to one of our attachements
-                // do self's bindings first and then try the attached attributes
-                // TODO: it would be great if this were less tiered and simpler
-                T::build_bindings()
+                let binding = attached_bindings
                     .iter()
-                    .find(|binding| binding.name == attr.name.as_str())
-                    .map(|binding| {
-                        desired_attribute_state |= 1 << attr.location;
-                        (
-                            binding,
-                            stride,
-                            0,
-                            self.vbo.handle(),
-                            self.vbo.buffer_type(),
-                        )
-                    })
-                    .or_else(|| {
-                        attached_attributes
-                            .iter()
-                            .find_map(|attributes| {
-                                attributes
-                                    .formats
-                                    .iter()
-                                    .find(|binding| binding.name == attr.name.as_str())
-                                    .map(|binding| {
-                                        (
-                                            binding,
-                                            attributes.stride,
-                                            attributes.step,
-                                            attributes.buffer.handle(),
-                                            attributes.buffer.buffer_type(),
-                                        )
-                                    })
-                            })
-                            .map(|(format, stride, step, buffer_key, buffer_type)| {
-                                desired_attribute_state |= 1 << attr.location;
-                                (format, stride, step, buffer_key, buffer_type)
-                            })
-                    })
+                    .find(|(binding, ..)| binding.name == attr.name.as_str());
+                if binding.is_some() {
+                    desired_attribute_state |= 1 << attr.location;
+                }
+                binding.cloned()
             })
             .collect::<Vec<_>>();
         gl.set_vertex_attributes(desired_attribute_state, &attributes);
 
-        if self.use_indices {
-            gl.unmap_buffer(&mut self.ibo);
-            let (count, offset) = match &self.draw_range {
-                None => ((self.ibo.size() / std::mem::size_of::<Index>()) as i32, 0),
-                Some(range) => ((range.end - range.start) as i32, range.start as i32),
-            };
-            if instance_count > 1 {
-                gl.draw_elements_instanced(
-                    self.draw_mode,
-                    count,
-                    INDEX_GL,
-                    offset,
-                    instance_count as i32,
-                );
-            } else {
-                gl.draw_elements(self.draw_mode, count, INDEX_GL, offset);
-            }
+        let (count, offset) = match &self.draw_range {
+            None => ((self.vbo.size() / std::mem::size_of::<V>()) as i32, 0),
+            Some(range) => ((range.end - range.start) as i32, range.start as i32),
+        };
+        if instance_count > 1 {
+            gl.draw_arrays_instanced(self.draw_mode, offset, count, instance_count as i32);
         } else {
-            let (count, offset) = match &self.draw_range {
-                None => ((self.vbo.size() / std::mem::size_of::<Index>()) as i32, 0),
-                Some(range) => ((range.end - range.start) as i32, range.start as i32),
-            };
-            if instance_count > 1 {
-                gl.draw_arrays_instanced(self.draw_mode, offset, count, instance_count as i32);
-            } else {
-                gl.draw_arrays(self.draw_mode, offset, count);
-            }
+            gl.draw_arrays(self.draw_mode, offset, count);
         }
     }
+}
+
+pub struct IndexedMesh<V, I> {
+    mesh: Mesh<V>,
+    ibo: Buffer,
+    type_marker: std::marker::PhantomData<I>,
+}
+
+impl<V, I> IndexedMesh<V, I>
+where
+    V: Vertex,
+    I: Index,
+{
+    pub fn new(
+        gl: &mut Context,
+        vertex_count: usize,
+        index_count: usize,
+    ) -> Result<Self, super::GraphicsError> {
+        let ibo = Buffer::new(
+            gl,
+            index_count * std::mem::size_of::<I>(),
+            BufferType::Index,
+            Usage::Dynamic,
+        )?;
+        let mesh = Mesh::new(gl, vertex_count)?;
+        Ok(Self {
+            mesh,
+            ibo,
+            type_marker: std::marker::PhantomData,
+        })
+    }
+
+    pub fn get_vertices(&self) -> &[V] {
+        self.mesh.get_vertices()
+    }
+
+    pub fn get_indices(&self) -> &[I] {
+        get_buffer(&self.ibo)
+    }
+
+    pub fn set_vertices(&mut self, vertices: &[V], offset: usize) {
+        self.mesh.set_vertices(vertices, offset)
+    }
+
+    pub fn set_indices(&mut self, indices: &[I], offset: usize) {
+        set_buffer(&mut self.ibo, indices, offset);
+    }
+
+    pub fn set_draw_range(&mut self, draw_range: Option<std::ops::Range<usize>>) {
+        self.mesh.set_draw_range(draw_range)
+    }
+
+    pub fn set_draw_mode(&mut self, draw_mode: super::DrawMode) {
+        self.mesh.set_draw_mode(draw_mode)
+    }
+
+    pub fn draw(&mut self, gl: &mut Context) {
+        self.draw_instanced(gl, 1);
+    }
+
+    pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {
+        self.internal_draw(gl, instance_count, &mut []);
+    }
+
+    pub fn attributes(&mut self) -> AttachedAttributes {
+        self.mesh.attributes()
+    }
+
+    fn internal_draw(
+        &mut self,
+        gl: &mut Context,
+        instance_count: usize,
+        attached_attributes: &mut [AttachedAttributes],
+    ) {
+        if let Some(draw_range) = &self.mesh.draw_range {
+            if draw_range.start >= draw_range.end {
+                return;
+            }
+        }
+
+        let stride = std::mem::size_of::<V>();
+
+        gl.unmap_buffer(&mut self.mesh.vbo);
+        for attr in attached_attributes.iter_mut() {
+            gl.unmap_buffer(attr.buffer);
+        }
+
+        // there's likely a better way to accumulate all bindings into an easy to search collection
+        let attached_bindings = V::build_bindings()
+            .iter()
+            .map(|binding| {
+                (
+                    binding,
+                    stride,
+                    0,
+                    self.mesh.vbo.handle(),
+                    self.mesh.vbo.buffer_type(),
+                )
+            })
+            .chain(attached_attributes.iter().flat_map(|attributes| {
+                attributes
+                    .formats
+                    .iter()
+                    .map(|binding| {
+                        (
+                            binding,
+                            attributes.stride,
+                            attributes.step,
+                            attributes.buffer.handle(),
+                            attributes.buffer.buffer_type(),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            }))
+            .collect::<Vec<_>>();
+
+        let shader = gl
+            .get_shader(gl.get_active_shader().expect("No active shader."))
+            .unwrap();
+        let mut desired_attribute_state = 0u32;
+        let attributes = shader
+            .attributes()
+            .iter()
+            .filter_map(|attr| {
+                let binding = attached_bindings
+                    .iter()
+                    .find(|(binding, ..)| binding.name == attr.name.as_str());
+                if binding.is_some() {
+                    desired_attribute_state |= 1 << attr.location;
+                }
+                binding.cloned()
+            })
+            .collect::<Vec<_>>();
+        gl.set_vertex_attributes(desired_attribute_state, &attributes);
+
+        gl.unmap_buffer(&mut self.ibo);
+        let (count, offset) = match &self.mesh.draw_range {
+            None => ((self.ibo.size() / std::mem::size_of::<I>()) as i32, 0),
+            Some(range) => ((range.end - range.start) as i32, range.start as i32),
+        };
+        if instance_count > 1 {
+            gl.draw_elements_instanced(
+                self.mesh.draw_mode,
+                count,
+                I::GL_TYPE,
+                offset,
+                instance_count as i32,
+            );
+        } else {
+            gl.draw_elements(self.mesh.draw_mode, count, I::GL_TYPE, offset);
+        }
+    }
+}
+
+impl<V> HasAttributes for Mesh<V>
+where
+    V: Vertex,
+{
+    fn get_attributes(&mut self) -> AttachedAttributes {
+        self.attributes()
+    }
+}
+
+impl<V, I> HasAttributes for IndexedMesh<V, I>
+where
+    V: Vertex,
+    I: Index,
+{
+    fn get_attributes(&mut self) -> AttachedAttributes {
+        self.attributes()
+    }
+}
+
+pub trait HasAttributes {
+    fn get_attributes(&mut self) -> AttachedAttributes;
 }
 
 pub struct AttachedAttributes<'a> {
@@ -232,20 +355,21 @@ pub struct AttachedAttributes<'a> {
     stride: usize,
 }
 
-pub struct MultiMesh<'a, T> {
-    base: &'a mut Mesh<T>,
+pub struct MultiMesh<'a, V, I> {
+    base: &'a mut IndexedMesh<V, I>,
     attachments: Vec<AttachedAttributes<'a>>,
 }
 
-impl<'a, T> MultiMesh<'a, T> {
-    pub fn new(base: &'a mut Mesh<T>, attachments: Vec<AttachedAttributes<'a>>) -> Self {
+impl<'a, V, I> MultiMesh<'a, V, I> {
+    pub fn new(base: &'a mut IndexedMesh<V, I>, attachments: Vec<AttachedAttributes<'a>>) -> Self {
         Self { base, attachments }
     }
 }
 
-impl<'a, T> MultiMesh<'a, T>
+impl<'a, V, I> MultiMesh<'a, V, I>
 where
-    T: Vertex,
+    V: Vertex,
+    I: Index,
 {
     pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {
         self.base
@@ -253,26 +377,26 @@ where
     }
 }
 
-pub trait MeshAttacher<'a, T>
+pub trait MeshAttacher<'a, V, I>
 where
     Self: Sized,
 {
-    fn attach<N>(self, other: &'a mut Mesh<N>) -> MultiMesh<'a, T>
+    fn attach<T>(self, other: &'a mut T) -> MultiMesh<'a, V, I>
     where
-        N: Vertex,
+        T: HasAttributes,
     {
         Self::attach_with_step(self, other, 0)
     }
 
-    fn attach_with_step<N>(self, other: &'a mut Mesh<N>, step: u32) -> MultiMesh<'a, T>
+    fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> MultiMesh<'a, V, I>
     where
-        N: Vertex;
+        T: HasAttributes;
 }
 
-impl<'a, T> MeshAttacher<'a, T> for &'a mut Mesh<T> {
-    fn attach_with_step<N>(self, other: &'a mut Mesh<N>, step: u32) -> MultiMesh<'a, T>
+impl<'a, V, I> MeshAttacher<'a, V, I> for &'a mut IndexedMesh<V, I> {
+    fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> MultiMesh<'a, V, I>
     where
-        N: Vertex,
+        T: HasAttributes,
     {
         let mut attachments = other.get_attributes();
         attachments.step = step;
@@ -283,10 +407,10 @@ impl<'a, T> MeshAttacher<'a, T> for &'a mut Mesh<T> {
     }
 }
 
-impl<'a, T> MeshAttacher<'a, T> for MultiMesh<'a, T> {
-    fn attach_with_step<N>(mut self, other: &'a mut Mesh<N>, step: u32) -> MultiMesh<'a, T>
+impl<'a, V, I> MeshAttacher<'a, V, I> for MultiMesh<'a, V, I> {
+    fn attach_with_step<T>(mut self, other: &'a mut T, step: u32) -> MultiMesh<'a, V, I>
     where
-        N: Vertex,
+        T: HasAttributes,
     {
         let mut attachments = other.get_attributes();
         attachments.step = step;
@@ -296,4 +420,16 @@ impl<'a, T> MeshAttacher<'a, T> for MultiMesh<'a, T> {
             attachments: self.attachments,
         }
     }
+}
+
+pub trait Index {
+    const GL_TYPE: u32;
+}
+
+impl Index for u32 {
+    const GL_TYPE: u32 = glow::UNSIGNED_INT;
+}
+
+impl Index for u16 {
+    const GL_TYPE: u32 = glow::UNSIGNED_SHORT;
 }
