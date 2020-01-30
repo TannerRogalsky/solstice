@@ -112,6 +112,10 @@ impl HasContext for NullContext {
 
     unsafe fn bind_buffer(&self, _target: u32, _buffer: Option<Self::Buffer>) {}
 
+    unsafe fn bind_buffer_base(&self, target: u32, index: u32, buffer: Option<Self::Buffer>) {
+        unimplemented!()
+    }
+
     unsafe fn bind_buffer_range(
         &self,
         _target: u32,
@@ -386,6 +390,14 @@ impl HasContext for NullContext {
         glow::NO_ERROR
     }
 
+    unsafe fn get_tex_parameter_i32(&self, target: u32, parameter: u32) -> i32 {
+        unimplemented!()
+    }
+
+    unsafe fn get_buffer_parameter_i32(&self, target: u32, parameter: u32) -> i32 {
+        unimplemented!()
+    }
+
     unsafe fn get_parameter_i32(&self, _parameter: u32) -> i32 {
         0
     }
@@ -443,6 +455,17 @@ impl HasContext for NullContext {
         _width: i32,
         _height: i32,
     ) {
+    }
+
+    unsafe fn renderbuffer_storage_multisample(
+        &self,
+        target: u32,
+        samples: i32,
+        internal_format: u32,
+        width: i32,
+        height: i32,
+    ) {
+        unimplemented!()
     }
 
     unsafe fn sampler_parameter_f32(&self, _sampler: Self::Sampler, _name: u32, _value: f32) {}

@@ -1,4 +1,4 @@
-use graphics::mesh::IndexedMesh;
+use graphics::mesh::Mesh;
 use graphics::Context;
 
 use std::cell::RefCell;
@@ -108,7 +108,7 @@ pub enum Graphics2DError {
 
 pub struct Graphics2D {
     gfx: Rc<RefCell<Context>>,
-    mesh: IndexedMesh<vertex::Vertex2D, u16>,
+    mesh: Mesh<vertex::Vertex2D>,
     default_shader: shader::Shader2D,
     default_texture: graphics::image::Image,
 }
@@ -119,8 +119,8 @@ impl Graphics2D {
         width: f32,
         height: f32,
     ) -> Result<Self, Graphics2DError> {
-        let mesh = IndexedMesh::new(&mut gfx.borrow_mut(), 1000, 0)
-            .map_err(Graphics2DError::GraphicsError)?;
+        let mesh =
+            Mesh::new(&mut gfx.borrow_mut(), 1000).map_err(Graphics2DError::GraphicsError)?;
         let default_shader = shader::Shader2D::new(gfx.clone(), width, height)
             .map_err(Graphics2DError::ShaderError)?;
         let default_texture = super::create_default_texture(&mut gfx.borrow_mut());

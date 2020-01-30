@@ -106,6 +106,20 @@ where
             }
         }
 
+        self.prepare_draw(gl, attached_attributes);
+
+        let (count, offset) = match &self.draw_range {
+            None => ((self.vbo.size() / std::mem::size_of::<V>()) as i32, 0),
+            Some(range) => ((range.end - range.start) as i32, range.start as i32),
+        };
+        if instance_count > 1 {
+            gl.draw_arrays_instanced(self.draw_mode, offset, count, instance_count as i32);
+        } else {
+            gl.draw_arrays(self.draw_mode, offset, count);
+        }
+    }
+
+    fn prepare_draw(&mut self, gl: &mut Context, attached_attributes: &mut [AttachedAttributes]) {
         let stride = std::mem::size_of::<V>();
 
         gl.unmap_buffer(&mut self.vbo);
@@ -160,16 +174,6 @@ where
             })
             .collect::<Vec<_>>();
         gl.set_vertex_attributes(desired_attribute_state, &attributes);
-
-        let (count, offset) = match &self.draw_range {
-            None => ((self.vbo.size() / std::mem::size_of::<V>()) as i32, 0),
-            Some(range) => ((range.end - range.start) as i32, range.start as i32),
-        };
-        if instance_count > 1 {
-            gl.draw_arrays_instanced(self.draw_mode, offset, count, instance_count as i32);
-        } else {
-            gl.draw_arrays(self.draw_mode, offset, count);
-        }
     }
 }
 
@@ -251,60 +255,7 @@ where
             }
         }
 
-        let stride = std::mem::size_of::<V>();
-
-        gl.unmap_buffer(&mut self.mesh.vbo);
-        for attr in attached_attributes.iter_mut() {
-            gl.unmap_buffer(attr.buffer);
-        }
-
-        // there's likely a better way to accumulate all bindings into an easy to search collection
-        let attached_bindings = V::build_bindings()
-            .iter()
-            .map(|binding| {
-                (
-                    binding,
-                    stride,
-                    0,
-                    self.mesh.vbo.handle(),
-                    self.mesh.vbo.buffer_type(),
-                )
-            })
-            .chain(attached_attributes.iter().flat_map(|attributes| {
-                attributes
-                    .formats
-                    .iter()
-                    .map(|binding| {
-                        (
-                            binding,
-                            attributes.stride,
-                            attributes.step,
-                            attributes.buffer.handle(),
-                            attributes.buffer.buffer_type(),
-                        )
-                    })
-                    .collect::<Vec<_>>()
-            }))
-            .collect::<Vec<_>>();
-
-        let shader = gl
-            .get_shader(gl.get_active_shader().expect("No active shader."))
-            .unwrap();
-        let mut desired_attribute_state = 0u32;
-        let attributes = shader
-            .attributes()
-            .iter()
-            .filter_map(|attr| {
-                let binding = attached_bindings
-                    .iter()
-                    .find(|(binding, ..)| binding.name == attr.name.as_str());
-                if binding.is_some() {
-                    desired_attribute_state |= 1 << attr.location;
-                }
-                binding.cloned()
-            })
-            .collect::<Vec<_>>();
-        gl.set_vertex_attributes(desired_attribute_state, &attributes);
+        self.mesh.prepare_draw(gl, attached_attributes);
 
         gl.unmap_buffer(&mut self.ibo);
         let (count, offset) = match &self.mesh.draw_range {
