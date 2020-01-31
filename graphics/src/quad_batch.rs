@@ -129,10 +129,14 @@ where
     }
 }
 
-impl<'a, V> super::mesh::MeshAttacher<'a, V, u16> for &'a mut QuadBatch<V> {
-    fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> super::mesh::MultiMesh<'a, V, u16>
+impl<'a, V> super::mesh::MeshAttacher<'a, IndexedMesh<V, u16>> for &'a mut QuadBatch<V> {
+    fn attach_with_step<T>(
+        self,
+        other: &'a mut T,
+        step: u32,
+    ) -> super::mesh::MultiMesh<'a, IndexedMesh<V, u16>>
     where
-        T: super::mesh::HasAttributes,
+        T: super::mesh::MeshTrait,
     {
         self.mesh.attach_with_step(other, step)
     }

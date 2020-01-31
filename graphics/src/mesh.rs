@@ -276,16 +276,25 @@ where
     }
 }
 
-impl<V> HasAttributes for Mesh<V>
+impl<V> MeshTrait for Mesh<V>
 where
     V: Vertex,
 {
     fn get_attributes(&mut self) -> AttachedAttributes {
         self.attributes()
     }
+
+    fn secret_draw(
+        &mut self,
+        gl: &mut Context,
+        instance_count: usize,
+        attached_attributes: &mut [AttachedAttributes],
+    ) {
+        self.internal_draw(gl, instance_count, attached_attributes)
+    }
 }
 
-impl<V, I> HasAttributes for IndexedMesh<V, I>
+impl<V, I> MeshTrait for IndexedMesh<V, I>
 where
     V: Vertex,
     I: Index,
@@ -293,10 +302,25 @@ where
     fn get_attributes(&mut self) -> AttachedAttributes {
         self.attributes()
     }
+
+    fn secret_draw(
+        &mut self,
+        gl: &mut Context,
+        instance_count: usize,
+        attached_attributes: &mut [AttachedAttributes],
+    ) {
+        self.internal_draw(gl, instance_count, attached_attributes)
+    }
 }
 
-pub trait HasAttributes {
+pub trait MeshTrait {
     fn get_attributes(&mut self) -> AttachedAttributes;
+    fn secret_draw(
+        &mut self,
+        gl: &mut Context,
+        instance_count: usize,
+        attached_attributes: &mut [AttachedAttributes],
+    );
 }
 
 pub struct AttachedAttributes<'a> {
@@ -306,48 +330,47 @@ pub struct AttachedAttributes<'a> {
     stride: usize,
 }
 
-pub struct MultiMesh<'a, V, I> {
-    base: &'a mut IndexedMesh<V, I>,
+pub struct MultiMesh<'a, T> {
+    base: &'a mut T,
     attachments: Vec<AttachedAttributes<'a>>,
 }
 
-impl<'a, V, I> MultiMesh<'a, V, I> {
-    pub fn new(base: &'a mut IndexedMesh<V, I>, attachments: Vec<AttachedAttributes<'a>>) -> Self {
+impl<'a, T> MultiMesh<'a, T> {
+    pub fn new(base: &'a mut T, attachments: Vec<AttachedAttributes<'a>>) -> Self {
         Self { base, attachments }
     }
 }
 
-impl<'a, V, I> MultiMesh<'a, V, I>
+impl<'a, T> MultiMesh<'a, T>
 where
-    V: Vertex,
-    I: Index,
+    T: MeshTrait,
 {
     pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {
         self.base
-            .internal_draw(gl, instance_count, &mut self.attachments)
+            .secret_draw(gl, instance_count, &mut self.attachments)
     }
 }
 
-pub trait MeshAttacher<'a, V, I>
+pub trait MeshAttacher<'a, B>
 where
     Self: Sized,
 {
-    fn attach<T>(self, other: &'a mut T) -> MultiMesh<'a, V, I>
+    fn attach<T>(self, other: &'a mut T) -> MultiMesh<'a, B>
     where
-        T: HasAttributes,
+        T: MeshTrait,
     {
         Self::attach_with_step(self, other, 0)
     }
 
-    fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> MultiMesh<'a, V, I>
+    fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> MultiMesh<'a, B>
     where
-        T: HasAttributes;
+        T: MeshTrait;
 }
 
-impl<'a, V, I> MeshAttacher<'a, V, I> for &'a mut IndexedMesh<V, I> {
-    fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> MultiMesh<'a, V, I>
+impl<'a, S> MeshAttacher<'a, S> for &'a mut S {
+    fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> MultiMesh<'a, S>
     where
-        T: HasAttributes,
+        T: MeshTrait,
     {
         let mut attachments = other.get_attributes();
         attachments.step = step;
@@ -358,10 +381,10 @@ impl<'a, V, I> MeshAttacher<'a, V, I> for &'a mut IndexedMesh<V, I> {
     }
 }
 
-impl<'a, V, I> MeshAttacher<'a, V, I> for MultiMesh<'a, V, I> {
-    fn attach_with_step<T>(mut self, other: &'a mut T, step: u32) -> MultiMesh<'a, V, I>
+impl<'a, B> MeshAttacher<'a, B> for MultiMesh<'a, B> {
+    fn attach_with_step<T>(mut self, other: &'a mut T, step: u32) -> MultiMesh<'a, B>
     where
-        T: HasAttributes,
+        T: MeshTrait,
     {
         let mut attachments = other.get_attributes();
         attachments.step = step;
