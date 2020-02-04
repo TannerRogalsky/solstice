@@ -156,9 +156,7 @@ where
             }))
             .collect::<Vec<_>>();
 
-        let shader = gl
-            .get_shader(gl.get_active_shader().expect("No active shader."))
-            .unwrap();
+        let shader = gl.get_active_shader().expect("No active shader.");
         let mut desired_attribute_state = 0u32;
         let attributes = shader
             .attributes()

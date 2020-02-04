@@ -12,7 +12,7 @@ pub mod viewport;
 mod gl;
 
 use glow::HasContext;
-use slotmap::{DenseSlotMap, SlotMap};
+use slotmap::SlotMap;
 use std::{
     fmt::{Debug, Error, Formatter},
     str::FromStr,
@@ -220,8 +220,8 @@ pub struct Context {
     ctx: GLContext,
     version: GLVersion,
     gl_constants: GLConstants,
-    shaders: DenseSlotMap<ShaderKey, shader::Shader>, // TODO: evaluate the correctness of this. all other tracking is on GL primitives
-    active_shader: Option<ShaderKey>,
+    shaders: SlotMap<ShaderKey, GLProgram>,
+    active_shader: Option<shader::Shader>,
     buffers: SlotMap<BufferKey, GLBuffer>,
     active_buffers: [Option<BufferKey>; 2],
     textures: SlotMap<TextureKey, GLTexture>,
@@ -285,7 +285,7 @@ impl Context {
             ctx,
             version,
             gl_constants,
-            shaders: DenseSlotMap::with_key(),
+            shaders: SlotMap::with_key(),
             active_shader: None,
             buffers: SlotMap::with_key(),
             active_buffers: [None; 2],
@@ -431,45 +431,157 @@ impl Context {
         &mut self,
         vertex_source: &str,
         fragment_source: &str,
-    ) -> Result<ShaderKey, GraphicsError> {
-        shader::Shader::new(&self.ctx, vertex_source, fragment_source)
-            .map(|shader| self.shaders.insert(shader))
-            .map_err(GraphicsError::ShaderError)
+    ) -> Result<ShaderKey, shader::ShaderError> {
+        use shader::*;
+        let program = unsafe {
+            let gl = &self.ctx;
+            let vertex = gl
+                .create_shader(glow::VERTEX_SHADER)
+                .map_err(|_| ShaderError::ResourceCreationError)?;
+            gl.shader_source(vertex, vertex_source);
+            gl.compile_shader(vertex);
+            if !gl.get_shader_compile_status(vertex) {
+                let err = Err(ShaderError::VertexCompileError(
+                    gl.get_shader_info_log(vertex),
+                ));
+                gl.delete_shader(vertex);
+                return err;
+            }
+            let fragment = gl
+                .create_shader(glow::FRAGMENT_SHADER)
+                .expect("Failed to create Fragment shader.");
+            gl.shader_source(fragment, fragment_source);
+            gl.compile_shader(fragment);
+            if !gl.get_shader_compile_status(fragment) {
+                let err = Err(ShaderError::FragmentCompileError(
+                    gl.get_shader_info_log(fragment),
+                ));
+                gl.delete_shader(fragment);
+                return err;
+            }
+            let program = gl.create_program().expect("Failed to create program.");
+            gl.attach_shader(program, vertex);
+            gl.attach_shader(program, fragment);
+            gl.link_program(program);
+            if !gl.get_program_link_status(program) {
+                let err = Err(ShaderError::LinkError(gl.get_program_info_log(program)));
+                gl.delete_program(program);
+                return err;
+            }
+
+            program
+        };
+
+        Ok(self.shaders.insert(program))
+    }
+
+    pub fn get_shader_attributes(&self, shader: ShaderKey) -> Vec<shader::Attribute> {
+        if let Some(program) = self.shaders.get(shader).cloned() {
+            let count = unsafe { self.ctx.get_active_attributes(program) };
+            let mut attributes = Vec::with_capacity(count as usize);
+            for index in 0..count {
+                unsafe {
+                    let glow::ActiveAttribute { name, size, atype } =
+                        self.ctx.get_active_attribute(program, index).unwrap();
+                    if let Some(location) = self.ctx.get_attrib_location(program, name.as_str()) {
+                        // specifically this is for gl_InstanceID
+                        attributes.push(shader::Attribute {
+                            name,
+                            size,
+                            atype: gl::attribute::from_gl(atype),
+                            location,
+                        });
+                    }
+                }
+            }
+            attributes.sort_by(|a, b| a.location.partial_cmp(&b.location).unwrap());
+            attributes
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn get_shader_uniforms(
+        &self,
+        shader: ShaderKey,
+    ) -> std::collections::HashMap<String, shader::Uniform> {
+        use shader::{Uniform, UniformLocation};
+        let gl = &self.ctx;
+        if let Some(program) = self.shaders.get(shader).cloned() {
+            let count = unsafe { gl.get_active_uniforms(program) };
+            let mut uniforms = std::collections::HashMap::with_capacity(count as usize);
+            for index in 0..count {
+                unsafe {
+                    let glow::ActiveUniform { name, size, utype } =
+                        gl.get_active_uniform(program, index).unwrap();
+                    if size > 1 {
+                        let name = name.trim_end_matches("[0]");
+                        uniforms.extend((0..size).map(|i| {
+                            let name = format!("{}[{}]", name, i);
+                            let location = gl.get_uniform_location(program, name.as_str());
+                            let location = UniformLocation(location.unwrap());
+                            (
+                                name.clone(),
+                                Uniform {
+                                    name,
+                                    size: 1,
+                                    utype,
+                                    location,
+                                },
+                            )
+                        }));
+                    } else {
+                        let location = UniformLocation(
+                            gl.get_uniform_location(program, name.as_str())
+                                .expect("Failed to get uniform?!"),
+                        );
+                        uniforms.insert(
+                            name.clone(),
+                            Uniform {
+                                name,
+                                size,
+                                utype,
+                                location,
+                            },
+                        );
+                    }
+                }
+            }
+            uniforms
+        } else {
+            Default::default()
+        }
     }
 
     pub fn destroy_shader(&mut self, shader: ShaderKey) {
         match self.shaders.remove(shader) {
             None => (),
             Some(shader) => unsafe {
-                self.ctx.delete_program(shader.handle());
+                self.ctx.delete_program(shader);
             },
         }
     }
 
-    pub fn use_shader(&mut self, shader: Option<ShaderKey>) {
-        if self.active_shader != shader {
-            match &shader {
+    pub fn use_shader(&mut self, shader: Option<&shader::Shader>) {
+        if self.active_shader.as_ref() != shader {
+            match shader {
                 None => {
-                    self.active_shader = shader;
+                    self.active_shader = None;
                     unsafe { self.ctx.use_program(None) }
                 }
-                Some(shader_key) => match self.shaders.get(*shader_key) {
-                    None => (), // todo: define behaviour for `use_shader` with non-existent shader id
-                    Some(actual_shader) => {
-                        self.active_shader = shader;
-                        unsafe { self.ctx.use_program(Some(actual_shader.handle())) }
+                Some(active_shader) => match self.shaders.get(active_shader.handle()).cloned() {
+                    None => (), // todo: define behaviour when shader doesn't exist in state
+                    Some(gl_shader) => {
+                        self.active_shader = shader.cloned();
+                        unsafe { self.ctx.use_program(Some(gl_shader)) }
                     }
                 },
             }
         }
     }
 
-    pub fn get_shader(&self, shader: ShaderKey) -> Option<&shader::Shader> {
-        self.shaders.get(shader)
-    }
-
-    pub fn get_active_shader(&self) -> Option<ShaderKey> {
-        self.active_shader
+    pub fn get_active_shader(&self) -> Option<&shader::Shader> {
+        self.active_shader.as_ref()
     }
 
     pub fn new_texture(
@@ -971,9 +1083,9 @@ impl texture::TextureUpdate for Context {
 
 impl Drop for Context {
     fn drop(&mut self) {
-        for shader in self.shaders.values() {
+        for (_, shader) in self.shaders.drain() {
             unsafe {
-                self.ctx.delete_program(shader.handle());
+                self.ctx.delete_program(shader);
             }
         }
 

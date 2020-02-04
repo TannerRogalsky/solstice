@@ -1,21 +1,5 @@
-use glow::HasContext;
-
-use super::{vertex::AttributeType, GLProgram};
+use super::vertex::AttributeType;
 use std::collections::hash_map::HashMap;
-
-fn glenum_to_attribute_type(atype: u32) -> AttributeType {
-    match atype {
-        glow::FLOAT => AttributeType::F32,
-        glow::FLOAT_VEC2 => AttributeType::F32F32,
-        glow::FLOAT_VEC3 => AttributeType::F32F32F32,
-        glow::FLOAT_VEC4 => AttributeType::F32F32F32F32,
-        glow::FLOAT_MAT2 => AttributeType::F32x2x2,
-        glow::FLOAT_MAT3 => AttributeType::F32x3x3,
-        glow::FLOAT_MAT4 => AttributeType::F32x4x4,
-        glow::INT => AttributeType::I32,
-        v => panic!("Unknown value returned by OpenGL attribute type: {:#x}", v),
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct Attribute {
@@ -84,126 +68,38 @@ pub enum ShaderError {
     ResourceCreationError,
 }
 
+#[derive(Clone)]
 pub struct Shader {
-    program: GLProgram,
+    inner: super::ShaderKey,
     attributes: Vec<Attribute>,
     uniforms: HashMap<String, Uniform>,
 }
 
+impl std::cmp::PartialEq for Shader {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.eq(&other.inner)
+    }
+}
+
 impl Shader {
     pub fn new(
-        gl: &super::GLContext,
+        gl: &mut super::Context,
         vertex_source: &str,
         fragment_source: &str,
     ) -> Result<Shader, ShaderError> {
-        let mut attributes = Vec::new();
-        let mut uniforms = HashMap::new();
-
-        let program = unsafe {
-            let vertex = gl
-                .create_shader(glow::VERTEX_SHADER)
-                .map_err(|_| ShaderError::ResourceCreationError)?;
-            gl.shader_source(vertex, vertex_source);
-            gl.compile_shader(vertex);
-            if !gl.get_shader_compile_status(vertex) {
-                let err = Err(ShaderError::VertexCompileError(
-                    gl.get_shader_info_log(vertex),
-                ));
-                gl.delete_shader(vertex);
-                return err;
-            }
-            let fragment = gl
-                .create_shader(glow::FRAGMENT_SHADER)
-                .expect("Failed to create Fragment shader.");
-            gl.shader_source(fragment, fragment_source);
-            gl.compile_shader(fragment);
-            if !gl.get_shader_compile_status(fragment) {
-                let err = Err(ShaderError::FragmentCompileError(
-                    gl.get_shader_info_log(fragment),
-                ));
-                gl.delete_shader(fragment);
-                return err;
-            }
-            let program = gl.create_program().expect("Failed to create program.");
-            gl.attach_shader(program, vertex);
-            gl.attach_shader(program, fragment);
-            gl.link_program(program);
-            if !gl.get_program_link_status(program) {
-                let err = Err(ShaderError::LinkError(gl.get_program_info_log(program)));
-                gl.delete_program(program);
-                return err;
-            }
-
-            for index in 0..gl.get_active_attributes(program) {
-                let glow::ActiveAttribute { name, size, atype } =
-                    gl.get_active_attribute(program, index).unwrap();
-                if let Some(location) = gl.get_attrib_location(program, name.as_str()) {
-                    // specifically this is for gl_InstanceID
-                    attributes.push(Attribute {
-                        name,
-                        size,
-                        atype: glenum_to_attribute_type(atype),
-                        location,
-                    });
-                }
-            }
-            attributes.sort_by(|a, b| a.location.partial_cmp(&b.location).unwrap());
-
-            for index in 0..gl.get_active_uniforms(program) {
-                let glow::ActiveUniform { name, size, utype } =
-                    gl.get_active_uniform(program, index).unwrap();
-                if size > 1 {
-                    let name = name.trim_end_matches("[0]");
-                    uniforms.extend((0..size).map(|i| {
-                        let name = format!("{}[{}]", name, i);
-                        let location = gl.get_uniform_location(program, name.as_str());
-                        let location = UniformLocation(location.unwrap());
-                        (
-                            name.clone(),
-                            Uniform {
-                                name,
-                                size: 1,
-                                utype,
-                                location,
-                            },
-                        )
-                    }));
-                } else {
-                    let location = UniformLocation(
-                        gl.get_uniform_location(program, name.as_str())
-                            .expect("Failed to get uniform?!"),
-                    );
-                    uniforms.insert(
-                        name.clone(),
-                        Uniform {
-                            name,
-                            size,
-                            utype,
-                            location,
-                        },
-                    );
-                }
-            }
-
-            program
-        };
-
-        log::trace!(
-            "Shader {{ id: {:?}, attributes: {:#?}, uniforms: {:#?} }}",
-            program,
-            attributes,
-            uniforms.values()
-        );
+        let inner = gl.new_shader(vertex_source, fragment_source)?;
+        let attributes = gl.get_shader_attributes(inner);
+        let uniforms = gl.get_shader_uniforms(inner);
 
         Ok(Self {
-            program,
+            inner,
             attributes,
             uniforms,
         })
     }
 
-    pub fn handle(&self) -> GLProgram {
-        self.program
+    pub fn handle(&self) -> super::ShaderKey {
+        self.inner
     }
 
     pub fn attributes(&self) -> &Vec<Attribute> {
@@ -301,19 +197,15 @@ pub trait UniformTrait {
 }
 
 pub trait ShaderTrait {
-    fn get_handle(&self) -> super::ShaderKey;
+    fn get_inner(&self) -> &super::shader::Shader;
 
-    fn bind(&self, gl: &mut super::Context) {
-        gl.use_shader(Some(self.get_handle()))
+    fn bind(&self, ctx: &mut super::Context) {
+        ctx.use_shader(Some(self.get_inner()))
     }
 
-    fn location(
-        gl: &super::Context,
-        handle: super::ShaderKey,
-        name: &str,
-    ) -> Option<UniformLocation> {
-        gl.get_shader(handle)
-            .and_then(|shader| shader.get_uniform_by_name(name))
+    fn location(shader: &super::shader::Shader, name: &str) -> Option<UniformLocation> {
+        shader
+            .get_uniform_by_name(name)
             .map(|uniform| uniform.location.clone())
     }
 }

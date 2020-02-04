@@ -1,4 +1,4 @@
-use graphics::shader::UniformLocation;
+use graphics::shader::{Shader, UniformLocation};
 use graphics::Context;
 use std::{cell::RefCell, rc::Rc};
 
@@ -10,7 +10,7 @@ pub enum Shader2DError {
 
 pub struct Shader2D {
     gfx: Rc<RefCell<Context>>,
-    inner: graphics::ShaderKey,
+    inner: graphics::shader::Shader,
 
     projection_location: UniformLocation,
     projection_cache: mint::ColumnMatrix4<f32>,
@@ -31,33 +31,27 @@ fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
 }
 
 fn get_location(
-    gfx: &mut Context,
-    inner: graphics::ShaderKey,
+    shader: &graphics::shader::Shader,
     name: &str,
 ) -> Result<UniformLocation, Shader2DError> {
-    gfx.get_shader(inner)
-        .ok_or(Shader2DError::ShaderNotFound)
-        .and_then(|shader| {
-            shader
-                .get_uniform_by_name(name)
-                .ok_or(Shader2DError::UniformNotFound(name.to_owned()))
-                .map(|uniform| uniform.location.clone())
-        })
+    shader
+        .get_uniform_by_name(name)
+        .ok_or(Shader2DError::UniformNotFound(name.to_owned()))
+        .map(|uniform| uniform.location.clone())
 }
 
 impl Shader2D {
     pub fn new(gfx: Rc<RefCell<Context>>, width: f32, height: f32) -> Result<Self, Shader2DError> {
         let (vertex, fragment) = graphics::shader::Shader::create_source(SHADER_SRC, SHADER_SRC);
-        let inner = gfx
-            .borrow_mut()
-            .new_shader(vertex.as_str(), fragment.as_str())
+        let shader = Shader::new(&mut gfx.borrow_mut(), vertex.as_str(), fragment.as_str())
+            .map_err(graphics::GraphicsError::ShaderError)
             .map_err(Shader2DError::GraphicsError)?;
 
-        let projection_location = get_location(&mut gfx.borrow_mut(), inner, "uProjection")?;
-        let view_location = get_location(&mut gfx.borrow_mut(), inner, "uView")?;
-        let model_location = get_location(&mut gfx.borrow_mut(), inner, "uModel")?;
-        let color_location = get_location(&mut gfx.borrow_mut(), inner, "uColor")?;
-        let tex0_location = get_location(&mut gfx.borrow_mut(), inner, "tex0")?;
+        let projection_location = get_location(&shader, "uProjection")?;
+        let view_location = get_location(&shader, "uView")?;
+        let model_location = get_location(&shader, "uModel")?;
+        let color_location = get_location(&shader, "uColor")?;
+        let tex0_location = get_location(&shader, "tex0")?;
 
         let projection_cache = ortho(width, height).into();
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -69,7 +63,7 @@ impl Shader2D {
         ].into();
         let white: mint::Vector4<f32> = [1., 1., 1., 1.].into();
 
-        gfx.borrow_mut().use_shader(Some(inner));
+        gfx.borrow_mut().use_shader(Some(&shader));
         gfx.borrow_mut().set_uniform_by_location(
             &projection_location,
             &graphics::shader::RawUniformValue::Mat4(projection_cache),
@@ -93,7 +87,7 @@ impl Shader2D {
 
         Ok(Self {
             gfx,
-            inner,
+            inner: shader,
             projection_location,
             projection_cache,
             view_location,

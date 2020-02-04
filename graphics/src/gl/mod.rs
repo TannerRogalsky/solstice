@@ -1,3 +1,4 @@
+pub mod attribute;
 pub mod draw_mode;
 pub mod null_context;
 pub mod pixel_format;
