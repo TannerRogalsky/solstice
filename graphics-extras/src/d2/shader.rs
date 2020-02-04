@@ -44,7 +44,6 @@ impl Shader2D {
     pub fn new(gfx: Rc<RefCell<Context>>, width: f32, height: f32) -> Result<Self, Shader2DError> {
         let (vertex, fragment) = graphics::shader::Shader::create_source(SHADER_SRC, SHADER_SRC);
         let shader = Shader::new(&mut gfx.borrow_mut(), vertex.as_str(), fragment.as_str())
-            .map_err(graphics::GraphicsError::ShaderError)
             .map_err(Shader2DError::GraphicsError)?;
 
         let projection_location = get_location(&shader, "uProjection")?;

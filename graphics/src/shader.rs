@@ -1,5 +1,6 @@
 use super::vertex::AttributeType;
 use std::collections::hash_map::HashMap;
+use crate::GraphicsError;
 
 #[derive(Clone, Debug)]
 pub struct Attribute {
@@ -86,8 +87,8 @@ impl Shader {
         gl: &mut super::Context,
         vertex_source: &str,
         fragment_source: &str,
-    ) -> Result<Shader, ShaderError> {
-        let inner = gl.new_shader(vertex_source, fragment_source)?;
+    ) -> Result<Shader, GraphicsError> {
+        let inner = gl.new_shader(vertex_source, fragment_source).map_err(GraphicsError::ShaderError)?;
         let attributes = gl.get_shader_attributes(inner);
         let uniforms = gl.get_shader_uniforms(inner);
 
