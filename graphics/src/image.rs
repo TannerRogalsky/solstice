@@ -36,8 +36,8 @@ impl Image {
         ctx: &mut Context,
         texture_type: TextureType,
         format: PixelFormat,
-        width: usize,
-        height: usize,
+        width: u32,
+        height: u32,
         settings: Settings,
     ) -> Result<Self, super::GraphicsError> {
         assert!(

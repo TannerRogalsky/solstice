@@ -13,8 +13,8 @@ pub enum MipmapMode {
 
 // TODO: builder pattern?
 pub struct Settings {
-    pub width: usize,
-    pub height: usize,
+    pub width: u32,
+    pub height: u32,
     pub layers: usize,
     pub mipmap_mode: MipmapMode,
     pub format: PixelFormat,
