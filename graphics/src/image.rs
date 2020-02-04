@@ -4,7 +4,6 @@ use super::{
 };
 use data::PixelFormat;
 
-#[non_exhaustive]
 pub struct Settings {
     pub mipmaps: bool,
     pub dpi_scale: f32,
