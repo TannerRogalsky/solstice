@@ -1,24 +1,30 @@
 use super::{
-    texture::{Filter, FilterMode, Texture, TextureInfo, TextureType, TextureUpdate, Wrap},
+    texture::{Filter, FilterMode, Texture, TextureInfo, TextureType, TextureUpdate, Wrap, WrapMode},
     Context,
 };
 use data::PixelFormat;
 
+#[non_exhaustive]
 pub struct Settings {
-    mipmaps: bool,
-    linear: bool,
-    dpi_scale: f32,
+    pub mipmaps: bool,
+    pub dpi_scale: f32,
+    pub slices: usize,
+    pub filter: FilterMode,
+    pub wrap: WrapMode,
 }
 
-impl Settings {
-    pub fn new(mipmaps: bool, linear: bool, dpi_scale: f32) -> Self {
-        Self {
-            mipmaps,
-            linear,
-            dpi_scale,
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            mipmaps: true,
+            dpi_scale: 1.,
+            slices: 1,
+            filter: FilterMode::Linear,
+            wrap: WrapMode::Clamp,
         }
     }
 }
+
 pub struct Image {
     texture_key: super::TextureKey,
     texture_info: TextureInfo,
@@ -32,8 +38,7 @@ impl Image {
         format: PixelFormat,
         width: usize,
         height: usize,
-        slices: usize,
-        settings: &Settings,
+        settings: Settings,
     ) -> Result<Self, super::GraphicsError> {
         assert!(
             texture_type.is_supported(),
@@ -41,30 +46,18 @@ impl Image {
             texture_type
         );
         let texture_key = ctx.new_texture(texture_type)?;
-        let filter = if settings.linear {
+        let filter =
             Filter::new(
-                FilterMode::Linear,
-                FilterMode::Linear,
+                settings.filter,
+                settings.filter,
                 if settings.mipmaps {
-                    FilterMode::Linear
+                    settings.filter
                 } else {
                     FilterMode::None
                 },
                 0.,
-            )
-        } else {
-            Filter::new(
-                FilterMode::Nearest,
-                FilterMode::Nearest,
-                if settings.mipmaps {
-                    FilterMode::Nearest
-                } else {
-                    FilterMode::None
-                },
-                0.,
-            )
-        };
-        let wrap = Wrap::default();
+            );
+        let wrap = Wrap::new(settings.wrap, settings.wrap, settings.wrap);
         ctx.set_texture_filter(texture_key, texture_type, filter);
         ctx.set_texture_wrap(texture_key, texture_type, wrap);
         Ok(Self {
@@ -76,6 +69,7 @@ impl Image {
                 (height as f32 * settings.dpi_scale + 0.5) as usize,
                 filter,
                 wrap,
+                settings.mipmaps,
             ),
         })
     }

@@ -4,9 +4,10 @@ use super::{
 };
 use data::PixelFormat;
 
+#[derive(PartialEq, Eq)]
 pub enum MipmapMode {
     None,
-    Manual,
+    Manual, // todo: no functional difference between manual and auto right now
     Auto,
 }
 
@@ -54,6 +55,7 @@ impl Canvas {
             (settings.height as f32 * settings.dpi_scale + 0.5) as usize,
             Filter::default(),
             Wrap::default(),
+            settings.mipmap_mode != MipmapMode::None
         );
         let (framebuffer_key, texture_key) = {
             let texture_key = ctx.new_texture(settings.texture_type)?;

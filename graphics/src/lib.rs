@@ -783,7 +783,7 @@ impl Context {
             if desired & bit != 0 {
                 let (vertex_format, stride, step, buffer_key, buffer_type) = stuff[i as usize];
                 self.bind_buffer(buffer_key, buffer_type);
-                let (data_type, elements_count, instances_count) = vertex_format.atype.to_gl();
+                let (data_type, elements_count, _instances_count) = vertex_format.atype.to_gl();
                 unsafe {
                     self.ctx.vertex_attrib_divisor(i, step);
                     self.ctx.vertex_attrib_pointer_f32(
@@ -979,6 +979,9 @@ impl texture::TextureUpdate for Context {
                 gl_type,
                 data,
             );
+            if texture.mipmaps() {
+                self.ctx.generate_mipmap(gl_target);
+            }
         }
     }
 
@@ -1008,6 +1011,9 @@ impl texture::TextureUpdate for Context {
                 gl_type,
                 data,
             );
+            if texture.mipmaps() {
+                self.ctx.generate_mipmap(gl_target);
+            }
         }
     }
 

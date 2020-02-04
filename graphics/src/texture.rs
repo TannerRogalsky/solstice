@@ -154,6 +154,7 @@ pub struct TextureInfo {
     height: usize,
     filter: Filter,
     wrap: Wrap,
+    mipmaps: bool,
 }
 
 impl Default for TextureInfo {
@@ -164,6 +165,7 @@ impl Default for TextureInfo {
             height: 0,
             filter: Default::default(),
             wrap: Default::default(),
+            mipmaps: false,
         }
     }
 }
@@ -175,6 +177,7 @@ impl TextureInfo {
         height: usize,
         filter: Filter,
         wrap: Wrap,
+        mipmaps: bool,
     ) -> Self {
         Self {
             format,
@@ -182,6 +185,7 @@ impl TextureInfo {
             height,
             filter,
             wrap,
+            mipmaps,
         }
     }
 
@@ -224,6 +228,10 @@ impl TextureInfo {
     pub fn set_filter(&mut self, filter: Filter) {
         self.filter = filter;
     }
+
+    pub fn mipmaps(&self) -> bool { self.mipmaps }
+
+    pub fn set_mipmaps(&mut self, mipmaps: bool) { self.mipmaps = mipmaps; }
 }
 
 pub trait Texture {
