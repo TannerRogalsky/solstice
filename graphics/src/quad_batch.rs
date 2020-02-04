@@ -1,7 +1,4 @@
-use super::{
-    mesh::{Index, IndexedMesh},
-    Context,
-};
+use super::{mesh::IndexedMesh, Context};
 
 pub struct QuadIndex(usize);
 

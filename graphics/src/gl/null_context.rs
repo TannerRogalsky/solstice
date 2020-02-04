@@ -112,9 +112,7 @@ impl HasContext for NullContext {
 
     unsafe fn bind_buffer(&self, _target: u32, _buffer: Option<Self::Buffer>) {}
 
-    unsafe fn bind_buffer_base(&self, target: u32, index: u32, buffer: Option<Self::Buffer>) {
-        unimplemented!()
-    }
+    unsafe fn bind_buffer_base(&self, _target: u32, _index: u32, _buffer: Option<Self::Buffer>) {}
 
     unsafe fn bind_buffer_range(
         &self,
@@ -390,12 +388,12 @@ impl HasContext for NullContext {
         glow::NO_ERROR
     }
 
-    unsafe fn get_tex_parameter_i32(&self, target: u32, parameter: u32) -> i32 {
-        unimplemented!()
+    unsafe fn get_tex_parameter_i32(&self, _target: u32, _parameter: u32) -> i32 {
+        0
     }
 
-    unsafe fn get_buffer_parameter_i32(&self, target: u32, parameter: u32) -> i32 {
-        unimplemented!()
+    unsafe fn get_buffer_parameter_i32(&self, _target: u32, _parameter: u32) -> i32 {
+        0
     }
 
     unsafe fn get_parameter_i32(&self, _parameter: u32) -> i32 {
@@ -459,13 +457,12 @@ impl HasContext for NullContext {
 
     unsafe fn renderbuffer_storage_multisample(
         &self,
-        target: u32,
-        samples: i32,
-        internal_format: u32,
-        width: i32,
-        height: i32,
+        _target: u32,
+        _samples: i32,
+        _internal_format: u32,
+        _width: i32,
+        _height: i32,
     ) {
-        unimplemented!()
     }
 
     unsafe fn sampler_parameter_f32(&self, _sampler: Self::Sampler, _name: u32, _value: f32) {}
@@ -555,17 +552,13 @@ impl HasContext for NullContext {
     ) {
     }
 
-    unsafe fn uniform_1_i32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[i32; 1]) {
-    }
+    unsafe fn uniform_1_i32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[i32]) {}
 
-    unsafe fn uniform_2_i32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[i32; 2]) {
-    }
+    unsafe fn uniform_2_i32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[i32]) {}
 
-    unsafe fn uniform_3_i32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[i32; 3]) {
-    }
+    unsafe fn uniform_3_i32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[i32]) {}
 
-    unsafe fn uniform_4_i32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[i32; 4]) {
-    }
+    unsafe fn uniform_4_i32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[i32]) {}
 
     unsafe fn uniform_1_f32(&self, _location: Option<&Self::UniformLocation>, _x: f32) {}
 
@@ -590,23 +583,19 @@ impl HasContext for NullContext {
     ) {
     }
 
-    unsafe fn uniform_1_f32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[f32; 1]) {
-    }
+    unsafe fn uniform_1_f32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[f32]) {}
 
-    unsafe fn uniform_2_f32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[f32; 2]) {
-    }
+    unsafe fn uniform_2_f32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[f32]) {}
 
-    unsafe fn uniform_3_f32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[f32; 3]) {
-    }
+    unsafe fn uniform_3_f32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[f32]) {}
 
-    unsafe fn uniform_4_f32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[f32; 4]) {
-    }
+    unsafe fn uniform_4_f32_slice(&self, _location: Option<&Self::UniformLocation>, _v: &[f32]) {}
 
     unsafe fn uniform_matrix_2_f32_slice(
         &self,
         _location: Option<&Self::UniformLocation>,
         _transpose: bool,
-        _v: &[f32; 4],
+        _v: &[f32],
     ) {
     }
 
@@ -614,7 +603,7 @@ impl HasContext for NullContext {
         &self,
         _location: Option<&Self::UniformLocation>,
         _transpose: bool,
-        _v: &[f32; 9],
+        _v: &[f32],
     ) {
     }
 
@@ -622,7 +611,7 @@ impl HasContext for NullContext {
         &self,
         _location: Option<&Self::UniformLocation>,
         _transpose: bool,
-        _v: &[f32; 16],
+        _v: &[f32],
     ) {
     }
 
