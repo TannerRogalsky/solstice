@@ -1,5 +1,7 @@
 use super::{
-    texture::{Filter, FilterMode, Texture, TextureInfo, TextureType, TextureUpdate, Wrap, WrapMode},
+    texture::{
+        Filter, FilterMode, Texture, TextureInfo, TextureType, TextureUpdate, Wrap, WrapMode,
+    },
     Context,
 };
 use data::PixelFormat;
@@ -45,17 +47,16 @@ impl Image {
             texture_type
         );
         let texture_key = ctx.new_texture(texture_type)?;
-        let filter =
-            Filter::new(
-                settings.filter,
-                settings.filter,
-                if settings.mipmaps {
-                    settings.filter
-                } else {
-                    FilterMode::None
-                },
-                0.,
-            );
+        let filter = Filter::new(
+            settings.filter,
+            settings.filter,
+            if settings.mipmaps {
+                settings.filter
+            } else {
+                FilterMode::None
+            },
+            0.,
+        );
         let wrap = Wrap::new(settings.wrap, settings.wrap, settings.wrap);
         ctx.set_texture_filter(texture_key, texture_type, filter);
         ctx.set_texture_wrap(texture_key, texture_type, wrap);

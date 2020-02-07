@@ -229,9 +229,13 @@ impl TextureInfo {
         self.filter = filter;
     }
 
-    pub fn mipmaps(&self) -> bool { self.mipmaps }
+    pub fn mipmaps(&self) -> bool {
+        self.mipmaps
+    }
 
-    pub fn set_mipmaps(&mut self, mipmaps: bool) { self.mipmaps = mipmaps; }
+    pub fn set_mipmaps(&mut self, mipmaps: bool) {
+        self.mipmaps = mipmaps;
+    }
 }
 
 pub trait Texture {

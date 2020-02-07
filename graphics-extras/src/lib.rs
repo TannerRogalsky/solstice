@@ -15,8 +15,12 @@ fn create_default_texture(gl: &mut graphics::Context) -> graphics::image::Image 
         PixelFormat::RGBA8,
         1,
         1,
-        1,
-        &Settings::new(false, false, 1.),
+        Settings {
+            mipmaps: false,
+            filter: FilterMode::Nearest,
+            wrap: WrapMode::Clamp,
+            ..Settings::default()
+        },
     )
     .unwrap();
     gl.set_texture_data(
