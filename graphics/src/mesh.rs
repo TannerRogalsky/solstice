@@ -205,7 +205,11 @@ where
         })
     }
 
-    pub fn with_mesh(gl: &mut Context, mesh: Mesh<V>, index_count: usize) -> Result<Self, super::GraphicsError> {
+    pub fn with_mesh(
+        gl: &mut Context,
+        mesh: Mesh<V>,
+        index_count: usize,
+    ) -> Result<Self, super::GraphicsError> {
         let ibo = Buffer::new(
             gl,
             index_count * std::mem::size_of::<I>(),
