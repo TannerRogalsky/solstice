@@ -205,6 +205,20 @@ where
         })
     }
 
+    pub fn with_mesh(gl: &mut Context, mesh: Mesh<V>, index_count: usize) -> Result<Self, super::GraphicsError> {
+        let ibo = Buffer::new(
+            gl,
+            index_count * std::mem::size_of::<I>(),
+            BufferType::Index,
+            Usage::Dynamic,
+        )?;
+        Ok(Self {
+            mesh,
+            ibo,
+            type_marker: std::marker::PhantomData,
+        })
+    }
+
     pub fn get_vertices(&self) -> &[V] {
         self.mesh.get_vertices()
     }
