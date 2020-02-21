@@ -935,17 +935,81 @@ impl Context {
         }
     }
 
-    pub fn debug_message_callback<F>(&self, callback: F)
+    pub fn debug_message_callback<F>(&self, mut callback: F)
     where
-        F: FnMut(u32, u32, u32, u32, &str),
+        F: FnMut(DebugSource, DebugType, u32, DebugSeverity, &str),
     {
         if self.ctx.supports_debug() {
             unsafe {
                 self.ctx.enable(glow::DEBUG_OUTPUT);
-                self.ctx.debug_message_callback(callback);
+                self.ctx.debug_message_callback(|source, event_type, id, severity, msg| {
+                    let source = match source {
+                        glow::DEBUG_SOURCE_API => DebugSource::API,
+                        glow::DEBUG_SOURCE_WINDOW_SYSTEM => DebugSource::WindowSystem,
+                        glow::DEBUG_SOURCE_SHADER_COMPILER => DebugSource::ShaderCompiler,
+                        glow::DEBUG_SOURCE_THIRD_PARTY => DebugSource::ThirdParty,
+                        glow::DEBUG_SOURCE_APPLICATION => DebugSource::Application,
+                        glow::DEBUG_SOURCE_OTHER => DebugSource::Other,
+                        _ => DebugSource::Other,
+                    };
+
+                    let event_type = match event_type {
+                        glow::DEBUG_TYPE_ERROR => DebugType::Error,
+                        glow::DEBUG_TYPE_DEPRECATED_BEHAVIOR => DebugType::DeprecatedBehavior,
+                        glow::DEBUG_TYPE_UNDEFINED_BEHAVIOR => DebugType::DeprecatedBehavior,
+                        glow::DEBUG_TYPE_PORTABILITY => DebugType::Portability,
+                        glow::DEBUG_TYPE_PERFORMANCE => DebugType::Performance,
+                        glow::DEBUG_TYPE_MARKER => DebugType::Marker,
+                        glow::DEBUG_TYPE_PUSH_GROUP => DebugType::PushGroup,
+                        glow::DEBUG_TYPE_POP_GROUP => DebugType::PopGroup,
+                        glow::DEBUG_TYPE_OTHER => DebugType::Other,
+                        _ => DebugType::Other,
+                    };
+
+                    let severity = match severity {
+                        glow::DEBUG_SEVERITY_HIGH => DebugSeverity::High,
+                        glow::DEBUG_SEVERITY_MEDIUM => DebugSeverity::Medium,
+                        glow::DEBUG_SEVERITY_LOW => DebugSeverity::Low,
+                        glow::DEBUG_SEVERITY_NOTIFICATION => DebugSeverity::Notification,
+                        _ => DebugSeverity::Notification,
+                    };
+
+                    callback(source, event_type, id, severity, msg)
+                });
             }
         }
     }
+}
+
+#[derive(Debug)]
+pub enum DebugSeverity {
+    High,
+    Medium,
+    Low,
+    Notification,
+}
+
+#[derive(Debug)]
+pub enum DebugType {
+    Error,
+    DeprecatedBehavior,
+    UndefinedBehavior,
+    Portability,
+    Performance,
+    Marker,
+    PushGroup,
+    PopGroup,
+    Other,
+}
+
+#[derive(Debug)]
+pub enum DebugSource {
+    API,
+    WindowSystem,
+    ShaderCompiler,
+    ThirdParty,
+    Application,
+    Other,
 }
 
 impl texture::TextureUpdate for Context {
