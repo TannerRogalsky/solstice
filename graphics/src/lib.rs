@@ -26,10 +26,7 @@ pub enum GraphicsError {
     FramebufferError,
 }
 
-#[cfg(not(test))]
 type GLContext = glow::Context;
-#[cfg(test)]
-type GLContext = gl::null_context::NullContext;
 
 type GLBuffer = <GLContext as HasContext>::Buffer;
 type GLProgram = <GLContext as HasContext>::Program;
@@ -1105,9 +1102,18 @@ impl Drop for Context {
 mod tests {
     use super::*;
 
+    fn get_headless_context(width: u32, height: u32) -> (glow::Context, glutin::Context<glutin::PossiblyCurrent>) {
+        use glutin::platform::windows::EventLoopExtWindows;
+        let el = glutin::event_loop::EventLoop::<()>::new_any_thread();
+        let window = glutin::ContextBuilder::new().build_headless(&el, glutin::dpi::PhysicalSize::new(width, height)).unwrap();
+        let window = unsafe { window.make_current().unwrap() };
+        (glow::Context::from_loader_function(|name| window.get_proc_address(name)), window)
+    }
+
     #[test]
     fn basic() {
-        let ctx = Context::new(GLContext {});
+        let (ctx, _window) = get_headless_context(100, 100);
+        let ctx = Context::new(ctx);
         ctx.clear();
     }
 }

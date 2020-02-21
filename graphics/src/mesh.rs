@@ -35,6 +35,65 @@ where
     }
 }
 
+/// The Mesh represents a set of vertices to be drawn by a shader program and how to draw them.
+/// A well-formed Vertex implementation will provide information to the mesh about it's layout in
+/// order to properly sync the data to the GPU. A derive macro exists in
+/// [`Vertex`](graphics_macro::Vertex) that will derive this implementation for you.
+///
+/// ```
+/// use graphics::vertex::{VertexFormat, AttributeType};
+/// #[repr(C, packed)]
+/// struct TestVertex {
+///     position: [f32; 2],
+///     color: [f32; 4],
+/// }
+///
+/// impl graphics::vertex::Vertex for TestVertex {
+///     fn build_bindings() -> &'static [VertexFormat] {
+///         &[VertexFormat {
+///             name: "position",
+///             offset: 0,
+///             atype: AttributeType::F32F32,
+///             normalize: false,
+///         }, VertexFormat {
+///             name: "color",
+///             offset: std::mem::size_of::<[f32; 2]>(),
+///             atype: AttributeType::F32F32F32F32,
+///             normalize: false
+///         }]
+///     }
+/// }
+///
+/// let vertex_data = vec![
+///     TestVertex {
+///         position: [0.5, 0.],
+///         color: [1., 0., 0., 1.]
+///     },
+///     TestVertex {
+///         position: [0., 1.0],
+///         color: [0., 1., 0., 1.]
+///     },
+///     TestVertex {
+///         position: [1., 0.],
+///         color: [0., 0., 1., 1.]
+///     },
+/// ];
+/// ```
+///
+/// Vertex data is then copied into the mesh.
+///
+/// ```ignore
+/// let mut mesh = graphics::mesh::Mesh::new(&mut ctx, 3);
+/// mesh.set_vertices(&vertex_data, 0);
+/// ```
+///
+/// Once constructed, a Mesh is of an immutable size but the draw range can be modified to
+/// effectively change it's size without changing the underlying memory's size.
+///
+/// ```ignore
+/// let mut mesh = graphics::mesh::Mesh::new(&mut ctx, 3000).unwrap();
+/// mesh.set_draw_range(Some(0..3)); // draws only the first three vertices of the 3000 allocated
+/// ```
 pub struct Mesh<V> {
     vbo: Buffer,
     draw_range: Option<std::ops::Range<usize>>,
@@ -46,6 +105,7 @@ impl<V> Mesh<V>
 where
     V: Vertex,
 {
+    /// Construct a Mesh with a given number of vertices.
     pub fn new(gl: &mut Context, vertex_count: usize) -> Result<Self, super::GraphicsError> {
         let vbo = Buffer::new(
             gl,
@@ -61,18 +121,22 @@ where
         })
     }
 
+    /// Get a view into the Mesh's vertex data.
     pub fn get_vertices(&self) -> &[V] {
         get_buffer(&self.vbo)
     }
 
+    /// Write new data into a range of the Mesh's vertex data.
     pub fn set_vertices(&mut self, vertices: &[V], offset: usize) {
         set_buffer(&mut self.vbo, vertices, offset);
     }
 
+    /// Sets the range of vertices to be drawn. Passing `None` will draw the entire mesh.
     pub fn set_draw_range(&mut self, draw_range: Option<std::ops::Range<usize>>) {
         self.draw_range = draw_range;
     }
 
+    /// Sets how the vertex data should be tesselated.
     pub fn set_draw_mode(&mut self, draw_mode: super::DrawMode) {
         self.draw_mode = draw_mode;
     }
@@ -86,10 +150,13 @@ where
         }
     }
 
+    /// Draw the mesh.
     pub fn draw(&mut self, gl: &mut Context) {
         self.draw_instanced(gl, 1);
     }
 
+    /// Draw the mesh multiple times using the same vertex data. This might be useful if you're
+    /// using per instance data from a uniform or a separate [attached mesh](graphics::mesh::MeshAttacher).
     pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {
         self.internal_draw(gl, instance_count, &mut []);
     }
@@ -175,6 +242,10 @@ where
     }
 }
 
+/// A mesh with vertex data that is indexed with separate data.
+///
+/// This is useful if you have a number of vertices that you would otherwise have to duplicate
+/// because indices are generally smaller than a vertex so duplicating them is more performant.
 pub struct IndexedMesh<V, I> {
     mesh: Mesh<V>,
     ibo: Buffer,
@@ -186,6 +257,7 @@ where
     V: Vertex,
     I: Index,
 {
+    /// Construct a mesh with a given number of vertices and indices.
     pub fn new(
         gl: &mut Context,
         vertex_count: usize,
@@ -205,6 +277,7 @@ where
         })
     }
 
+    /// Construct an indexed mesh from a non-indexed mesh.
     pub fn with_mesh(
         gl: &mut Context,
         mesh: Mesh<V>,
