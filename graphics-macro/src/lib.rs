@@ -142,7 +142,6 @@ pub fn derive_vertex(item: TokenStream) -> TokenStream {
                                 offset: #offset,
                                 atype: <#this_type as ::graphics::vertex::VertexAttributeType>::A_TYPE,
                                 normalize: false,
-                                step: 0,
                             }
                         }
                     });

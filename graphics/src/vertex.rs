@@ -59,7 +59,6 @@ pub struct VertexFormat {
     pub offset: usize,
     pub atype: AttributeType,
     pub normalize: bool,
-    pub step: u32,
 }
 
 /// Trait for structures that represent a vertex.
