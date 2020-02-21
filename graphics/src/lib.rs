@@ -942,40 +942,41 @@ impl Context {
         if self.ctx.supports_debug() {
             unsafe {
                 self.ctx.enable(glow::DEBUG_OUTPUT);
-                self.ctx.debug_message_callback(|source, event_type, id, severity, msg| {
-                    let source = match source {
-                        glow::DEBUG_SOURCE_API => DebugSource::API,
-                        glow::DEBUG_SOURCE_WINDOW_SYSTEM => DebugSource::WindowSystem,
-                        glow::DEBUG_SOURCE_SHADER_COMPILER => DebugSource::ShaderCompiler,
-                        glow::DEBUG_SOURCE_THIRD_PARTY => DebugSource::ThirdParty,
-                        glow::DEBUG_SOURCE_APPLICATION => DebugSource::Application,
-                        glow::DEBUG_SOURCE_OTHER => DebugSource::Other,
-                        _ => DebugSource::Other,
-                    };
+                self.ctx
+                    .debug_message_callback(|source, event_type, id, severity, msg| {
+                        let source = match source {
+                            glow::DEBUG_SOURCE_API => DebugSource::API,
+                            glow::DEBUG_SOURCE_WINDOW_SYSTEM => DebugSource::WindowSystem,
+                            glow::DEBUG_SOURCE_SHADER_COMPILER => DebugSource::ShaderCompiler,
+                            glow::DEBUG_SOURCE_THIRD_PARTY => DebugSource::ThirdParty,
+                            glow::DEBUG_SOURCE_APPLICATION => DebugSource::Application,
+                            glow::DEBUG_SOURCE_OTHER => DebugSource::Other,
+                            _ => DebugSource::Other,
+                        };
 
-                    let event_type = match event_type {
-                        glow::DEBUG_TYPE_ERROR => DebugType::Error,
-                        glow::DEBUG_TYPE_DEPRECATED_BEHAVIOR => DebugType::DeprecatedBehavior,
-                        glow::DEBUG_TYPE_UNDEFINED_BEHAVIOR => DebugType::DeprecatedBehavior,
-                        glow::DEBUG_TYPE_PORTABILITY => DebugType::Portability,
-                        glow::DEBUG_TYPE_PERFORMANCE => DebugType::Performance,
-                        glow::DEBUG_TYPE_MARKER => DebugType::Marker,
-                        glow::DEBUG_TYPE_PUSH_GROUP => DebugType::PushGroup,
-                        glow::DEBUG_TYPE_POP_GROUP => DebugType::PopGroup,
-                        glow::DEBUG_TYPE_OTHER => DebugType::Other,
-                        _ => DebugType::Other,
-                    };
+                        let event_type = match event_type {
+                            glow::DEBUG_TYPE_ERROR => DebugType::Error,
+                            glow::DEBUG_TYPE_DEPRECATED_BEHAVIOR => DebugType::DeprecatedBehavior,
+                            glow::DEBUG_TYPE_UNDEFINED_BEHAVIOR => DebugType::DeprecatedBehavior,
+                            glow::DEBUG_TYPE_PORTABILITY => DebugType::Portability,
+                            glow::DEBUG_TYPE_PERFORMANCE => DebugType::Performance,
+                            glow::DEBUG_TYPE_MARKER => DebugType::Marker,
+                            glow::DEBUG_TYPE_PUSH_GROUP => DebugType::PushGroup,
+                            glow::DEBUG_TYPE_POP_GROUP => DebugType::PopGroup,
+                            glow::DEBUG_TYPE_OTHER => DebugType::Other,
+                            _ => DebugType::Other,
+                        };
 
-                    let severity = match severity {
-                        glow::DEBUG_SEVERITY_HIGH => DebugSeverity::High,
-                        glow::DEBUG_SEVERITY_MEDIUM => DebugSeverity::Medium,
-                        glow::DEBUG_SEVERITY_LOW => DebugSeverity::Low,
-                        glow::DEBUG_SEVERITY_NOTIFICATION => DebugSeverity::Notification,
-                        _ => DebugSeverity::Notification,
-                    };
+                        let severity = match severity {
+                            glow::DEBUG_SEVERITY_HIGH => DebugSeverity::High,
+                            glow::DEBUG_SEVERITY_MEDIUM => DebugSeverity::Medium,
+                            glow::DEBUG_SEVERITY_LOW => DebugSeverity::Low,
+                            glow::DEBUG_SEVERITY_NOTIFICATION => DebugSeverity::Notification,
+                            _ => DebugSeverity::Notification,
+                        };
 
-                    callback(source, event_type, id, severity, msg)
-                });
+                        callback(source, event_type, id, severity, msg)
+                    });
             }
         }
     }
@@ -1166,12 +1167,20 @@ impl Drop for Context {
 mod tests {
     use super::*;
 
-    fn get_headless_context(width: u32, height: u32) -> (glow::Context, glutin::Context<glutin::PossiblyCurrent>) {
+    fn get_headless_context(
+        width: u32,
+        height: u32,
+    ) -> (glow::Context, glutin::Context<glutin::PossiblyCurrent>) {
         use glutin::platform::windows::EventLoopExtWindows;
         let el = glutin::event_loop::EventLoop::<()>::new_any_thread();
-        let window = glutin::ContextBuilder::new().build_headless(&el, glutin::dpi::PhysicalSize::new(width, height)).unwrap();
+        let window = glutin::ContextBuilder::new()
+            .build_headless(&el, glutin::dpi::PhysicalSize::new(width, height))
+            .unwrap();
         let window = unsafe { window.make_current().unwrap() };
-        (glow::Context::from_loader_function(|name| window.get_proc_address(name)), window)
+        (
+            glow::Context::from_loader_function(|name| window.get_proc_address(name)),
+            window,
+        )
     }
 
     #[test]
