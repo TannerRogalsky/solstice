@@ -502,6 +502,56 @@ impl Context {
         &self,
         shader: ShaderKey,
     ) -> std::collections::HashMap<String, shader::Uniform> {
+        unsafe fn get_initial_uniform_data(
+            gl: &glow::Context,
+            utype: u32,
+            program: GLProgram,
+            location: &GLUniformLocation,
+        ) -> shader::RawUniformValue {
+            use shader::RawUniformValue;
+            macro_rules! get_uniform_data {
+                (f32, 1, $uni_ty:ident, $gl:expr, $program:expr, $location:expr) => {{
+                    let mut data = [0.; 1];
+                    $gl.get_uniform_f32($program, $location, &mut data);
+                    RawUniformValue::$uni_ty(data[0].into())
+                }};
+                (i32, 1, $uni_ty:ident, $gl:expr, $program:expr, $location:expr) => {{
+                    let mut data = [0; 1];
+                    $gl.get_uniform_i32($program, $location, &mut data);
+                    RawUniformValue::$uni_ty(data[0].into())
+                }};
+                (f32, $data_size:expr, $uni_ty:ident, $gl:expr, $program:expr, $location:expr) => {{
+                    let mut data = [0.; $data_size];
+                    $gl.get_uniform_f32($program, $location, &mut data);
+                    RawUniformValue::$uni_ty(data.into())
+                }};
+                (i32, $data_size:expr, $uni_ty:ident, $gl:expr, $program:expr, $location:expr) => {{
+                    let mut data = [0; $data_size];
+                    $gl.get_uniform_i32($program, $location, &mut data);
+                    RawUniformValue::$uni_ty(data.into())
+                }};
+            }
+
+            match utype {
+                glow::FLOAT => get_uniform_data!(f32, 1, Float, gl, program, location),
+                glow::FLOAT_VEC2 => get_uniform_data!(f32, 2, Vec2, gl, program, location),
+                glow::FLOAT_VEC3 => get_uniform_data!(f32, 3, Vec3, gl, program, location),
+                glow::FLOAT_VEC4 => get_uniform_data!(f32, 4, Vec4, gl, program, location),
+                glow::FLOAT_MAT2 => get_uniform_data!(f32, 4, Mat2, gl, program, location),
+                glow::FLOAT_MAT3 => get_uniform_data!(f32, 9, Mat3, gl, program, location),
+                glow::FLOAT_MAT4 => get_uniform_data!(f32, 16, Mat4, gl, program, location),
+                glow::INT | glow::SAMPLER_2D | glow::SAMPLER_CUBE => {
+                    get_uniform_data!(i32, 1, SignedInt, gl, program, location)
+                }
+                glow::INT_VEC2 => get_uniform_data!(i32, 2, IntVec2, gl, program, location),
+                glow::INT_VEC3 => get_uniform_data!(i32, 3, IntVec3, gl, program, location),
+                glow::INT_VEC4 => get_uniform_data!(i32, 4, IntVec4, gl, program, location),
+                _ => {
+                    panic!("failed to match uniform type");
+                }
+            }
+        }
+
         use shader::{Uniform, UniformLocation};
         let gl = &self.ctx;
         if let Some(program) = self.shaders.get(shader).cloned() {
@@ -515,8 +565,10 @@ impl Context {
                         let name = name.trim_end_matches("[0]");
                         uniforms.extend((0..size).map(|i| {
                             let name = format!("{}[{}]", name, i);
-                            let location = gl.get_uniform_location(program, name.as_str());
-                            let location = UniformLocation(location.unwrap());
+                            let location = gl.get_uniform_location(program, name.as_str()).unwrap();
+                            let initial_data =
+                                get_initial_uniform_data(&gl, utype, program, &location);
+                            let location = UniformLocation(location);
                             (
                                 name.clone(),
                                 Uniform {
@@ -524,14 +576,16 @@ impl Context {
                                     size: 1,
                                     utype,
                                     location,
+                                    initial_data,
                                 },
                             )
                         }));
                     } else {
-                        let location = UniformLocation(
-                            gl.get_uniform_location(program, name.as_str())
-                                .expect("Failed to get uniform?!"),
-                        );
+                        let location = gl
+                            .get_uniform_location(program, name.as_str())
+                            .expect("Failed to get uniform?!");
+                        let initial_data = get_initial_uniform_data(&gl, utype, program, &location);
+                        let location = UniformLocation(location);
                         uniforms.insert(
                             name.clone(),
                             Uniform {
@@ -539,6 +593,7 @@ impl Context {
                                 size,
                                 utype,
                                 location,
+                                initial_data,
                             },
                         );
                     }

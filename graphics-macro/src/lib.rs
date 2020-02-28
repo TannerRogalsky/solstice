@@ -31,6 +31,12 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                     let field_ty = &field.ty;
 
                     quote! {
+                        impl engine::graphics::shader::UniformGetter<#field_ty> for #ident {
+                            fn get_uniform(&self) -> &#field_ty {
+                                &self.#field_ident
+                            }
+                        }
+
                         impl engine::graphics::shader::UniformGetterMut<#field_ty> for #ident {
                             fn get_uniform_mut(&mut self) -> &mut #field_ty {
                                 &mut self.#field_ident
@@ -69,6 +75,7 @@ pub fn derive_uniform(item: TokenStream) -> TokenStream {
                     quote! {
                         impl engine::graphics::shader::UniformTrait for #ident {
                             type Value = [f32; 16];
+                            const NAME: &'static str = "#field_ident";
 
                             fn get_location(&self) -> Option<&engine::graphics::shader::UniformLocation> {
                                 self.#field_ident.as_ref()

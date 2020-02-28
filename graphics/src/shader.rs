@@ -19,8 +19,10 @@ pub struct Uniform {
     pub size: i32,
     pub utype: u32,
     pub location: UniformLocation,
+    pub initial_data: RawUniformValue,
 }
 
+#[derive(Clone, Debug)]
 pub enum RawUniformValue {
     SignedInt(i32),
     //    UnsignedInt(u32),
@@ -44,6 +46,17 @@ macro_rules! raw_uniform_conv {
         impl From<$from> for RawUniformValue {
             fn from(v: $from) -> Self {
                 RawUniformValue::$to(v)
+            }
+        }
+
+        impl std::convert::TryInto<$from> for RawUniformValue {
+            type Error = &'static str;
+
+            fn try_into(self) -> Result<$from, Self::Error> {
+                match self {
+                    RawUniformValue::$to(v) => Ok(v),
+                    _ => Err("RawUniformValue::$to cannot be converted to $from."),
+                }
             }
         }
     };
@@ -197,6 +210,10 @@ pub trait UniformTrait {
     fn get_location(&self) -> Option<&UniformLocation>;
 }
 
+pub trait CachedUniformTrait: UniformTrait {
+    fn get_cache(&mut self) -> &mut Self::Value;
+}
+
 pub trait ShaderTrait {
     fn get_inner(&self) -> &super::shader::Shader;
 
@@ -209,23 +226,32 @@ pub trait ShaderTrait {
             .get_uniform_by_name(name)
             .map(|uniform| uniform.location.clone())
     }
+
+    fn initial_data<'a>(shader: &'a super::shader::Shader, name: &str) -> &'a RawUniformValue {
+        &shader
+            .get_uniform_by_name(name)
+            .as_ref()
+            .unwrap()
+            .initial_data
+    }
 }
 
-pub trait UniformGetterMut<U>
-where
-    U: UniformTrait,
-{
+pub trait UniformGetter<U: UniformTrait> {
+    fn get_uniform(&self) -> &U;
+}
+
+pub trait UniformGetterMut<U: UniformTrait>: UniformGetter<U> {
     fn get_uniform_mut(&mut self) -> &mut U;
 }
 
 pub trait BasicUniformSetter {
     fn set_uniform<U>(&mut self, gl: &mut super::Context, value: <U as UniformTrait>::Value)
     where
-        Self: UniformGetterMut<U>,
+        Self: UniformGetter<U>,
         U: UniformTrait,
         <U as UniformTrait>::Value: Into<RawUniformValue>,
     {
-        let uniform = self.get_uniform_mut();
+        let uniform = self.get_uniform();
         if let Some(location) = uniform.get_location() {
             gl.set_uniform_by_location(location, &value.into());
         }
@@ -237,12 +263,12 @@ pub trait BasicUniformSetter {
         texture: T,
         texture_unit: <U as UniformTrait>::Value,
     ) where
-        Self: UniformGetterMut<U>,
+        Self: UniformGetter<U>,
         U: UniformTrait,
         <U as UniformTrait>::Value: Copy + Into<super::TextureUnit> + Into<RawUniformValue>,
         T: super::texture::Texture,
     {
-        let uniform = self.get_uniform_mut();
+        let uniform = self.get_uniform();
         if uniform.get_location().is_some() {
             gl.bind_texture_to_unit(
                 texture.get_texture_type(),
@@ -251,5 +277,36 @@ pub trait BasicUniformSetter {
             );
             self.set_uniform(gl, texture_unit);
         }
+    }
+}
+
+pub trait CachedUniformSetter: BasicUniformSetter {
+    fn set_uniform_cached<U>(&mut self, gl: &mut super::Context, value: <U as UniformTrait>::Value)
+    where
+        Self: UniformGetterMut<U>,
+        U: CachedUniformTrait,
+        <U as UniformTrait>::Value: Into<RawUniformValue> + PartialEq + Copy,
+    {
+        if value.ne(self.get_uniform_mut().get_cache()) {
+            let uniform = self.get_uniform();
+            if let Some(location) = uniform.get_location() {
+                gl.set_uniform_by_location(location, &value.into());
+            }
+            *self.get_uniform_mut().get_cache() = value;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::convert::TryInto;
+
+    #[test]
+    fn uniform_conv() {
+        let a = mint::Vector2 { x: 1., y: 2. };
+        let b: RawUniformValue = a.into();
+        let c: mint::Vector2<f32> = b.try_into().unwrap();
+        assert_eq!(a, c);
     }
 }
