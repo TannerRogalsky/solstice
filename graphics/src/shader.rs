@@ -208,6 +208,17 @@ pub trait UniformTrait {
     const NAME: &'static str;
 
     fn get_location(&self) -> Option<&UniformLocation>;
+    fn update(&self, ctx: &mut super::Context, v: Self::Value)
+    where
+        Self::Value: std::convert::TryInto<RawUniformValue>,
+    {
+        use std::convert::TryInto;
+        if let Some(location) = self.get_location() {
+            if let Ok(value) = v.try_into() {
+                ctx.set_uniform_by_location(location, &value)
+            }
+        }
+    }
 }
 
 pub trait CachedUniformTrait: UniformTrait {
