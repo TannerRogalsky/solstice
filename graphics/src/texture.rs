@@ -1,3 +1,4 @@
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug)]
 pub enum TextureType {
     Tex2D,
@@ -35,6 +36,7 @@ impl TextureType {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug)]
 pub enum WrapMode {
     Clamp,
@@ -43,6 +45,7 @@ pub enum WrapMode {
     MirroredRepeat,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug)]
 pub enum FilterMode {
     None,
@@ -50,6 +53,7 @@ pub enum FilterMode {
     Nearest,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug)]
 pub struct Filter {
     min: FilterMode,
@@ -112,6 +116,7 @@ impl Default for Filter {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug)]
 pub struct Wrap {
     s: WrapMode,
@@ -147,6 +152,7 @@ impl Default for Wrap {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug)]
 pub struct TextureInfo {
     format: data::PixelFormat,
