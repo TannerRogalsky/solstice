@@ -1,5 +1,5 @@
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TextureType {
     Tex2D,
     Volume,
@@ -37,7 +37,7 @@ impl TextureType {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum WrapMode {
     Clamp,
     ClampZero,
@@ -46,7 +46,7 @@ pub enum WrapMode {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FilterMode {
     None,
     Linear,
@@ -54,7 +54,7 @@ pub enum FilterMode {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Filter {
     min: FilterMode,
     mag: FilterMode,
@@ -117,7 +117,7 @@ impl Default for Filter {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Wrap {
     s: WrapMode,
     t: WrapMode,
@@ -153,7 +153,7 @@ impl Default for Wrap {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TextureInfo {
     format: data::PixelFormat,
     width: usize,
