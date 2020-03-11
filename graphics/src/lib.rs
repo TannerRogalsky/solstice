@@ -329,6 +329,7 @@ impl Context {
         size: usize,
         buffer_type: buffer::BufferType,
         usage: buffer::Usage,
+        initial_data: Option<&[u8]>,
     ) -> Result<BufferKey, GraphicsError> {
         let vbo = unsafe {
             let vbo = self
@@ -336,8 +337,14 @@ impl Context {
                 .create_buffer()
                 .map_err(|_| GraphicsError::BufferError)?;
             self.ctx.bind_buffer(buffer_type.into(), Some(vbo));
-            self.ctx
-                .buffer_data_size(buffer_type.into(), size as _, usage.to_gl());
+            if let Some(initial_data) = initial_data {
+                self.ctx
+                    .buffer_data_u8_slice(buffer_type.into(), initial_data, usage.to_gl());
+            } else {
+                self.ctx
+                    .buffer_data_size(buffer_type.into(), size as _, usage.to_gl());
+            }
+
             vbo
         };
         let buffer_key = self.buffers.insert(vbo);

@@ -61,7 +61,16 @@ impl Buffer {
         buffer_type: BufferType,
         usage: Usage,
     ) -> Result<Self, super::GraphicsError> {
-        Self::from_vec(gl, vec![0u8; size], buffer_type, usage)
+        let memory_map = vec![0u8; size].into_boxed_slice();
+        let handle = gl.new_buffer(size, buffer_type, usage, None)?;
+        Ok(Self {
+            memory_map,
+            modified_offset: 0,
+            modified_size: 0,
+            handle,
+            buffer_type,
+            usage,
+        })
     }
 
     /// Constructs a buffer of the size and contents of the passed in the Vec.
@@ -72,12 +81,12 @@ impl Buffer {
         usage: Usage,
     ) -> Result<Self, super::GraphicsError> {
         let size = vec.len();
-        let handle = gl.new_buffer(size, buffer_type, usage)?;
         let memory_map = vec.into_boxed_slice();
+        let handle = gl.new_buffer(size, buffer_type, usage, Some(&memory_map))?;
         Ok(Self {
             memory_map,
             modified_offset: 0,
-            modified_size: size,
+            modified_size: 0,
             handle,
             buffer_type,
             usage,
