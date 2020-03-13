@@ -11,6 +11,7 @@ members = [
     "conrod_graphics",
     "audio",
     "graphics-extras",
+    "window",
 ]
 default-members = [
     "graphics",
@@ -20,4 +21,5 @@ default-members = [
     "websocket",
     "image",
     "data",
+    "window",
 ]
