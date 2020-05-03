@@ -150,17 +150,58 @@ pub enum DrawMode {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct TextureUnit(u32);
+pub struct TextureUnit {
+    index: u32,
+    gl: u32,
+}
 
 impl From<u32> for TextureUnit {
     fn from(v: u32) -> Self {
-        TextureUnit(v)
+        let inner = match v {
+            0 => glow::TEXTURE0,
+            1 => glow::TEXTURE1,
+            2 => glow::TEXTURE2,
+            3 => glow::TEXTURE3,
+            4 => glow::TEXTURE4,
+            5 => glow::TEXTURE5,
+            6 => glow::TEXTURE6,
+            7 => glow::TEXTURE7,
+            8 => glow::TEXTURE8,
+            9 => glow::TEXTURE9,
+            10 => glow::TEXTURE10,
+            11 => glow::TEXTURE11,
+            12 => glow::TEXTURE12,
+            13 => glow::TEXTURE13,
+            14 => glow::TEXTURE14,
+            15 => glow::TEXTURE15,
+            16 => glow::TEXTURE16,
+            17 => glow::TEXTURE17,
+            18 => glow::TEXTURE18,
+            19 => glow::TEXTURE19,
+            20 => glow::TEXTURE20,
+            21 => glow::TEXTURE21,
+            22 => glow::TEXTURE22,
+            23 => glow::TEXTURE23,
+            24 => glow::TEXTURE24,
+            25 => glow::TEXTURE25,
+            26 => glow::TEXTURE26,
+            27 => glow::TEXTURE27,
+            28 => glow::TEXTURE28,
+            29 => glow::TEXTURE29,
+            30 => glow::TEXTURE30,
+            31 => glow::TEXTURE31,
+            _ => panic!("unsupported texture unit: {}", v)
+        };
+        TextureUnit {
+            index: v,
+            gl: inner,
+        }
     }
 }
 
 impl From<i32> for TextureUnit {
     fn from(v: i32) -> Self {
-        TextureUnit(v as u32)
+        (v as u32).into()
     }
 }
 
@@ -290,7 +331,7 @@ impl Context {
             bound_textures,
             framebuffers: SlotMap::with_key(),
             active_framebuffer: [None; 2],
-            current_texture_unit: TextureUnit(0),
+            current_texture_unit: 0.into(),
             current_viewport: viewport::Viewport::default(),
             enabled_attributes: std::u32::MAX,
         };
@@ -654,7 +695,7 @@ impl Context {
                 .map_err(|_| GraphicsError::TextureError)?;
             let texture = self.textures.insert(handle);
             self.ctx.active_texture(glow::TEXTURE0);
-            self.bind_texture_to_unit(texture_type, texture, TextureUnit(0));
+            self.bind_texture_to_unit(texture_type, texture, 0.into());
             Ok(texture)
         }
     }
@@ -672,7 +713,8 @@ impl Context {
         texture_key: TextureKey,
         texture_unit: TextureUnit,
     ) {
-        let texture_unit_index = texture_unit.0 as usize;
+        let TextureUnit { index, gl: unit } = texture_unit;
+        let texture_unit_index = index as usize;
         match (
             self.textures.get(texture_key),
             self.bound_textures[texture_type.to_index()][texture_unit_index],
@@ -680,7 +722,7 @@ impl Context {
             (Some(&texture), None) => {
                 if texture_unit != self.current_texture_unit {
                     unsafe {
-                        self.ctx.active_texture(texture_unit.0);
+                        self.ctx.active_texture(unit);
                     }
                     self.current_texture_unit = texture_unit;
                 }
@@ -694,7 +736,7 @@ impl Context {
                 if texture != bound_texture {
                     if texture_unit != self.current_texture_unit {
                         unsafe {
-                            self.ctx.active_texture(texture_unit.0);
+                            self.ctx.active_texture(unit);
                         }
                         self.current_texture_unit = texture_unit;
                     }
@@ -709,7 +751,7 @@ impl Context {
             (None, Some(_)) => {
                 if texture_unit != self.current_texture_unit {
                     unsafe {
-                        self.ctx.active_texture(texture_unit.0);
+                        self.ctx.active_texture(unit);
                     }
                     self.current_texture_unit = texture_unit;
                 }
@@ -1090,7 +1132,7 @@ impl texture::TextureUpdate for Context {
         let width = texture.width();
         let height = texture.height();
         let gl_target = gl::texture::to_gl(texture_type);
-        self.bind_texture_to_unit(texture_type, texture_key, TextureUnit(0));
+        self.bind_texture_to_unit(texture_type, texture_key, 0.into());
         unsafe {
             self.ctx.tex_sub_image_2d_u8_slice(
                 gl_target,
@@ -1122,7 +1164,7 @@ impl texture::TextureUpdate for Context {
         let width = texture.width();
         let height = texture.height();
         let gl_target = gl::texture::to_gl(texture_type);
-        self.bind_texture_to_unit(texture_type, texture_key, TextureUnit(0));
+        self.bind_texture_to_unit(texture_type, texture_key, 0.into());
         unsafe {
             self.ctx.tex_image_2d(
                 gl_target,
@@ -1149,7 +1191,7 @@ impl texture::TextureUpdate for Context {
     ) {
         let gl_target = gl::texture::to_gl(texture_type);
         unsafe {
-            self.bind_texture_to_unit(texture_type, texture_key, TextureUnit(0));
+            self.bind_texture_to_unit(texture_type, texture_key, 0.into());
             self.ctx.tex_parameter_i32(
                 gl_target,
                 glow::TEXTURE_WRAP_S,
@@ -1202,7 +1244,7 @@ impl texture::TextureUpdate for Context {
 
         let gl_target = gl::texture::to_gl(texture_type);
         unsafe {
-            self.bind_texture_to_unit(texture_type, texture_key, TextureUnit(0));
+            self.bind_texture_to_unit(texture_type, texture_key, 0.into());
             self.ctx
                 .tex_parameter_i32(gl_target, glow::TEXTURE_MIN_FILTER, gl_min as i32);
             self.ctx
@@ -1224,6 +1266,20 @@ impl Drop for Context {
         }
     }
 }
+
+// mod experiment {
+//     pub trait Shader {
+//
+//     }
+//
+//     pub trait Context {
+//         type Shader;
+//         type Geometry;
+//         type Textures;
+//
+//         fn execute(shader: &mut Self::Shader, geometry: &mut Geometry, textures: &mut Textures);
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

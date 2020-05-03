@@ -59,7 +59,7 @@ impl Canvas {
         );
         let (framebuffer_key, texture_key) = {
             let texture_key = ctx.new_texture(settings.texture_type)?;
-            ctx.bind_texture_to_unit(settings.texture_type, texture_key, super::TextureUnit(0));
+            ctx.bind_texture_to_unit(settings.texture_type, texture_key, 0.into());
             ctx.set_texture_wrap(texture_key, settings.texture_type, texture.wrap());
             ctx.set_texture_filter(texture_key, settings.texture_type, texture.filter());
             // set format
