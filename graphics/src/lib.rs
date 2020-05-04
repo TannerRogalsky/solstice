@@ -190,7 +190,7 @@ impl From<u32> for TextureUnit {
             29 => glow::TEXTURE29,
             30 => glow::TEXTURE30,
             31 => glow::TEXTURE31,
-            _ => panic!("unsupported texture unit: {}", v)
+            _ => panic!("unsupported texture unit: {}", v),
         };
         TextureUnit {
             index: v,
