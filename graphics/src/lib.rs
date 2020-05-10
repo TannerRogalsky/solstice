@@ -857,17 +857,7 @@ impl Context {
         }
     }
 
-    pub fn set_vertex_attributes(
-        &mut self,
-        desired: u32,
-        stuff: &[(
-            &vertex::VertexFormat,
-            usize,
-            u32,
-            BufferKey,
-            buffer::BufferType,
-        )],
-    ) {
+    pub fn set_vertex_attributes(&mut self, desired: u32, binding_info: &[Option<mesh::BindingInfo>]) {
         let diff = desired ^ self.enabled_attributes;
         for i in 0..self.gl_constants.max_vertex_attributes as u32 {
             let bit = 1 << i;
@@ -885,7 +875,8 @@ impl Context {
             }
 
             if desired & bit != 0 {
-                let (vertex_format, stride, step, buffer_key, buffer_type) = stuff[i as usize];
+                let (vertex_format, stride, step, buffer_key, buffer_type) =
+                    binding_info[i as usize].unwrap();
                 self.bind_buffer(buffer_key, buffer_type);
                 let (data_type, elements_count, _instances_count) = vertex_format.atype.to_gl();
                 unsafe {
@@ -1309,5 +1300,79 @@ mod tests {
         let (ctx, _window) = get_headless_context(100, 100);
         let ctx = Context::new(ctx);
         ctx.clear();
+    }
+
+    #[test]
+    fn unused_vertex_attribute() {
+        #[repr(C, packed)]
+        struct TestVertex {
+            color: f32,
+            position: f32,
+        }
+
+        use vertex::VertexFormat;
+        impl vertex::Vertex for TestVertex {
+            fn build_bindings() -> &'static [VertexFormat] {
+                &[
+                    VertexFormat {
+                        name: "color",
+                        offset: 0,
+                        atype: vertex::AttributeType::F32,
+                        normalize: false,
+                    },
+                    VertexFormat {
+                        name: "position",
+                        offset: std::mem::size_of::<f32>(),
+                        atype: vertex::AttributeType::F32,
+                        normalize: false,
+                    },
+                ]
+            }
+        }
+
+        let (ctx, _window) = get_headless_context(100, 100);
+        let mut ctx = Context::new(ctx);
+
+        let mut mesh = mesh::Mesh::new(&mut ctx, 3).unwrap();
+        mesh.set_vertices(
+            &[
+                TestVertex {
+                    color: 0.,
+                    position: 1.,
+                },
+                TestVertex {
+                    color: 1.,
+                    position: 2.,
+                },
+                TestVertex {
+                    color: 2.,
+                    position: 3.,
+                },
+            ],
+            0,
+        );
+
+        const SRC: &str = r#"
+varying vec4 vColor;
+
+#ifdef VERTEX
+layout(location = 2) attribute vec4 position;
+
+void main() {
+    gl_Position = position;
+}
+#endif
+
+#ifdef FRAGMENT
+void main() {
+    fragColor = vec4(1., 1., 1., 1.);
+}
+#endif"#;
+
+        let (vert, frag) = shader::Shader::create_source(SRC, SRC);
+        let shader = shader::Shader::new(&mut ctx, &vert, &frag).unwrap();
+        ctx.use_shader(Some(&shader));
+
+        mesh.draw(&mut ctx);
     }
 }

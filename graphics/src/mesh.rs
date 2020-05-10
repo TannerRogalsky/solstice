@@ -1,6 +1,6 @@
 use super::{
     buffer::{Buffer, BufferType, Usage},
-    vertex::Vertex,
+    vertex::{Vertex, VertexFormat},
     Context,
 };
 
@@ -34,6 +34,8 @@ where
         )
     }
 }
+
+pub type BindingInfo<'a> = (&'a VertexFormat, usize, u32, super::BufferKey, BufferType);
 
 /// The Mesh represents a set of vertices to be drawn by a shader program and how to draw them.
 /// A well-formed Vertex implementation will provide information to the mesh about it's layout in
@@ -225,19 +227,17 @@ where
 
         let shader = gl.get_active_shader().expect("No active shader.");
         let mut desired_attribute_state = 0u32;
-        let attributes = shader
-            .attributes()
-            .iter()
-            .filter_map(|attr| {
-                let binding = attached_bindings
-                    .iter()
-                    .find(|(binding, ..)| binding.name == attr.name.as_str());
-                if binding.is_some() {
-                    desired_attribute_state |= 1 << attr.location;
-                }
-                binding.cloned()
-            })
-            .collect::<Vec<_>>();
+        let mut attributes = [None; 32];
+        for attr in shader.attributes().iter() {
+            let binding = attached_bindings
+                .iter()
+                .find(|(binding, ..)| binding.name == attr.name.as_str())
+                .cloned();
+            if let Some(binding) = binding {
+                desired_attribute_state |= 1 << attr.location;
+                attributes[attr.location as usize] = Some(binding);
+            }
+        }
         gl.set_vertex_attributes(desired_attribute_state, &attributes);
     }
 }
@@ -414,7 +414,7 @@ pub trait MeshTrait {
 
 pub struct AttachedAttributes<'a> {
     buffer: &'a mut Buffer,
-    formats: &'a [super::vertex::VertexFormat],
+    formats: &'a [VertexFormat],
     step: u32,
     stride: usize,
 }
