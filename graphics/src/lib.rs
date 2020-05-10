@@ -1,4 +1,7 @@
 pub extern crate glow;
+#[cfg(feature = "derive")]
+extern crate graphics_macro;
+
 pub mod buffer;
 pub mod canvas;
 pub mod image;

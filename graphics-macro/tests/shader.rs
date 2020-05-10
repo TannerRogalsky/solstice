@@ -17,6 +17,7 @@ struct ShaderProjection {
 
 impl UniformTrait for ShaderProjection {
     type Value = [f32; 16];
+    const NAME: &'static str = "projection";
 
     fn get_location(&self) -> Option<&UniformLocation> {
         self.location.as_ref()
@@ -29,6 +30,7 @@ struct ShaderTex0 {
 
 impl UniformTrait for ShaderTex0 {
     type Value = Box<dyn graphics::texture::Texture>;
+    const NAME: &'static str = "tex0";
 
     fn get_location(&self) -> Option<&UniformLocation> {
         self.location.as_ref()
@@ -37,7 +39,7 @@ impl UniformTrait for ShaderTex0 {
 
 #[test]
 fn example() {
-    let mut t = TestShader {
+    let _t = TestShader {
         inner: Default::default(),
         projection: ShaderProjection { location: None },
         texture0: ShaderTex0 { location: None },

@@ -1,3 +1,6 @@
+#[cfg(feature = "derive")]
+pub use graphics_macro::Vertex;
+
 use std::fmt::Debug;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -54,6 +57,7 @@ impl AttributeType {
     }
 }
 
+#[derive(Debug)]
 pub struct VertexFormat {
     pub name: &'static str,
     pub offset: usize,
