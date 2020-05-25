@@ -452,9 +452,9 @@ impl Context {
     pub fn unmap_buffer(&mut self, buffer: &mut buffer::Buffer) {
         self.bind_buffer(buffer.handle(), buffer.buffer_type());
         if self.buffers.get(buffer.handle()).is_some() {
-            let modified_offset = std::cmp::min(buffer.modified_offset(), buffer.size() - 1);
+            let modified_offset = std::cmp::min(buffer.modified_offset(), buffer.size().saturating_sub(1));
             let modified_size =
-                std::cmp::min(buffer.modified_size(), buffer.size() - modified_offset);
+                std::cmp::min(buffer.modified_size(), buffer.size().saturating_sub(modified_offset));
 
             if buffer.modified_size() > 0 {
                 match buffer.usage() {
