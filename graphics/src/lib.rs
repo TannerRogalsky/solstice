@@ -6,7 +6,7 @@ pub mod buffer;
 pub mod canvas;
 pub mod image;
 pub mod mesh;
-// pub mod quad_batch;
+pub mod quad_batch;
 pub mod shader;
 pub mod texture;
 pub mod vertex;

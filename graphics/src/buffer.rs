@@ -145,6 +145,14 @@ where
 }
 
 impl<T> Mapped<T, ndarray::Ix1> {
+    pub fn from_vec(inner: T, vec: Vec<u8>) -> Self {
+        Self {
+            inner,
+            memory_map: vec.into(),
+            modified_range: None,
+        }
+    }
+
     /// Write new data into the buffer and adjust it's dirty range accordingly.
     ///
     /// This function will panic if the buffer overflows.

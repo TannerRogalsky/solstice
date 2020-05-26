@@ -19,7 +19,10 @@ where
     }
 }
 
-fn from_bytes<'a, V>(data: &'a [u8]) -> &'a [V] where V: Sized {
+fn from_bytes<'a, V>(data: &'a [u8]) -> &'a [V]
+where
+    V: Sized,
+{
     unsafe {
         std::slice::from_raw_parts::<'a, V>(
             data.as_ptr() as *const _,
@@ -454,6 +457,33 @@ where
         let vbo = MappedBuffer::with_shape(inner.mesh.vbo.clone(), inner.mesh.vbo.size());
         let ibo = MappedBuffer::with_shape(inner.ibo.clone(), inner.ibo.size());
         Ok(Self { inner, vbo, ibo })
+    }
+
+    pub fn with_data(
+        ctx: &mut Context,
+        mut vertices: Vec<V>,
+        mut indices: Vec<I>,
+    ) -> Result<Self, super::GraphicsError> {
+        let inner = IndexedMesh::with_data(ctx, &vertices, &indices)?;
+        let vbo = MappedBuffer::from_vec(inner.mesh.vbo.clone(), unsafe {
+            Vec::from_raw_parts(
+                vertices.as_mut_ptr() as *mut _,
+                vertices.len() * std::mem::size_of::<V>(),
+                vertices.capacity() * std::mem::size_of::<V>(),
+            )
+        });
+        let ibo = MappedBuffer::from_vec(inner.ibo.clone(), unsafe {
+            Vec::from_raw_parts(
+                indices.as_mut_ptr() as *mut _,
+                indices.len() * std::mem::size_of::<I>(),
+                indices.capacity() * std::mem::size_of::<I>(),
+            )
+        });
+        Ok(Self { inner, vbo, ibo })
+    }
+
+    pub fn set_draw_range(&mut self, draw_range: Option<std::ops::Range<usize>>) {
+        self.inner.set_draw_range(draw_range)
     }
 
     pub fn set_vertices(&mut self, vertices: &[V], offset: usize) {

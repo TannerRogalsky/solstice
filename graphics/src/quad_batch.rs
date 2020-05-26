@@ -1,4 +1,4 @@
-use super::{mesh::IndexedMesh, Context};
+use super::{mesh::MappedIndexedMesh, Context};
 
 pub struct QuadIndex(usize);
 
@@ -56,7 +56,7 @@ where
 }
 
 pub struct QuadBatch<T> {
-    mesh: IndexedMesh<T, u16>,
+    mesh: MappedIndexedMesh<T, u16>,
     count: usize,
     capacity: usize,
 }
@@ -69,10 +69,7 @@ where
         let vertex_capacity = capacity * 4;
         let index_capacity = capacity * 6;
 
-        let mut mesh = IndexedMesh::new(gl, vertex_capacity, index_capacity)?;
-        mesh.set_draw_range(Some(0..0));
-
-        {
+        let indices = {
             // 0---2
             // | / |
             // 1---3
@@ -86,8 +83,12 @@ where
                 indices.push(vi + 1);
                 indices.push(vi + 3);
             }
-            mesh.set_indices(indices.as_slice(), 0);
-        }
+            indices
+        };
+
+        let mut mesh =
+            MappedIndexedMesh::with_data(gl, Vec::with_capacity(vertex_capacity), indices)?;
+        mesh.set_draw_range(Some(0..0));
 
         Ok(Self {
             mesh,
@@ -122,19 +123,6 @@ where
     }
 
     pub fn draw(&mut self, gl: &mut Context) {
-        self.mesh.draw(gl)
-    }
-}
-
-impl<'a, V> super::mesh::MeshAttacher<'a, IndexedMesh<V, u16>> for &'a mut QuadBatch<V> {
-    fn attach_with_step<T>(
-        self,
-        other: &'a mut T,
-        step: u32,
-    ) -> super::mesh::MultiMesh<'a, IndexedMesh<V, u16>>
-    where
-        T: super::mesh::MeshTrait,
-    {
-        self.mesh.attach_with_step(other, step)
+        self.mesh.unmap(gl).draw(gl)
     }
 }
