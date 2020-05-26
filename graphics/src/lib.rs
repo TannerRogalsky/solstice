@@ -6,7 +6,7 @@ pub mod buffer;
 pub mod canvas;
 pub mod image;
 pub mod mesh;
-pub mod quad_batch;
+// pub mod quad_batch;
 pub mod shader;
 pub mod texture;
 pub mod vertex;
@@ -422,23 +422,18 @@ impl Context {
         }
     }
 
-    fn buffer_static_draw(
-        &self,
-        buffer: &buffer::Buffer,
-        modified_offset: usize,
-        modified_size: usize,
-    ) {
+    pub fn buffer_static_draw(&self, buffer: &buffer::Buffer, data: &[u8], offset: usize) {
         let target = buffer.buffer_type().into();
-        let data = &buffer.memory_map()[modified_offset..(modified_offset + modified_size)];
         unsafe {
             self.ctx
-                .buffer_sub_data_u8_slice(target, modified_offset as i32, data)
+                .buffer_sub_data_u8_slice(target, offset as i32, data)
         }
     }
 
-    fn buffer_stream_draw(&self, buffer: &buffer::Buffer) {
+    fn buffer_stream_draw(&self, map: &buffer::MappedBuffer) {
+        let buffer = map.inner();
         let target = buffer.buffer_type().into();
-        let data = buffer.memory_map();
+        let data = map.memory_map();
 
         unsafe {
             // "orphan" current buffer to avoid implicit synchronisation on the GPU:
@@ -449,29 +444,43 @@ impl Context {
         }
     }
 
-    pub fn unmap_buffer(&mut self, buffer: &mut buffer::Buffer) {
+    pub fn unmap_buffer(&mut self, map: &mut buffer::MappedBuffer) {
+        let buffer = map.inner();
         self.bind_buffer(buffer.handle(), buffer.buffer_type());
         if self.buffers.get(buffer.handle()).is_some() {
-            let modified_offset = std::cmp::min(buffer.modified_offset(), buffer.size().saturating_sub(1));
-            let modified_size =
-                std::cmp::min(buffer.modified_size(), buffer.size().saturating_sub(modified_offset));
-
-            if buffer.modified_size() > 0 {
+            if let Some(modified_range) = map.modified_range() {
+                let modified_offset =
+                    std::cmp::min(modified_range.offset, buffer.size().saturating_sub(1));
+                let modified_size = std::cmp::min(
+                    modified_range.size,
+                    buffer.size().saturating_sub(modified_range.offset),
+                );
                 match buffer.usage() {
-                    buffer::Usage::Stream => self.buffer_stream_draw(buffer),
-                    buffer::Usage::Static => {
-                        self.buffer_static_draw(buffer, modified_offset, modified_size)
-                    }
+                    buffer::Usage::Stream => self.buffer_stream_draw(map),
+                    buffer::Usage::Static => self.buffer_static_draw(
+                        buffer,
+                        &map.memory_map()[modified_offset..(modified_size + modified_offset)],
+                        modified_offset,
+                    ),
                     buffer::Usage::Dynamic => {
                         if modified_size >= buffer.size() / 3 {
-                            self.buffer_stream_draw(buffer);
+                            self.buffer_stream_draw(map);
                         } else {
-                            self.buffer_static_draw(buffer, modified_offset, modified_size);
+                            self.buffer_static_draw(
+                                buffer,
+                                &map.memory_map()
+                                    [modified_offset..(modified_size + modified_offset)],
+                                modified_offset,
+                            );
                         }
                     }
                 }
             }
-            buffer.reset_modified_range();
+        } else {
+            log::warn!(
+                "attempted to unmap non-existant buffer, {:?}",
+                buffer.handle()
+            );
         }
     }
 
@@ -857,7 +866,11 @@ impl Context {
         }
     }
 
-    pub fn set_vertex_attributes(&mut self, desired: u32, binding_info: &[Option<mesh::BindingInfo>]) {
+    pub fn set_vertex_attributes(
+        &mut self,
+        desired: u32,
+        binding_info: &[Option<mesh::BindingInfo>],
+    ) {
         let diff = desired ^ self.enabled_attributes;
         for i in 0..self.gl_constants.max_vertex_attributes as u32 {
             let bit = 1 << i;
@@ -1279,6 +1292,33 @@ impl Drop for Context {
 mod tests {
     use super::*;
 
+    #[derive(Debug, Copy, Clone, PartialEq)]
+    #[repr(C, packed)]
+    struct TestVertex {
+        color: f32,
+        position: f32,
+    }
+
+    use vertex::VertexFormat;
+    impl vertex::Vertex for TestVertex {
+        fn build_bindings() -> &'static [VertexFormat] {
+            &[
+                VertexFormat {
+                    name: "color",
+                    offset: 0,
+                    atype: vertex::AttributeType::F32,
+                    normalize: false,
+                },
+                VertexFormat {
+                    name: "position",
+                    offset: std::mem::size_of::<f32>(),
+                    atype: vertex::AttributeType::F32,
+                    normalize: false,
+                },
+            ]
+        }
+    }
+
     fn get_headless_context(
         width: u32,
         height: u32,
@@ -1304,37 +1344,11 @@ mod tests {
 
     #[test]
     fn unused_vertex_attribute() {
-        #[repr(C, packed)]
-        struct TestVertex {
-            color: f32,
-            position: f32,
-        }
-
-        use vertex::VertexFormat;
-        impl vertex::Vertex for TestVertex {
-            fn build_bindings() -> &'static [VertexFormat] {
-                &[
-                    VertexFormat {
-                        name: "color",
-                        offset: 0,
-                        atype: vertex::AttributeType::F32,
-                        normalize: false,
-                    },
-                    VertexFormat {
-                        name: "position",
-                        offset: std::mem::size_of::<f32>(),
-                        atype: vertex::AttributeType::F32,
-                        normalize: false,
-                    },
-                ]
-            }
-        }
-
         let (ctx, _window) = get_headless_context(100, 100);
         let mut ctx = Context::new(ctx);
 
-        let mut mesh = mesh::Mesh::new(&mut ctx, 3).unwrap();
-        mesh.set_vertices(
+        let mesh = mesh::Mesh::with_data(
+            &mut ctx,
             &[
                 TestVertex {
                     color: 0.,
@@ -1349,8 +1363,8 @@ mod tests {
                     position: 3.,
                 },
             ],
-            0,
-        );
+        )
+        .unwrap();
 
         const SRC: &str = r#"
 varying vec4 vColor;
@@ -1374,5 +1388,45 @@ void main() {
         ctx.use_shader(Some(&shader));
 
         mesh.draw(&mut ctx);
+    }
+
+    #[test]
+    fn mapped_mesh() {
+        let (ctx, _window) = get_headless_context(100, 100);
+        let mut ctx = Context::new(ctx);
+
+        let vertices = [
+            TestVertex {
+                color: 0.,
+                position: 1.,
+            },
+            TestVertex {
+                color: 1.,
+                position: 2.,
+            },
+            TestVertex {
+                color: 2.,
+                position: 3.,
+            },
+        ];
+
+        let indices = [0u32, 1, 2];
+
+        {
+            let mut mesh = mesh::MappedMesh::new(&mut ctx, 3).unwrap();
+            mesh.set_vertices(&vertices, 0);
+
+            let mapped_verts = mesh.get_vertices();
+            assert_eq!(vertices, mapped_verts);
+        }
+
+        {
+            let mut mesh = mesh::MappedIndexedMesh::new(&mut ctx, 3, 3).unwrap();
+            mesh.set_vertices(&vertices, 0);
+            mesh.set_indices(&indices, 0);
+
+            assert_eq!(vertices, mesh.get_vertices());
+            assert_eq!(indices, mesh.get_indices());
+        }
     }
 }
