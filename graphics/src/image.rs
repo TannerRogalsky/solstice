@@ -1,7 +1,9 @@
 use super::{
+    buffer::Mapped,
     texture::{
         Filter, FilterMode, Texture, TextureInfo, TextureType, TextureUpdate, Wrap, WrapMode,
     },
+    viewport::Viewport,
     Context,
 };
 use data::PixelFormat;
@@ -104,5 +106,53 @@ impl Texture for &Image {
 
     fn get_texture_info(&self) -> TextureInfo {
         Image::get_texture_info(self)
+    }
+}
+
+pub type MappedImage = Mapped<Image, ndarray::Ix2>;
+
+impl MappedImage {
+    pub fn new(
+        ctx: &mut Context,
+        texture_type: TextureType,
+        format: PixelFormat,
+        width: u32,
+        height: u32,
+        settings: Settings,
+    ) -> Result<Self, super::GraphicsError> {
+        let inner = Image::new(ctx, texture_type, format, width, height, settings)?;
+        let pixel_stride = super::gl::pixel_format::size(inner.texture_info.get_format());
+        Ok(Self::with_shape(
+            inner,
+            [height as usize, width as usize * pixel_stride],
+        ))
+    }
+
+    pub fn set_pixels(&mut self, region: Viewport<usize>, data: &[u8]) {
+        let pixel_stride = super::gl::pixel_format::size(self.inner.texture_info.get_format());
+        let (v_width, v_height) = region.dimensions();
+        let (x1, y1) = region.position();
+        let (x1, y1) = (x1 * pixel_stride, y1);
+        let (x2, y2) = (x1 + v_width * pixel_stride, y1 + v_height);
+        assert_eq!(v_width * v_height * pixel_stride, data.len());
+        let mut slice = self.memory_map.slice_mut(ndarray::s![y1..y2, x1..x2]);
+        let data =
+            ndarray::ArrayView2::from_shape([v_height, v_width * pixel_stride], data).unwrap();
+        slice.assign(&data);
+    }
+
+    pub fn get_pixels(&self) -> &[u8] {
+        self.memory_map()
+    }
+
+    pub fn unmap(&mut self, ctx: &mut Context) -> &Image {
+        // TODO, track modified range and texture sub data
+        ctx.set_texture_data(
+            self.inner.texture_key,
+            self.inner.texture_info,
+            self.inner.texture_type,
+            Some(self.get_pixels()),
+        );
+        &self.inner
     }
 }

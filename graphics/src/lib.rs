@@ -1165,7 +1165,6 @@ impl texture::TextureUpdate for Context {
         texture_type: texture::TextureType,
         data: Option<&[u8]>,
     ) {
-        self.new_debug_group("Buffer Image Data");
         let (internal, external, gl_type) =
             gl::pixel_format::to_gl(texture.get_format(), &self.version);
         let width = texture.width();
@@ -1428,5 +1427,29 @@ void main() {
             assert_eq!(vertices, mesh.get_vertices());
             assert_eq!(indices, mesh.get_indices());
         }
+    }
+
+    #[test]
+    fn mapped_image() {
+        use data::PixelFormat;
+        use image::*;
+        use texture::*;
+
+        let (ctx, _window) = get_headless_context(100, 100);
+        let mut ctx = Context::new(ctx);
+
+        let mut image = MappedImage::new(
+            &mut ctx,
+            TextureType::Tex2D,
+            PixelFormat::RGBA8,
+            3,
+            3,
+            Settings::default(),
+        )
+        .unwrap();
+
+        let pixel = [1, 2, 3, 4];
+        image.set_pixels(viewport::Viewport::new(0, 0, 1, 1), &pixel);
+        assert_eq!(image.get_pixels()[..4], pixel);
     }
 }

@@ -115,9 +115,9 @@ pub struct ModifiedRange<D> {
 }
 
 pub struct Mapped<T, D> {
-    inner: T,
-    memory_map: ndarray::Array<u8, D>,
-    modified_range: Option<ModifiedRange<D>>,
+    pub(crate) inner: T,
+    pub(crate) memory_map: ndarray::Array<u8, D>,
+    pub(crate) modified_range: Option<ModifiedRange<D>>,
 }
 
 impl<T, D> Mapped<T, D>
