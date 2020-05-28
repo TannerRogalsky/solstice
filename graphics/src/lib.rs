@@ -1438,12 +1438,13 @@ void main() {
         let (ctx, _window) = get_headless_context(100, 100);
         let mut ctx = Context::new(ctx);
 
-        let mut image = MappedImage::new(
+        let mut image = MappedImage::with_data(
             &mut ctx,
             TextureType::Tex2D,
             PixelFormat::RGBA8,
             3,
             3,
+            vec![234; 3 * 3 * 4],
             Settings::default(),
         )
         .unwrap();
