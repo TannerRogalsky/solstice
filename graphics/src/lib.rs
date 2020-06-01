@@ -1,4 +1,6 @@
 pub extern crate glow;
+pub extern crate data;
+
 #[cfg(feature = "derive")]
 extern crate graphics_macro;
 
@@ -1291,7 +1293,7 @@ impl Drop for Context {
 mod tests {
     use super::*;
 
-    #[derive(Debug, Copy, Clone, PartialEq)]
+    #[derive(Debug, Copy, Clone, PartialEq, Default)]
     #[repr(C, packed)]
     struct TestVertex {
         color: f32,
@@ -1452,5 +1454,22 @@ void main() {
         let pixel = [1, 2, 3, 4];
         image.set_pixels(viewport::Viewport::new(0, 0, 1, 1), &pixel);
         assert_eq!(image.get_pixels()[..4], pixel);
+    }
+
+    #[test]
+    fn quad_batch_test() {
+        let (ctx, _window) = get_headless_context(100, 100);
+        let mut ctx = Context::new(ctx);
+
+        let quad = quad_batch::Quad::from(viewport::Viewport::new(0., 0., 1., 1.)).map(|(x, y)| {
+            TestVertex {
+                color: y,
+                position: x
+            }
+        });
+        let mut batch = quad_batch::QuadBatch::<TestVertex>::new(&mut ctx, 1).unwrap();
+        let index = batch.push(quad.clone());
+
+        assert_eq!(batch.get_quad(index).unwrap(), quad);
     }
 }

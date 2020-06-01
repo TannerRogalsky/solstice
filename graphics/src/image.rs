@@ -147,19 +147,25 @@ impl MappedImage {
         ))
     }
 
-    pub fn with_data(ctx: &mut Context,
-                     texture_type: TextureType,
-                     format: PixelFormat,
-                     width: u32,
-                     height: u32,
-                     data: Vec<u8>,
-                     settings: Settings) -> Result<Self, super::GraphicsError> {
+    pub fn with_data(
+        ctx: &mut Context,
+        texture_type: TextureType,
+        format: PixelFormat,
+        width: u32,
+        height: u32,
+        data: Vec<u8>,
+        settings: Settings,
+    ) -> Result<Self, super::GraphicsError> {
         let inner = Image::with_data(ctx, texture_type, format, width, height, &data, settings)?;
         let pixel_stride = super::gl::pixel_format::size(inner.texture_info.get_format());
         Ok(Self {
             inner,
-            memory_map: ndarray::Array2::from_shape_vec([height as usize, width as usize * pixel_stride], data).unwrap(),
-            modified_range: None
+            memory_map: ndarray::Array2::from_shape_vec(
+                [height as usize, width as usize * pixel_stride],
+                data,
+            )
+            .unwrap(),
+            modified_range: None,
         })
     }
 

@@ -461,11 +461,12 @@ where
 
     pub fn with_data(
         ctx: &mut Context,
-        mut vertices: Vec<V>,
-        mut indices: Vec<I>,
+        vertices: Vec<V>,
+        indices: Vec<I>,
     ) -> Result<Self, super::GraphicsError> {
         let inner = IndexedMesh::with_data(ctx, &vertices, &indices)?;
         let vbo = MappedBuffer::from_vec(inner.mesh.vbo.clone(), unsafe {
+            let mut vertices = std::mem::ManuallyDrop::new(vertices);
             Vec::from_raw_parts(
                 vertices.as_mut_ptr() as *mut _,
                 vertices.len() * std::mem::size_of::<V>(),
@@ -473,6 +474,7 @@ where
             )
         });
         let ibo = MappedBuffer::from_vec(inner.ibo.clone(), unsafe {
+            let mut indices = std::mem::ManuallyDrop::new(indices);
             Vec::from_raw_parts(
                 indices.as_mut_ptr() as *mut _,
                 indices.len() * std::mem::size_of::<I>(),

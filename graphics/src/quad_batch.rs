@@ -63,7 +63,7 @@ pub struct QuadBatch<T> {
 
 impl<T> QuadBatch<T>
 where
-    T: super::vertex::Vertex,
+    T: super::vertex::Vertex + Default + Clone,
 {
     pub fn new(gl: &mut Context, capacity: usize) -> Result<Self, super::GraphicsError> {
         let vertex_capacity = capacity * 4;
@@ -87,7 +87,7 @@ where
         };
 
         let mut mesh =
-            MappedIndexedMesh::with_data(gl, Vec::with_capacity(vertex_capacity), indices)?;
+            MappedIndexedMesh::with_data(gl, vec![T::default(); vertex_capacity], indices)?;
         mesh.set_draw_range(Some(0..0));
 
         Ok(Self {
@@ -111,6 +111,22 @@ where
         self.count += 1;
         self.mesh.set_draw_range(Some(0..(self.count * 6)));
         index
+    }
+
+    pub fn get_quad(&self, index: QuadIndex) -> Option<Quad<T>> where T: std::marker::Copy {
+        let index = index.0;
+        if index >= self.count {
+            None
+        } else {
+            let index = index * 4;
+            let mut vertices = [T::default(); 4];
+            for (dst, src) in vertices.iter_mut().zip(self.mesh.get_vertices()[index..index+4].iter()) {
+                *dst = *src;
+            }
+            Some(Quad {
+                vertices
+            })
+        }
     }
 
     pub fn insert(&mut self, index: QuadIndex, quad: Quad<T>) {
