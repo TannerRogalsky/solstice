@@ -155,7 +155,7 @@ const GLSL_VERSION: &str = "#version 330 core";
 const LINE_PRAGMA: &str = "#line 1";
 
 #[cfg(not(target_arch = "wasm32"))]
-const LINE_PRAGMA: &str = "#line 0";
+const LINE_PRAGMA: &str = "#line 1";
 
 const SYNTAX: &str = r#"
 #if !defined(GL_ES) && __VERSION__ < 140

@@ -1,5 +1,5 @@
-pub extern crate glow;
 pub extern crate data;
+pub extern crate glow;
 
 #[cfg(feature = "derive")]
 extern crate graphics_macro;
@@ -1464,7 +1464,7 @@ void main() {
         let quad = quad_batch::Quad::from(viewport::Viewport::new(0., 0., 1., 1.)).map(|(x, y)| {
             TestVertex {
                 color: y,
-                position: x
+                position: x,
             }
         });
         let mut batch = quad_batch::QuadBatch::<TestVertex>::new(&mut ctx, 1).unwrap();

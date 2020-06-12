@@ -113,19 +113,23 @@ where
         index
     }
 
-    pub fn get_quad(&self, index: QuadIndex) -> Option<Quad<T>> where T: std::marker::Copy {
+    pub fn get_quad(&self, index: QuadIndex) -> Option<Quad<T>>
+    where
+        T: std::marker::Copy,
+    {
         let index = index.0;
         if index >= self.count {
             None
         } else {
             let index = index * 4;
             let mut vertices = [T::default(); 4];
-            for (dst, src) in vertices.iter_mut().zip(self.mesh.get_vertices()[index..index+4].iter()) {
+            for (dst, src) in vertices
+                .iter_mut()
+                .zip(self.mesh.get_vertices()[index..index + 4].iter())
+            {
                 *dst = *src;
             }
-            Some(Quad {
-                vertices
-            })
+            Some(Quad { vertices })
         }
     }
 
