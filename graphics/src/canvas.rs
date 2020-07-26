@@ -40,6 +40,7 @@ impl Default for Settings {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Canvas {
     framebuffer_key: super::FramebufferKey,
     texture_key: super::TextureKey,

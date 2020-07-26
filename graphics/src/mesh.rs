@@ -106,14 +106,15 @@ pub type BindingInfo<'a> = (&'a VertexFormat, usize, u32, super::BufferKey, Buff
 /// let mut mesh = graphics::mesh::Mesh::new(&mut ctx, 3000).unwrap();
 /// mesh.set_draw_range(Some(0..3)); // draws only the first three vertices of the 3000 allocated
 /// ```
-pub struct Mesh<V> {
+#[derive(Debug)]
+pub struct VertexMesh<V> {
     vbo: Buffer,
     draw_range: Option<std::ops::Range<usize>>,
     draw_mode: super::DrawMode,
     type_marker: std::marker::PhantomData<V>,
 }
 
-impl<V> Mesh<V>
+impl<V> VertexMesh<V>
 where
     V: Vertex,
 {
@@ -161,20 +162,6 @@ where
         self.draw_mode = draw_mode;
     }
 
-    /// Draw the mesh.
-    pub fn draw(&self, gl: &mut Context) {
-        self.draw_instanced(gl, 1);
-    }
-
-    pub fn attributes(&self) -> AttachedAttributes {
-        AttachedAttributes {
-            buffer: &self.vbo,
-            formats: V::build_bindings(),
-            step: 0,
-            stride: std::mem::size_of::<V>(),
-        }
-    }
-
     pub fn draw_range(&self) -> std::ops::Range<usize> {
         self.draw_range
             .clone()
@@ -184,100 +171,19 @@ where
     pub fn draw_mode(&self) -> super::DrawMode {
         self.draw_mode
     }
-
-    /// Draw the mesh multiple times using the same vertex data. This might be useful if you're
-    /// using per instance data from a uniform or a separate [attached mesh](graphics::mesh::MeshAttacher).
-    pub fn draw_instanced(&self, ctx: &mut Context, instance_count: usize) {
-        self.internal_draw(ctx, instance_count, &[]);
-    }
-
-    fn internal_draw(
-        &self,
-        ctx: &mut Context,
-        instance_count: usize,
-        attached_attributes: &[AttachedAttributes],
-    ) {
-        let draw_range = self.draw_range();
-        if draw_range.start >= draw_range.end {
-            return;
-        }
-
-        ctx.bind_buffer(self.vbo.handle(), self.vbo.buffer_type());
-        self.prepare_draw(ctx, attached_attributes);
-
-        let (count, offset) = (
-            (draw_range.end - draw_range.start) as i32,
-            draw_range.start as i32,
-        );
-        if instance_count > 1 {
-            ctx.draw_arrays_instanced(self.draw_mode(), offset, count, instance_count as i32);
-        } else {
-            ctx.draw_arrays(self.draw_mode(), offset, count);
-        }
-    }
-
-    fn prepare_draw(&self, ctx: &mut Context, attached_attributes: &[AttachedAttributes]) {
-        let AttachedAttributes {
-            buffer,
-            formats,
-            step,
-            stride,
-        } = self.attributes();
-
-        // gl.unmap_buffer(&mut self.vbo);
-        // for attr in attached_attributes.iter_mut() {
-        //     gl.unmap_buffer(attr.buffer);
-        // }
-
-        // there's likely a better way to accumulate all bindings into an easy to search collection
-        let attached_bindings = formats
-            .iter()
-            .map(|binding| (binding, stride, step, buffer.handle(), buffer.buffer_type()))
-            .chain(attached_attributes.iter().flat_map(|attributes| {
-                attributes
-                    .formats
-                    .iter()
-                    .map(|binding| {
-                        (
-                            binding,
-                            attributes.stride,
-                            attributes.step,
-                            attributes.buffer.handle(),
-                            attributes.buffer.buffer_type(),
-                        )
-                    })
-                    .collect::<Vec<_>>()
-            }))
-            .collect::<Vec<_>>();
-
-        let shader = ctx.get_active_shader().expect("No active shader.");
-        let mut desired_attribute_state = 0u32;
-        let mut attributes = [None; 32];
-        for attr in shader.attributes().iter() {
-            let binding = attached_bindings
-                .iter()
-                .find(|(binding, ..)| binding.name == attr.name.as_str())
-                .cloned();
-            if let Some(binding) = binding {
-                desired_attribute_state |= 1 << attr.location;
-                attributes[attr.location as usize] = Some(binding);
-            }
-        }
-        ctx.set_vertex_attributes(desired_attribute_state, &attributes);
-    }
 }
 
-pub struct MappedMesh<V> {
-    inner: Mesh<V>,
+pub struct MappedVertexMesh<V> {
+    inner: VertexMesh<V>,
     memory_map: MappedBuffer,
 }
 
-impl<V> MappedMesh<V>
+impl<V> MappedVertexMesh<V>
 where
     V: Vertex,
 {
     pub fn new(ctx: &mut super::Context, size: usize) -> Result<Self, super::GraphicsError> {
-        let inner = Mesh::new(ctx, size)?;
+        let inner = VertexMesh::new(ctx, size)?;
         let memory_map =
             MappedBuffer::with_shape(inner.vbo.clone(), [size * std::mem::size_of::<V>()]);
         Ok(Self { inner, memory_map })
@@ -291,7 +197,7 @@ where
         get_buffer(&self.memory_map)
     }
 
-    pub fn unmap(&mut self, ctx: &mut super::Context) -> &Mesh<V> {
+    pub fn unmap(&mut self, ctx: &mut super::Context) -> &VertexMesh<V> {
         self.memory_map.unmap(ctx);
         &self.inner
     }
@@ -301,8 +207,9 @@ where
 ///
 /// This is useful if you have a number of vertices that you would otherwise have to duplicate
 /// because indices are generally smaller than a vertex so duplicating them is more performant.
+#[derive(Debug)]
 pub struct IndexedMesh<V, I> {
-    mesh: Mesh<V>,
+    mesh: VertexMesh<V>,
     ibo: Buffer,
     type_marker: std::marker::PhantomData<I>,
 }
@@ -324,7 +231,7 @@ where
             BufferType::Index,
             Usage::Dynamic,
         )?;
-        let mesh = Mesh::new(ctx, vertex_count)?;
+        let mesh = VertexMesh::new(ctx, vertex_count)?;
         Ok(Self {
             mesh,
             ibo,
@@ -338,7 +245,7 @@ where
         indices: &[I],
     ) -> Result<Self, super::GraphicsError> {
         let ibo = Buffer::with_data(ctx, to_bytes(indices), BufferType::Index, Usage::Dynamic)?;
-        let mesh = Mesh::with_data(ctx, vertices)?;
+        let mesh = VertexMesh::with_data(ctx, vertices)?;
         Ok(Self {
             mesh,
             ibo,
@@ -349,7 +256,7 @@ where
     /// Construct an indexed mesh from a non-indexed mesh.
     pub fn with_mesh(
         ctx: &mut Context,
-        mesh: Mesh<V>,
+        mesh: VertexMesh<V>,
         index_count: usize,
     ) -> Result<Self, super::GraphicsError> {
         let ibo = Buffer::new(
@@ -389,51 +296,6 @@ where
 
     pub fn set_draw_mode(&mut self, draw_mode: super::DrawMode) {
         self.mesh.set_draw_mode(draw_mode)
-    }
-
-    pub fn draw(&self, gl: &mut Context) {
-        self.draw_instanced(gl, 1);
-    }
-
-    pub fn draw_instanced(&self, gl: &mut Context, instance_count: usize) {
-        self.internal_draw(gl, instance_count, &[]);
-    }
-
-    pub fn attributes(&self) -> AttachedAttributes {
-        self.mesh.attributes()
-    }
-
-    fn internal_draw(
-        &self,
-        ctx: &mut Context,
-        instance_count: usize,
-        attached_attributes: &[AttachedAttributes],
-    ) {
-        if let Some(draw_range) = &self.mesh.draw_range {
-            if draw_range.start >= draw_range.end {
-                return;
-            }
-        }
-
-        ctx.bind_buffer(self.mesh.vbo.handle(), self.mesh.vbo.buffer_type());
-        ctx.bind_buffer(self.ibo.handle(), self.ibo.buffer_type());
-        self.mesh.prepare_draw(ctx, attached_attributes);
-
-        let (count, offset) = match &self.mesh.draw_range {
-            None => ((self.ibo.size() / std::mem::size_of::<I>()) as i32, 0),
-            Some(range) => ((range.end - range.start) as i32, range.start as i32),
-        };
-        if instance_count > 1 {
-            ctx.draw_elements_instanced(
-                self.mesh.draw_mode,
-                count,
-                I::GL_TYPE,
-                offset,
-                instance_count as i32,
-            );
-        } else {
-            ctx.draw_elements(self.mesh.draw_mode, count, I::GL_TYPE, offset);
-        }
     }
 }
 
@@ -512,10 +374,76 @@ where
 }
 
 pub struct AttachedAttributes<'a> {
-    buffer: &'a Buffer,
-    formats: &'a [VertexFormat],
-    step: u32,
-    stride: usize,
+    pub buffer: &'a Buffer,
+    pub formats: &'a [VertexFormat],
+    pub step: u32,
+    pub stride: usize,
+}
+
+pub trait Mesh {
+    fn attributes(&self) -> Vec<AttachedAttributes>;
+    fn draw(&self, ctx: &mut super::Context, instance_count: usize);
+}
+
+impl<V: Vertex> Mesh for VertexMesh<V> {
+    fn attributes(&self) -> Vec<AttachedAttributes> {
+        vec![AttachedAttributes {
+            buffer: &self.vbo,
+            formats: V::build_bindings(),
+            step: 0,
+            stride: std::mem::size_of::<V>(),
+        }]
+    }
+
+    fn draw(&self, ctx: &mut super::Context, instance_count: usize) {
+        let draw_range = self.draw_range();
+        if draw_range.start >= draw_range.end {
+            return;
+        }
+
+        let (count, offset) = (
+            (draw_range.end - draw_range.start) as i32,
+            draw_range.start as i32,
+        );
+        if instance_count > 1 {
+            ctx.draw_arrays_instanced(self.draw_mode, offset, count, instance_count as i32);
+        } else {
+            ctx.draw_arrays(self.draw_mode, offset, count);
+        }
+    }
+}
+
+impl<V: Vertex, I: Index> Mesh for IndexedMesh<V, I> {
+    fn attributes(&self) -> Vec<AttachedAttributes> {
+        self.mesh.attributes()
+    }
+
+    fn draw(&self, ctx: &mut super::Context, instance_count: usize) {
+        if let Some(draw_range) = &self.mesh.draw_range {
+            if draw_range.start >= draw_range.end {
+                return;
+            }
+        }
+
+        let (count, offset) = match &self.mesh.draw_range {
+            None => ((self.ibo.size() / std::mem::size_of::<I>()) as i32, 0),
+            Some(range) => ((range.end - range.start) as i32, range.start as i32),
+        };
+
+        let ibo = &self.ibo;
+        ctx.bind_buffer(ibo.handle(), ibo.buffer_type());
+        if instance_count > 1 {
+            ctx.draw_elements_instanced(
+                self.mesh.draw_mode,
+                count,
+                I::GL_TYPE,
+                offset,
+                instance_count as i32,
+            );
+        } else {
+            ctx.draw_elements(self.mesh.draw_mode, count, I::GL_TYPE, offset);
+        }
+    }
 }
 
 // TODO: Redo this but without the trait: implement behaviour for specific structs

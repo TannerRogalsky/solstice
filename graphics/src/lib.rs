@@ -86,11 +86,13 @@ fn buffer_type_to_index(buffer_type: buffer::BufferType) -> usize {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum VertexWinding {
     ClockWise,
     CounterClockWise,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DepthFunction {
     Never,
     Less,
@@ -117,6 +119,7 @@ impl DepthFunction {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CullFace {
     Back,
     Front,
@@ -264,7 +267,7 @@ pub struct Context {
     version: GLVersion,
     gl_constants: GLConstants,
     shaders: SlotMap<ShaderKey, GLProgram>,
-    active_shader: Option<shader::Shader>,
+    active_shader: Option<ShaderKey>,
     buffers: SlotMap<BufferKey, GLBuffer>,
     active_buffers: [Option<BufferKey>; 2],
     textures: SlotMap<TextureKey, GLTexture>,
@@ -560,10 +563,7 @@ impl Context {
         }
     }
 
-    pub fn get_shader_uniforms(
-        &self,
-        shader: ShaderKey,
-    ) -> std::collections::HashMap<String, shader::Uniform> {
+    pub fn get_shader_uniforms(&self, shader: ShaderKey) -> Vec<shader::Uniform> {
         unsafe fn get_initial_uniform_data(
             gl: &glow::Context,
             utype: u32,
@@ -618,7 +618,7 @@ impl Context {
         let gl = &self.ctx;
         if let Some(program) = self.shaders.get(shader).cloned() {
             let count = unsafe { gl.get_active_uniforms(program) };
-            let mut uniforms = std::collections::HashMap::with_capacity(count as usize);
+            let mut uniforms = Vec::with_capacity(count as usize);
             for index in 0..count {
                 unsafe {
                     let glow::ActiveUniform { name, size, utype } =
@@ -631,16 +631,13 @@ impl Context {
                             let initial_data =
                                 get_initial_uniform_data(&gl, utype, program, &location);
                             let location = UniformLocation(location);
-                            (
-                                name.clone(),
-                                Uniform {
-                                    name,
-                                    size: 1,
-                                    utype,
-                                    location,
-                                    initial_data,
-                                },
-                            )
+                            Uniform {
+                                name,
+                                size: 1,
+                                utype,
+                                location,
+                                initial_data,
+                            }
                         }));
                     } else {
                         let location = gl
@@ -648,16 +645,13 @@ impl Context {
                             .expect("Failed to get uniform?!");
                         let initial_data = get_initial_uniform_data(&gl, utype, program, &location);
                         let location = UniformLocation(location);
-                        uniforms.insert(
-                            name.clone(),
-                            Uniform {
-                                name,
-                                size,
-                                utype,
-                                location,
-                                initial_data,
-                            },
-                        );
+                        uniforms.push(Uniform {
+                            name,
+                            size,
+                            utype,
+                            location,
+                            initial_data,
+                        });
                     }
                 }
             }
@@ -676,26 +670,31 @@ impl Context {
         }
     }
 
-    pub fn use_shader(&mut self, shader: Option<&shader::Shader>) {
-        if self.active_shader.as_ref() != shader {
-            match shader {
-                None => {
+    pub fn use_shader<S: shader::Shader>(&mut self, shader: Option<&S>) {
+        match shader {
+            None => {
+                if self.active_shader.is_some() {
                     self.active_shader = None;
-                    unsafe { self.ctx.use_program(None) }
-                }
-                Some(active_shader) => match self.shaders.get(active_shader.handle()).cloned() {
-                    None => (), // todo: define behaviour when shader doesn't exist in state
-                    Some(gl_shader) => {
-                        self.active_shader = shader.cloned();
-                        unsafe { self.ctx.use_program(Some(gl_shader)) }
+                    unsafe {
+                        self.ctx.use_program(None);
                     }
-                },
+                }
+            }
+            Some(shader) => {
+                if self.active_shader != Some(shader.handle()) {
+                    match self.shaders.get(shader.handle()) {
+                        None => log::warn!(
+                            "Attempting to bind shader not in cache: {:?}",
+                            shader.handle()
+                        ),
+                        Some(gl_shader) => {
+                            self.active_shader = Some(shader.handle());
+                            unsafe { self.ctx.use_program(Some(*gl_shader)) }
+                        }
+                    }
+                }
             }
         }
-    }
-
-    pub fn get_active_shader(&self) -> Option<&shader::Shader> {
-        self.active_shader.as_ref()
     }
 
     pub fn new_texture(
@@ -1043,8 +1042,15 @@ impl Context {
     ) {
         let (_, format, gl_type) = gl::pixel_format::to_gl(format, &self.version);
         unsafe {
-            self.ctx
-                .read_pixels(x, y, width, height, format, gl_type, data)
+            self.ctx.read_pixels(
+                x,
+                y,
+                width,
+                height,
+                format,
+                gl_type,
+                glow::PixelPackData::Slice(data),
+            )
         }
     }
 
@@ -1132,7 +1138,7 @@ impl texture::TextureUpdate for Context {
         texture_key: TextureKey,
         texture: texture::TextureInfo,
         texture_type: texture::TextureType,
-        data: Option<&[u8]>,
+        data: &[u8],
         x_offset: u32,
         y_offset: u32,
     ) {
@@ -1143,7 +1149,7 @@ impl texture::TextureUpdate for Context {
         let gl_target = gl::texture::to_gl(texture_type);
         self.bind_texture_to_unit(texture_type, texture_key, 0.into());
         unsafe {
-            self.ctx.tex_sub_image_2d_u8_slice(
+            self.ctx.tex_sub_image_2d(
                 gl_target,
                 0,
                 x_offset as i32,
@@ -1152,7 +1158,7 @@ impl texture::TextureUpdate for Context {
                 height as i32,
                 external,
                 gl_type,
-                data,
+                glow::PixelUnpackData::Slice(data),
             );
             if texture.mipmaps() {
                 self.ctx.generate_mipmap(gl_target);
@@ -1275,23 +1281,391 @@ impl Drop for Context {
     }
 }
 
-// mod experiment {
-//     pub trait Shader {
-//
-//     }
-//
-//     pub trait Context {
-//         type Shader;
-//         type Geometry;
-//         type Textures;
-//
-//         fn execute(shader: &mut Self::Shader, geometry: &mut Geometry, textures: &mut Textures);
-//     }
-// }
+pub trait Renderer {
+    fn clear(&mut self, settings: ClearSettings);
+    fn draw<S, M>(&mut self, shader: &S, geometry: Geometry<M>, settings: PipelineSettings)
+    where
+        S: shader::Shader,
+        M: mesh::Mesh;
+}
+
+impl Renderer for Context {
+    fn clear(&mut self, settings: ClearSettings) {
+        let ClearSettings {
+            color,
+            depth,
+            stencil,
+        } = settings;
+        let mut clear_bits = 0;
+
+        if let Some(color) = color {
+            let Color {
+                red,
+                blue,
+                green,
+                alpha,
+            } = color.into();
+            unsafe {
+                self.ctx.clear_color(red, green, blue, alpha);
+            }
+            clear_bits = clear_bits | glow::COLOR_BUFFER_BIT;
+        }
+
+        if let Some(depth) = depth {
+            unsafe {
+                self.ctx.clear_depth_f32(depth.0);
+            }
+            clear_bits = clear_bits | glow::DEPTH_BUFFER_BIT;
+        }
+
+        if let Some(stencil) = stencil {
+            unsafe {
+                self.ctx.clear_stencil(stencil);
+            }
+            clear_bits = clear_bits | glow::STENCIL_BUFFER_BIT;
+        }
+
+        unsafe {
+            self.ctx.clear(clear_bits);
+        }
+    }
+
+    fn draw<S, M>(&mut self, shader: &S, geometry: Geometry<'_, M>, _settings: PipelineSettings)
+    where
+        S: shader::Shader,
+        M: mesh::Mesh,
+    {
+        self.use_shader(Some(shader));
+
+        let Geometry {
+            mesh,
+            // draw_range,
+            // draw_mode,
+            instance_count,
+            ..
+        } = geometry;
+
+        let attached_attributes = mesh.attributes();
+        let (desired_attribute_state, attributes) = prepare_draw(shader, &attached_attributes);
+        self.set_vertex_attributes(desired_attribute_state, &attributes);
+
+        mesh.draw(self, instance_count as usize);
+    }
+}
+
+fn prepare_draw<'a, S: shader::Shader>(
+    shader: &S,
+    attached_attributes: &'a [mesh::AttachedAttributes],
+) -> (u32, [Option<mesh::BindingInfo<'a>>; 32]) {
+    // there's likely a better way to accumulate all bindings into an easy to search collection
+    let attached_bindings = attached_attributes
+        .iter()
+        .flat_map(|attributes| {
+            attributes
+                .formats
+                .iter()
+                .map(|binding| {
+                    (
+                        binding,
+                        attributes.stride,
+                        attributes.step,
+                        attributes.buffer.handle(),
+                        attributes.buffer.buffer_type(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    let mut desired_attribute_state = 0u32;
+    let mut attributes = [None; 32];
+    for attr in shader::Shader::attributes(shader).iter() {
+        let binding = attached_bindings
+            .iter()
+            .find(|(binding, ..)| binding.name == attr.name.as_str())
+            .cloned();
+        if let Some(binding) = binding {
+            desired_attribute_state |= 1 << attr.location;
+            attributes[attr.location as usize] = Some(binding);
+        }
+    }
+    (desired_attribute_state, attributes)
+}
+
+pub struct Geometry<'a, M> {
+    pub mesh: &'a M,
+    pub draw_range: std::ops::Range<usize>,
+    pub draw_mode: DrawMode,
+    pub instance_count: u32,
+}
+
+/// An non-NAN f32 value clamped between 0.0 and 1.0, inclusive.
+/// This type can be constructed with an f32 which will be clamped into the appropriate range.
+#[derive(Copy, Clone, Default, Debug, PartialOrd, PartialEq)]
+pub struct ClampedF32(f32);
+
+impl From<f32> for ClampedF32 {
+    fn from(v: f32) -> Self {
+        let v = if v < 0. {
+            0f32
+        } else if v > 1. {
+            1.
+        } else if v.is_nan() {
+            0.
+        } else {
+            v
+        };
+
+        ClampedF32(v)
+    }
+}
+
+impl Eq for ClampedF32 {}
+impl Ord for ClampedF32 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.partial_cmp(&other.0).expect("infallible")
+    }
+}
+
+impl std::ops::Deref for ClampedF32 {
+    type Target = f32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Color<T> {
+    pub red: T,
+    pub blue: T,
+    pub green: T,
+    pub alpha: T,
+}
+
+impl Into<Color<ClampedF32>> for Color<f32> {
+    fn into(self) -> Color<ClampedF32> {
+        Color::<ClampedF32> {
+            red: self.red.into(),
+            blue: self.blue.into(),
+            green: self.green.into(),
+            alpha: self.alpha.into(),
+        }
+    }
+}
+
+impl Into<Color<f32>> for Color<ClampedF32> {
+    fn into(self) -> Color<f32> {
+        Color::<f32> {
+            red: self.red.0,
+            blue: self.blue.0,
+            green: self.green.0,
+            alpha: self.alpha.0,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct ClearSettings {
+    pub color: Option<Color<ClampedF32>>,
+    pub depth: Option<ClampedF32>,
+    pub stencil: Option<i32>, // TODO: does signed make sense here?
+}
+
+impl Default for ClearSettings {
+    fn default() -> Self {
+        Self {
+            color: Some(Color::default()),
+            depth: Some(ClampedF32(1.)),
+            stencil: Some(0),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct DepthState {
+    pub function: DepthFunction,
+    pub range: std::ops::RangeInclusive<ClampedF32>,
+    pub write_mask: bool,
+}
+
+impl Default for DepthState {
+    fn default() -> Self {
+        Self {
+            function: DepthFunction::Less,
+            range: ClampedF32(0.)..=ClampedF32(1.),
+            write_mask: true,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct CullingState {
+    pub mode: CullFace,
+    pub winding: VertexWinding,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct PolygonState {
+    pub culling_state: Option<CullingState>,
+    pub polygon_offset_units: f32,
+    pub polygon_offset_factor: f32,
+}
+
+impl Default for PolygonState {
+    fn default() -> Self {
+        Self {
+            culling_state: None,
+            polygon_offset_units: 0.0,
+            polygon_offset_factor: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum BlendSource {
+    Zero,
+    One,
+    SourceColor,
+    OneMinusSourceColor,
+    DestinationColor,
+    OneMinusDestinationColor,
+    SourceAlpha,
+    OneMinusSourceAlpha,
+    DestinationAlpha,
+    OneMinusDestinationAlpha,
+    ConstantColor,
+    OneMinusConstantColor,
+    ConstantAlpha,
+    OneMinusConstantAlpha,
+    SourceAlphaSaturate,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum BlendDestination {
+    Zero,
+    One,
+    SourceColor,
+    OneMinusSourceColor,
+    DestinationColor,
+    OneMinusDestinationColor,
+    SourceAlpha,
+    OneMinusSourceAlpha,
+    DestinationAlpha,
+    OneMinusDestinationAlpha,
+    ConstantColor,
+    OneMinusConstantColor,
+    ConstantAlpha,
+    OneMinusConstantAlpha,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum BlendEquation {
+    Add,
+    Subtract,
+    ReverseSubtract,
+    Min,
+    Max,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct BlendState {
+    pub destination_rgb: BlendDestination,
+    pub source_rgb: BlendSource,
+    pub destination_alpha: BlendDestination,
+    pub source_alpha: BlendSource,
+    pub color: Color<ClampedF32>,
+    pub equation_rgb: BlendEquation,
+    pub equation_alpha: BlendEquation,
+}
+
+impl Default for BlendState {
+    fn default() -> Self {
+        Self {
+            destination_rgb: BlendDestination::Zero,
+            source_rgb: BlendSource::One,
+            destination_alpha: BlendDestination::Zero,
+            source_alpha: BlendSource::One,
+            color: Default::default(),
+            equation_rgb: BlendEquation::Add,
+            equation_alpha: BlendEquation::Add,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum StencilFunction {
+    Never,
+    Less,
+    LessOrEqual,
+    Greater,
+    GreaterOrEqual,
+    Equal,
+    NoteEqual,
+    Always,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct StencilState {
+    pub function: StencilFunction,
+    // TODO the rest
+}
+
+impl Default for StencilState {
+    fn default() -> Self {
+        Self {
+            function: StencilFunction::Always,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PipelineSettings<'a> {
+    pub viewport: viewport::Viewport<u32>,
+    pub framebuffer: Option<&'a canvas::Canvas>,
+    pub polygon_state: PolygonState,
+    pub depth_state: Option<DepthState>,
+    pub blend_state: Option<BlendState>,
+    pub stencil_state: Option<StencilState>,
+}
+
+impl<'a> Default for PipelineSettings<'a> {
+    fn default() -> Self {
+        Self {
+            viewport: Default::default(),
+            framebuffer: None,
+            depth_state: None,
+            polygon_state: Default::default(),
+            blend_state: None,
+            stencil_state: None,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pipeline() {
+        let pipeline_settings = PipelineSettings::default();
+        println!("{:#?}", pipeline_settings);
+
+        let pipeline_settings = PipelineSettings {
+            viewport: viewport::Viewport::new(0, 0, 720, 480),
+            ..PipelineSettings::default()
+        };
+        println!("{:#?}", pipeline_settings);
+
+        let pipeline_settings = PipelineSettings {
+            depth_state: Some(DepthState {
+                function: DepthFunction::Never,
+                ..DepthState::default()
+            }),
+            ..pipeline_settings
+        };
+        println!("{:#?}", pipeline_settings);
+    }
 
     #[derive(Debug, Copy, Clone, PartialEq, Default)]
     #[repr(C, packed)]
@@ -1348,7 +1722,7 @@ mod tests {
         let (ctx, _window) = get_headless_context(100, 100);
         let mut ctx = Context::new(ctx);
 
-        let mesh = mesh::Mesh::with_data(
+        let mesh = mesh::VertexMesh::with_data(
             &mut ctx,
             &[
                 TestVertex {
@@ -1384,8 +1758,8 @@ void main() {
 }
 #endif"#;
 
-        let (vert, frag) = shader::Shader::create_source(SRC, SRC);
-        let shader = shader::Shader::new(&mut ctx, &vert, &frag).unwrap();
+        let (vert, frag) = shader::DynamicShader::create_source(SRC, SRC);
+        let shader = shader::DynamicShader::new(&mut ctx, &vert, &frag).unwrap();
         ctx.use_shader(Some(&shader));
 
         mesh.draw(&mut ctx);
@@ -1414,7 +1788,7 @@ void main() {
         let indices = [0u32, 1, 2];
 
         {
-            let mut mesh = mesh::MappedMesh::new(&mut ctx, 3).unwrap();
+            let mut mesh = mesh::MappedVertexMesh::new(&mut ctx, 3).unwrap();
             mesh.set_vertices(&vertices, 0);
 
             let mapped_verts = mesh.get_vertices();

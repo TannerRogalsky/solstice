@@ -1,6 +1,5 @@
 use super::vertex::AttributeType;
-use crate::GraphicsError;
-use std::collections::hash_map::HashMap;
+use crate::{GraphicsError, ShaderKey};
 
 #[derive(Clone, Debug)]
 pub struct Attribute {
@@ -83,24 +82,24 @@ pub enum ShaderError {
 }
 
 #[derive(Clone)]
-pub struct Shader {
+pub struct DynamicShader {
     inner: super::ShaderKey,
     attributes: Vec<Attribute>,
-    uniforms: HashMap<String, Uniform>,
+    uniforms: Vec<Uniform>,
 }
 
-impl std::cmp::PartialEq for Shader {
+impl std::cmp::PartialEq for DynamicShader {
     fn eq(&self, other: &Self) -> bool {
         self.inner.eq(&other.inner)
     }
 }
 
-impl Shader {
+impl DynamicShader {
     pub fn new(
         gl: &mut super::Context,
         vertex_source: &str,
         fragment_source: &str,
-    ) -> Result<Shader, GraphicsError> {
+    ) -> Result<Self, GraphicsError> {
         let inner = gl
             .new_shader(vertex_source, fragment_source)
             .map_err(GraphicsError::ShaderError)?;
@@ -118,18 +117,14 @@ impl Shader {
         self.inner
     }
 
-    pub fn attributes(&self) -> &Vec<Attribute> {
-        &self.attributes
-    }
-
     pub fn get_attribute_by_name(&self, name: &str) -> Option<&Attribute> {
         self.attributes
             .iter()
-            .find(|&attribute| attribute.name.as_str() == name)
+            .find(|attribute| attribute.name == name)
     }
 
     pub fn get_uniform_by_name(&self, name: &str) -> Option<&Uniform> {
-        self.uniforms.get(name)
+        self.uniforms.iter().find(|uniform| uniform.name == name)
     }
 
     pub fn create_source(vertex: &str, fragment: &str) -> (String, String) {
@@ -142,6 +137,20 @@ impl Shader {
             GLSL_VERSION, SYNTAX, FRAG_HEADER, LINE_PRAGMA, fragment
         );
         (vertex, fragment)
+    }
+}
+
+impl Shader for DynamicShader {
+    fn handle(&self) -> ShaderKey {
+        self.inner
+    }
+
+    fn attributes(&self) -> &[Attribute] {
+        &self.attributes
+    }
+
+    fn uniforms(&self) -> &[Uniform] {
+        &self.uniforms
     }
 }
 
@@ -225,26 +234,10 @@ pub trait CachedUniformTrait: UniformTrait {
     fn get_cache(&mut self) -> &mut Self::Value;
 }
 
-pub trait ShaderTrait {
-    fn get_inner(&self) -> &super::shader::Shader;
-
-    fn bind(&self, ctx: &mut super::Context) {
-        ctx.use_shader(Some(self.get_inner()))
-    }
-
-    fn location(shader: &super::shader::Shader, name: &str) -> Option<UniformLocation> {
-        shader
-            .get_uniform_by_name(name)
-            .map(|uniform| uniform.location.clone())
-    }
-
-    fn initial_data<'a>(shader: &'a super::shader::Shader, name: &str) -> &'a RawUniformValue {
-        &shader
-            .get_uniform_by_name(name)
-            .as_ref()
-            .unwrap()
-            .initial_data
-    }
+pub trait Shader {
+    fn handle(&self) -> super::ShaderKey;
+    fn attributes(&self) -> &[Attribute];
+    fn uniforms(&self) -> &[Uniform];
 }
 
 pub trait UniformGetter<U: UniformTrait> {

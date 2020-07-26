@@ -256,7 +256,7 @@ pub trait TextureUpdate {
         texture_key: super::TextureKey,
         texture: TextureInfo,
         texture_type: TextureType,
-        data: Option<&[u8]>,
+        data: &[u8],
         x_offset: u32,
         y_offset: u32,
     );

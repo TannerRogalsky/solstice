@@ -1,4 +1,4 @@
-use graphics::shader::{Shader, UniformLocation};
+use graphics::shader::{DynamicShader, UniformLocation};
 use graphics::Context;
 use std::{cell::RefCell, rc::Rc};
 
@@ -10,7 +10,7 @@ pub enum Shader2DError {
 
 pub struct Shader2D {
     gfx: Rc<RefCell<Context>>,
-    inner: graphics::shader::Shader,
+    inner: graphics::shader::DynamicShader,
 
     projection_location: UniformLocation,
     projection_cache: mint::ColumnMatrix4<f32>,
@@ -31,7 +31,7 @@ fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
 }
 
 fn get_location(
-    shader: &graphics::shader::Shader,
+    shader: &graphics::shader::DynamicShader,
     name: &str,
 ) -> Result<UniformLocation, Shader2DError> {
     shader
@@ -42,8 +42,9 @@ fn get_location(
 
 impl Shader2D {
     pub fn new(gfx: Rc<RefCell<Context>>, width: f32, height: f32) -> Result<Self, Shader2DError> {
-        let (vertex, fragment) = graphics::shader::Shader::create_source(SHADER_SRC, SHADER_SRC);
-        let shader = Shader::new(&mut gfx.borrow_mut(), vertex.as_str(), fragment.as_str())
+        let (vertex, fragment) =
+            graphics::shader::DynamicShader::create_source(SHADER_SRC, SHADER_SRC);
+        let shader = DynamicShader::new(&mut gfx.borrow_mut(), vertex.as_str(), fragment.as_str())
             .map_err(Shader2DError::GraphicsError)?;
 
         let projection_location = get_location(&shader, "uProjection")?;

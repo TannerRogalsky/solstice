@@ -141,8 +141,4 @@ where
         self.count = 0;
         self.mesh.set_draw_range(Some(0..0));
     }
-
-    pub fn draw(&mut self, gl: &mut Context) {
-        self.mesh.unmap(gl).draw(gl)
-    }
 }
