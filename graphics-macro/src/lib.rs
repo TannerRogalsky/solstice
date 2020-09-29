@@ -152,7 +152,7 @@ pub fn derive_vertex(item: TokenStream) -> TokenStream {
                     });
                 let ident = format_ident!("{}", input.ident);
                 TokenStream::from(quote! {
-                    impl Vertex for #ident {
+                    impl ::graphics::vertex::Vertex for #ident {
                         fn build_bindings() -> &'static [::graphics::vertex::VertexFormat] {
                             &[
                                 #(#vertex_formats),*
