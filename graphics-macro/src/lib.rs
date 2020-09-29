@@ -109,7 +109,7 @@ pub fn derive_vertex(item: TokenStream) -> TokenStream {
                                 _ => None,
                             })
                             .collect::<Vec<_>>();
-                        return ["packed", "C"]
+                        return ["C"]
                             .iter()
                             .all(|repr| reprs.iter().find(|&r| r == repr).is_some());
                     }
@@ -117,7 +117,7 @@ pub fn derive_vertex(item: TokenStream) -> TokenStream {
             }
             false
         }),
-        "Vertex structs must be `#[repr(C, packed)]`"
+        "Vertex structs must be `#[repr(C)]`"
     );
 
     match input.data {
