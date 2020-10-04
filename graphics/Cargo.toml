@@ -4,9 +4,6 @@ version = "0.1.0"
 authors = ["Tanner Rogalsky <tanner@tannerrogalsky.com>"]
 edition = "2018"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
 [features]
 serialize = ["serde", "data/serde"]
 derive = ["graphics-macro"]
@@ -14,8 +11,8 @@ derive = ["graphics-macro"]
 [dependencies]
 data = { path = "../data" }
 #glow = { git = "https://github.com/TannerRogalsky/glow.git", branch = "get_uniform" }
-glow = { git = "https://github.com/GrovesNL/glow.git" }
-#glow = { path = "../../glow" }
+#glow = { git = "https://github.com/GrovesNL/glow.git" }
+glow = "0.6"
 log = "0.4"
 slotmap = "0.4"
 mint = "0.5"
