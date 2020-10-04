@@ -294,6 +294,13 @@ where
         self.mesh.set_draw_range(draw_range)
     }
 
+    pub fn draw_range(&self) -> std::ops::Range<usize> {
+        self.mesh
+            .draw_range
+            .clone()
+            .unwrap_or(0..(self.ibo.size() / std::mem::size_of::<I>()))
+    }
+
     pub fn set_draw_mode(&mut self, draw_mode: super::DrawMode) {
         self.mesh.set_draw_mode(draw_mode)
     }
@@ -382,7 +389,13 @@ pub struct AttachedAttributes<'a> {
 
 pub trait Mesh {
     fn attributes(&self) -> Vec<AttachedAttributes>;
-    fn draw(&self, ctx: &mut super::Context, instance_count: usize);
+    fn draw(
+        &self,
+        ctx: &mut super::Context,
+        draw_range: std::ops::Range<usize>,
+        draw_mode: super::DrawMode,
+        instance_count: usize,
+    );
 }
 
 impl<V: Vertex> Mesh for VertexMesh<V> {
@@ -395,8 +408,13 @@ impl<V: Vertex> Mesh for VertexMesh<V> {
         }]
     }
 
-    fn draw(&self, ctx: &mut super::Context, instance_count: usize) {
-        let draw_range = self.draw_range();
+    fn draw(
+        &self,
+        ctx: &mut super::Context,
+        draw_range: std::ops::Range<usize>,
+        draw_mode: super::DrawMode,
+        instance_count: usize,
+    ) {
         if draw_range.start >= draw_range.end {
             return;
         }
@@ -406,9 +424,9 @@ impl<V: Vertex> Mesh for VertexMesh<V> {
             draw_range.start as i32,
         );
         if instance_count > 1 {
-            ctx.draw_arrays_instanced(self.draw_mode, offset, count, instance_count as i32);
+            ctx.draw_arrays_instanced(draw_mode, offset, count, instance_count as i32);
         } else {
-            ctx.draw_arrays(self.draw_mode, offset, count);
+            ctx.draw_arrays(draw_mode, offset, count);
         }
     }
 }
@@ -418,30 +436,34 @@ impl<V: Vertex, I: Index> Mesh for IndexedMesh<V, I> {
         self.mesh.attributes()
     }
 
-    fn draw(&self, ctx: &mut super::Context, instance_count: usize) {
-        if let Some(draw_range) = &self.mesh.draw_range {
-            if draw_range.start >= draw_range.end {
-                return;
-            }
+    fn draw(
+        &self,
+        ctx: &mut super::Context,
+        draw_range: std::ops::Range<usize>,
+        draw_mode: super::DrawMode,
+        instance_count: usize,
+    ) {
+        if draw_range.start >= draw_range.end {
+            return;
         }
 
-        let (count, offset) = match &self.mesh.draw_range {
-            None => ((self.ibo.size() / std::mem::size_of::<I>()) as i32, 0),
-            Some(range) => ((range.end - range.start) as i32, range.start as i32),
-        };
+        let (count, offset) = (
+            (draw_range.end - draw_range.start) as i32,
+            draw_range.start as i32,
+        );
 
         let ibo = &self.ibo;
         ctx.bind_buffer(ibo.handle(), ibo.buffer_type());
         if instance_count > 1 {
             ctx.draw_elements_instanced(
-                self.mesh.draw_mode,
+                draw_mode,
                 count,
                 I::GL_TYPE,
                 offset,
                 instance_count as i32,
             );
         } else {
-            ctx.draw_elements(self.mesh.draw_mode, count, I::GL_TYPE, offset);
+            ctx.draw_elements(draw_mode, count, I::GL_TYPE, offset);
         }
     }
 }

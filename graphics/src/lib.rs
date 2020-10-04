@@ -1339,8 +1339,8 @@ impl Renderer for Context {
 
         let Geometry {
             mesh,
-            // draw_range,
-            // draw_mode,
+            draw_range,
+            draw_mode,
             instance_count,
             ..
         } = geometry;
@@ -1349,7 +1349,7 @@ impl Renderer for Context {
         let (desired_attribute_state, attributes) = prepare_draw(shader, &attached_attributes);
         self.set_vertex_attributes(desired_attribute_state, &attributes);
 
-        mesh.draw(self, instance_count as usize);
+        mesh.draw(self, draw_range, draw_mode, instance_count as usize);
     }
 }
 
