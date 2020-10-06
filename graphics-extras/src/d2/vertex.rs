@@ -1,5 +1,4 @@
 use graphics::vertex::Vertex;
-use graphics_macro::Vertex;
 
 #[repr(C, packed)]
 #[derive(Vertex, Copy, Clone, Debug)]

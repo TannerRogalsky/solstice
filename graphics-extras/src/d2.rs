@@ -1,4 +1,4 @@
-use graphics::mesh::VertexMesh;
+use graphics::mesh::MappedVertexMesh;
 use graphics::Context;
 
 use std::cell::RefCell;
@@ -108,7 +108,7 @@ pub enum Graphics2DError {
 
 pub struct Graphics2D {
     gfx: Rc<RefCell<Context>>,
-    mesh: VertexMesh<vertex::Vertex2D>,
+    mesh: MappedVertexMesh<vertex::Vertex2D>,
     default_shader: shader::Shader2D,
     default_texture: graphics::image::Image,
 }
@@ -119,8 +119,8 @@ impl Graphics2D {
         width: f32,
         height: f32,
     ) -> Result<Self, Graphics2DError> {
-        let mesh =
-            VertexMesh::new(&mut gfx.borrow_mut(), 1000).map_err(Graphics2DError::GraphicsError)?;
+        let mesh = MappedVertexMesh::new(&mut gfx.borrow_mut(), 1000)
+            .map_err(Graphics2DError::GraphicsError)?;
         let default_shader = shader::Shader2D::new(gfx.clone(), width, height)
             .map_err(Graphics2DError::ShaderError)?;
         let default_texture = super::create_default_texture(&mut gfx.borrow_mut());
@@ -269,18 +269,18 @@ impl Graphics2D {
             ],
             0,
         );
-        self.mesh.set_draw_range(Some(0..2));
-        self.mesh.set_draw_mode(graphics::DrawMode::Lines);
-        self.mesh.draw(&mut self.gfx.borrow_mut());
+        // self.mesh.set_draw_range(Some(0..2));
+        // self.mesh.set_draw_mode(graphics::DrawMode::Lines);
+        // self.mesh.draw(&mut self.gfx.borrow_mut());
     }
     pub fn point(&mut self, x: f32, y: f32) {
         self.mesh.set_vertices(
             &[vertex::Vertex2D::new([x, y], [1., 1., 1., 1.], [0.5, 0.5])],
             0,
         );
-        self.mesh.set_draw_range(Some(0..1));
-        self.mesh.set_draw_mode(graphics::DrawMode::Points);
-        self.mesh.draw(&mut self.gfx.borrow_mut());
+        // self.mesh.set_draw_range(Some(0..1));
+        // self.mesh.set_draw_mode(graphics::DrawMode::Points);
+        // self.mesh.draw(&mut self.gfx.borrow_mut());
     }
     pub fn rectangle(&mut self, draw_mode: DrawMode, rectangle: Rectangle) {
         let Rectangle {
@@ -369,9 +369,9 @@ impl Graphics2D {
                     &vertices
                 };
                 self.mesh.set_vertices(vertices, 0);
-                self.mesh.set_draw_mode(graphics::DrawMode::TriangleFan);
-                self.mesh.set_draw_range(Some(0..vertices.len()));
-                self.mesh.draw(&mut self.gfx.borrow_mut());
+                // self.mesh.set_draw_mode(graphics::DrawMode::TriangleFan);
+                // self.mesh.set_draw_range(Some(0..vertices.len()));
+                // self.mesh.draw(&mut self.gfx.borrow_mut());
             }
             DrawMode::Stroke => {
                 use lyon_tessellation::*;
@@ -406,9 +406,9 @@ impl Graphics2D {
                     })
                     .collect::<Vec<_>>();
                 self.mesh.set_vertices(&vertices, 0);
-                self.mesh.set_draw_mode(graphics::DrawMode::Triangles);
-                self.mesh.set_draw_range(Some(0..vertices.len()));
-                self.mesh.draw(&mut self.gfx.borrow_mut());
+                // self.mesh.set_draw_mode(graphics::DrawMode::Triangles);
+                // self.mesh.set_draw_range(Some(0..vertices.len()));
+                // self.mesh.draw(&mut self.gfx.borrow_mut());
             }
         }
     }

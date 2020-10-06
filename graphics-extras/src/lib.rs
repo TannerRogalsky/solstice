@@ -1,3 +1,6 @@
+// TODO: remove this when fixing
+#![allow(dead_code)]
+
 extern crate graphics;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -6,9 +9,9 @@ mod d2;
 pub use d2::*;
 
 fn create_default_texture(gl: &mut graphics::Context) -> graphics::image::Image {
-    use data::PixelFormat;
     use graphics::image::*;
     use graphics::texture::*;
+    use graphics::PixelFormat;
     let image = Image::new(
         gl,
         TextureType::Tex2D,
@@ -34,17 +37,20 @@ fn create_default_texture(gl: &mut graphics::Context) -> graphics::image::Image 
 
 struct DynamicMesh<T> {
     gfx: Rc<RefCell<graphics::Context>>,
-    inner: graphics::mesh::IndexedMesh<T, u32>,
+    inner: graphics::mesh::MappedIndexedMesh<T, u32>,
 }
 
 impl<T> DynamicMesh<T>
 where
     T: graphics::vertex::Vertex,
 {
-    fn new(mut gfx: Rc<RefCell<graphics::Context>>, initial_size: usize) -> Self {
-        let inner =
-            graphics::mesh::IndexedMesh::new(&mut gfx.borrow_mut(), initial_size, initial_size)
-                .unwrap();
+    fn new(gfx: Rc<RefCell<graphics::Context>>, initial_size: usize) -> Self {
+        let inner = graphics::mesh::MappedIndexedMesh::new(
+            &mut gfx.borrow_mut(),
+            initial_size,
+            initial_size,
+        )
+        .unwrap();
         Self { gfx, inner }
     }
 
@@ -55,7 +61,7 @@ where
     fn set_vertices_at_offset(&mut self, vertices: &[T], offset: usize) {
         let current_vertices = self.inner.get_vertices();
         if current_vertices.len() < vertices.len() + offset {
-            let mut new_inner = graphics::mesh::IndexedMesh::new(
+            let mut new_inner = graphics::mesh::MappedIndexedMesh::new(
                 &mut self.gfx.borrow_mut(),
                 (vertices.len() + offset) * 2,
                 (vertices.len() + offset) * 2,
@@ -75,7 +81,7 @@ where
     fn set_indices_at_offset(&mut self, indices: &[u32], offset: usize) {
         let current_indices = self.inner.get_indices();
         if current_indices.len() < indices.len() + offset {
-            let mut new_inner = graphics::mesh::IndexedMesh::new(
+            let mut new_inner = graphics::mesh::MappedIndexedMesh::new(
                 &mut self.gfx.borrow_mut(),
                 (indices.len() + offset) * 2,
                 (indices.len() + offset) * 2,
