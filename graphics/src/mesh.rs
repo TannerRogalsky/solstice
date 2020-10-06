@@ -380,6 +380,7 @@ where
     }
 }
 
+#[derive(Clone)]
 pub struct AttachedAttributes<'a> {
     pub buffer: &'a Buffer,
     pub formats: &'a [VertexFormat],
@@ -388,7 +389,7 @@ pub struct AttachedAttributes<'a> {
 }
 
 pub trait Mesh {
-    fn attributes(&self) -> Vec<AttachedAttributes>;
+    fn attachments(&self) -> Vec<AttachedAttributes>;
     fn draw(
         &self,
         ctx: &mut super::Context,
@@ -399,7 +400,7 @@ pub trait Mesh {
 }
 
 impl<V: Vertex> Mesh for VertexMesh<V> {
-    fn attributes(&self) -> Vec<AttachedAttributes> {
+    fn attachments(&self) -> Vec<AttachedAttributes> {
         vec![AttachedAttributes {
             buffer: &self.vbo,
             formats: V::build_bindings(),
@@ -431,9 +432,25 @@ impl<V: Vertex> Mesh for VertexMesh<V> {
     }
 }
 
+impl<V: Vertex> Mesh for &VertexMesh<V> {
+    fn attachments(&self) -> Vec<AttachedAttributes> {
+        VertexMesh::attachments(self)
+    }
+
+    fn draw(
+        &self,
+        ctx: &mut super::Context,
+        draw_range: std::ops::Range<usize>,
+        draw_mode: super::DrawMode,
+        instance_count: usize,
+    ) {
+        VertexMesh::draw(self, ctx, draw_range, draw_mode, instance_count)
+    }
+}
+
 impl<V: Vertex, I: Index> Mesh for IndexedMesh<V, I> {
-    fn attributes(&self) -> Vec<AttachedAttributes> {
-        self.mesh.attributes()
+    fn attachments(&self) -> Vec<AttachedAttributes> {
+        self.mesh.attachments()
     }
 
     fn draw(
@@ -468,72 +485,73 @@ impl<V: Vertex, I: Index> Mesh for IndexedMesh<V, I> {
     }
 }
 
+impl<V: Vertex, I: Index> Mesh for &IndexedMesh<V, I> {
+    fn attachments(&self) -> Vec<AttachedAttributes> {
+        IndexedMesh::attachments(self)
+    }
+
+    fn draw(
+        &self,
+        ctx: &mut super::Context,
+        draw_range: std::ops::Range<usize>,
+        draw_mode: super::DrawMode,
+        instance_count: usize,
+    ) {
+        IndexedMesh::draw(self, ctx, draw_range, draw_mode, instance_count)
+    }
+}
+
 // TODO: Redo this but without the trait: implement behaviour for specific structs
-// pub struct MultiMesh<'a, T> {
-//     base: &'a T,
-//     attachments: Vec<AttachedAttributes<'a>>,
-// }
-//
-// impl<'a, T> MultiMesh<'a, T> {
-//     pub fn new(base: &'a T, attachments: Vec<AttachedAttributes<'a>>) -> Self {
-//         Self { base, attachments }
-//     }
-// }
-//
-// impl<'a, T> MultiMesh<'a, T>
-// where
-//     T: MeshTrait,
-// {
-//     pub fn draw_instanced(&mut self, gl: &mut Context, instance_count: usize) {
-//         self.base
-//             .secret_draw(gl, instance_count, &mut self.attachments)
-//     }
-// }
-//
-// pub trait MeshAttacher<'a, B>
-// where
-//     Self: Sized,
-// {
-//     fn attach<T>(self, other: &'a mut T) -> MultiMesh<'a, B>
-//     where
-//         T: MeshTrait,
-//     {
-//         Self::attach_with_step(self, other, 0)
-//     }
-//
-//     fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> MultiMesh<'a, B>
-//     where
-//         T: MeshTrait;
-// }
-//
-// impl<'a, S> MeshAttacher<'a, S> for &'a mut S {
-//     fn attach_with_step<T>(self, other: &'a mut T, step: u32) -> MultiMesh<'a, S>
-//     where
-//         T: MeshTrait,
-//     {
-//         let mut attachments = other.get_attributes();
-//         attachments.step = step;
-//         MultiMesh {
-//             base: self,
-//             attachments: vec![attachments],
-//         }
-//     }
-// }
-//
-// impl<'a, B> MeshAttacher<'a, B> for MultiMesh<'a, B> {
-//     fn attach_with_step<T>(mut self, other: &'a mut T, step: u32) -> MultiMesh<'a, B>
-//     where
-//         T: MeshTrait,
-//     {
-//         let mut attachments = other.get_attributes();
-//         attachments.step = step;
-//         self.attachments.push(attachments);
-//         MultiMesh {
-//             base: self.base,
-//             attachments: self.attachments,
-//         }
-//     }
-// }
+pub struct MultiMesh<'a, T> {
+    base: T,
+    attachments: Vec<AttachedAttributes<'a>>,
+}
+
+impl<'a, T> MultiMesh<'a, T> {
+    pub fn new(base: T, attachments: Vec<AttachedAttributes<'a>>) -> Self {
+        Self { base, attachments }
+    }
+}
+
+impl<'a, T> Mesh for MultiMesh<'a, T>
+where
+    T: Mesh,
+{
+    fn attachments(&self) -> Vec<AttachedAttributes> {
+        self.attachments.clone()
+    }
+
+    fn draw(
+        &self,
+        ctx: &mut Context,
+        draw_range: std::ops::Range<usize>,
+        draw_mode: super::DrawMode,
+        instance_count: usize,
+    ) {
+        self.base.draw(ctx, draw_range, draw_mode, instance_count)
+    }
+}
+
+pub trait MeshAttacher: Mesh {
+    fn attach<'a, T: Mesh>(&'a self, other: &'a T) -> MultiMesh<&'a Self> {
+        Self::attach_with_step(self, other, 0)
+    }
+
+    fn attach_with_step<'a, T: Mesh>(&'a self, other: &'a T, step: u32) -> MultiMesh<&'a Self> {
+        let mut attachments = self.attachments();
+        attachments.extend(other.attachments().into_iter().map(|mut a| {
+            a.step = step;
+            a
+        }));
+        MultiMesh {
+            base: self,
+            attachments,
+        }
+    }
+}
+
+impl<V: Vertex> MeshAttacher for VertexMesh<V> {}
+impl<V: Vertex, I: Index> MeshAttacher for IndexedMesh<V, I> {}
 
 pub trait Index {
     const GL_TYPE: u32;

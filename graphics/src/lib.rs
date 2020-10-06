@@ -1283,7 +1283,7 @@ impl Drop for Context {
 
 pub trait Renderer {
     fn clear(&mut self, settings: ClearSettings);
-    fn draw<S, M>(&mut self, shader: &S, geometry: Geometry<M>, settings: PipelineSettings)
+    fn draw<S, M>(&mut self, shader: &S, geometry: &Geometry<M>, settings: PipelineSettings)
     where
         S: shader::Shader,
         M: mesh::Mesh;
@@ -1330,7 +1330,7 @@ impl Renderer for Context {
         }
     }
 
-    fn draw<S, M>(&mut self, shader: &S, geometry: Geometry<'_, M>, _settings: PipelineSettings)
+    fn draw<S, M>(&mut self, shader: &S, geometry: &Geometry<M>, _settings: PipelineSettings)
     where
         S: shader::Shader,
         M: mesh::Mesh,
@@ -1345,11 +1345,16 @@ impl Renderer for Context {
             ..
         } = geometry;
 
-        let attached_attributes = mesh.attributes();
+        let attached_attributes = mesh.attachments();
         let (desired_attribute_state, attributes) = prepare_draw(shader, &attached_attributes);
         self.set_vertex_attributes(desired_attribute_state, &attributes);
 
-        mesh.draw(self, draw_range, draw_mode, instance_count as usize);
+        mesh.draw(
+            self,
+            draw_range.clone(),
+            *draw_mode,
+            *instance_count as usize,
+        );
     }
 }
 
@@ -1392,8 +1397,8 @@ fn prepare_draw<'a, S: shader::Shader>(
     (desired_attribute_state, attributes)
 }
 
-pub struct Geometry<'a, M> {
-    pub mesh: &'a M,
+pub struct Geometry<M> {
+    pub mesh: M,
     pub draw_range: std::ops::Range<usize>,
     pub draw_mode: DrawMode,
     pub instance_count: u32,
