@@ -1,4 +1,4 @@
-use data::PixelFormat;
+use crate::PixelFormat;
 
 #[allow(unused)]
 pub fn size(format: PixelFormat) -> usize {

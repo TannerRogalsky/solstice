@@ -1,4 +1,3 @@
-pub extern crate data;
 pub extern crate glow;
 
 #[cfg(feature = "derive")]
@@ -69,6 +68,36 @@ impl<'a> Drop for DebugGroup<'a> {
             }
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum PixelFormat {
+    Unknown,
+
+    // "regular" formats
+    R8,
+    RG8,
+    RGB8,
+    RGBA8,
+    SRGBA8,
+    R16,
+    RG16,
+    RGBA16,
+    R16F,
+    RG16F,
+    RGBA16F,
+    R32F,
+    RG32F,
+    RGBA32F,
+
+    // depth/stencil formats
+    Stencil8,
+    Depth16,
+    Depth24,
+    Depth32F,
+    Depth24Stencil8,
+    Depth32fStencil8,
 }
 
 fn target_to_index(target: canvas::Target) -> usize {
@@ -1037,7 +1066,7 @@ impl Context {
         y: i32,
         width: i32,
         height: i32,
-        format: data::PixelFormat,
+        format: PixelFormat,
         data: &mut [u8],
     ) {
         let (_, format, gl_type) = gl::pixel_format::to_gl(format, &self.version);
@@ -1710,7 +1739,7 @@ mod tests {
             .unwrap();
         let window = unsafe { window.make_current().unwrap() };
         (
-            glow::Context::from_loader_function(|name| window.get_proc_address(name)),
+            unsafe { glow::Context::from_loader_function(|name| window.get_proc_address(name)) },
             window,
         )
     }
@@ -1767,7 +1796,17 @@ void main() {
         let shader = shader::DynamicShader::new(&mut ctx, &vert, &frag).unwrap();
         ctx.use_shader(Some(&shader));
 
-        mesh.draw(&mut ctx);
+        Renderer::draw(
+            &mut ctx,
+            &shader,
+            &super::Geometry {
+                mesh: &mesh,
+                draw_range: 0..1,
+                draw_mode: DrawMode::Triangles,
+                instance_count: 1,
+            },
+            PipelineSettings::default(),
+        );
     }
 
     #[test]
@@ -1812,7 +1851,7 @@ void main() {
 
     #[test]
     fn mapped_image() {
-        use data::PixelFormat;
+        use super::PixelFormat;
         use image::*;
         use texture::*;
 

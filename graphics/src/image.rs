@@ -1,3 +1,4 @@
+use super::PixelFormat;
 use super::{
     buffer::Mapped,
     texture::{
@@ -6,7 +7,6 @@ use super::{
     viewport::Viewport,
     Context,
 };
-use data::PixelFormat;
 
 pub struct Settings {
     pub mipmaps: bool,

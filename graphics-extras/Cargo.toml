@@ -7,9 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-graphics = { path = "../graphics" }
-graphics-macro = { path = "../graphics-macro" }
-data = { path = "../data" }
+graphics = { path = "../graphics", features = ["derive"] }
 mint = "0.5"
 
 cgmath = "0.17.0"

@@ -2,24 +2,5 @@
 members = [
     "graphics",
     "graphics-macro",
-    "engine",
-    "engine_examples",
-    "vfs",
-    "websocket",
-    "image",
-    "data",
-    "conrod_graphics",
-    "audio",
     "graphics-extras",
-    "window",
-]
-default-members = [
-    "graphics",
-    "graphics-macro",
-    "engine",
-    "vfs",
-    "websocket",
-    "image",
-    "data",
-    "window",
 ]

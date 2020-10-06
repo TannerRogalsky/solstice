@@ -1,8 +1,8 @@
+use super::PixelFormat;
 use super::{
     texture::{Filter, Texture, TextureInfo, TextureType, TextureUpdate, Wrap},
     Context,
 };
-use data::PixelFormat;
 
 #[derive(PartialEq, Eq)]
 pub enum MipmapMode {

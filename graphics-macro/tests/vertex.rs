@@ -1,5 +1,4 @@
 use graphics::vertex::{Vertex, VertexFormat};
-use graphics_macro::Vertex;
 
 #[test]
 fn derive_simple_semantics() {

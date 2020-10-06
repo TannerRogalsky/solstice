@@ -155,7 +155,7 @@ impl Default for Wrap {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TextureInfo {
-    format: data::PixelFormat,
+    format: super::PixelFormat,
     width: usize,
     height: usize,
     filter: Filter,
@@ -166,7 +166,7 @@ pub struct TextureInfo {
 impl Default for TextureInfo {
     fn default() -> Self {
         Self {
-            format: data::PixelFormat::Unknown,
+            format: super::PixelFormat::Unknown,
             width: 0,
             height: 0,
             filter: Default::default(),
@@ -178,7 +178,7 @@ impl Default for TextureInfo {
 
 impl TextureInfo {
     pub fn new(
-        format: data::PixelFormat,
+        format: super::PixelFormat,
         width: usize,
         height: usize,
         filter: Filter,
@@ -211,11 +211,11 @@ impl TextureInfo {
         self.height = height
     }
 
-    pub fn get_format(&self) -> data::PixelFormat {
+    pub fn get_format(&self) -> super::PixelFormat {
         self.format
     }
 
-    pub fn set_format(&mut self, format: data::PixelFormat) {
+    pub fn set_format(&mut self, format: super::PixelFormat) {
         self.format = format;
     }
 
