@@ -1676,7 +1676,7 @@ impl<'a> Default for PipelineSettings<'a> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_os = "linux")))]
 mod tests {
     use super::*;
 
@@ -1732,9 +1732,6 @@ mod tests {
         width: u32,
         height: u32,
     ) -> (glow::Context, glutin::Context<glutin::PossiblyCurrent>) {
-        #[cfg(target_os = "linux")]
-        use glutin::platform::unix::EventLoopExtUnix;
-        #[cfg(window)]
         use glutin::platform::windows::EventLoopExtWindows;
         let el = glutin::event_loop::EventLoop::<()>::new_any_thread();
         let window = glutin::ContextBuilder::new()

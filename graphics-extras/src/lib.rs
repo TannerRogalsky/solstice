@@ -100,11 +100,3 @@ impl<T> Drop for DynamicMesh<T> {
         unimplemented!()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
