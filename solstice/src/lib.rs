@@ -1,7 +1,7 @@
 pub extern crate glow;
 
 #[cfg(feature = "derive")]
-extern crate graphics_macro;
+extern crate solstice_derive;
 
 pub mod buffer;
 pub mod canvas;

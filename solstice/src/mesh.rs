@@ -50,17 +50,17 @@ pub type BindingInfo<'a> = (&'a VertexFormat, usize, u32, super::BufferKey, Buff
 /// The Mesh represents a set of vertices to be drawn by a shader program and how to draw them.
 /// A well-formed Vertex implementation will provide information to the mesh about it's layout in
 /// order to properly sync the data to the GPU. A derive macro exists in
-/// [`Vertex`](graphics_macro::Vertex) that will derive this implementation for you.
+/// [`Vertex`](solstice_derive::Vertex) that will derive this implementation for you.
 ///
 /// ```
-/// use graphics::vertex::{VertexFormat, AttributeType};
+/// use solstice::vertex::{VertexFormat, AttributeType};
 /// #[repr(C, packed)]
 /// struct TestVertex {
 ///     position: [f32; 2],
 ///     color: [f32; 4],
 /// }
 ///
-/// impl graphics::vertex::Vertex for TestVertex {
+/// impl solstice::vertex::Vertex for TestVertex {
 ///     fn build_bindings() -> &'static [VertexFormat] {
 ///         &[VertexFormat {
 ///             name: "position",
@@ -95,7 +95,7 @@ pub type BindingInfo<'a> = (&'a VertexFormat, usize, u32, super::BufferKey, Buff
 /// Vertex data is then copied into the mesh.
 ///
 /// ```ignore
-/// let mut mesh = graphics::mesh::Mesh::new(&mut ctx, 3);
+/// let mut mesh = solstice::mesh::Mesh::new(&mut ctx, 3);
 /// mesh.set_vertices(&vertex_data, 0);
 /// ```
 ///
@@ -103,7 +103,7 @@ pub type BindingInfo<'a> = (&'a VertexFormat, usize, u32, super::BufferKey, Buff
 /// effectively change it's size without changing the underlying memory's size.
 ///
 /// ```ignore
-/// let mut mesh = graphics::mesh::Mesh::new(&mut ctx, 3000).unwrap();
+/// let mut mesh = solstice::mesh::Mesh::new(&mut ctx, 3000).unwrap();
 /// mesh.set_draw_range(Some(0..3)); // draws only the first three vertices of the 3000 allocated
 /// ```
 #[derive(Debug)]

@@ -40,7 +40,7 @@ impl Usage {
 /// A memory map between a CPU and GPU buffer.
 ///
 /// This implementation, while safe, only operates on bytes to better mirror GPU buffers. It is best
-/// used through a [`Mesh`](graphics::mesh::Mesh) to provide information on how the data is laid out
+/// used through a [`Mesh`](solstice::mesh::Mesh) to provide information on how the data is laid out
 /// internally and allow the use of more types and structures.
 ///
 /// This buffer is not resizable. All operations are sized in bytes.

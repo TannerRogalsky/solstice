@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "graphics",
-    "graphics-macro",
-    "graphics-extras",
+    "solstice",
+    "solstice-derive",
+    "solstice-2d",
 ]

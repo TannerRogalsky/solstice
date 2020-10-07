@@ -1,5 +1,5 @@
 [package]
-name = "graphics-macro"
+name = "solstice-derive"
 version = "0.1.0"
 authors = ["Tanner Rogalsky <tanner@tannerrogalsky.com>"]
 edition = "2018"
@@ -14,4 +14,4 @@ quote = "1.0"
 
 [dev-dependencies]
 memoffset = "0.5"
-graphics = { path = "../graphics" }
+solstice = { path = "../solstice" }

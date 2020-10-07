@@ -1,16 +1,16 @@
-use graphics::shader::{DynamicShader, UniformLocation};
-use graphics::Context;
+use solstice::shader::{DynamicShader, UniformLocation};
+use solstice::Context;
 use std::{cell::RefCell, rc::Rc};
 
 pub enum Shader2DError {
     ShaderNotFound,
-    GraphicsError(graphics::GraphicsError),
+    GraphicsError(solstice::GraphicsError),
     UniformNotFound(String),
 }
 
 pub struct Shader2D {
     gfx: Rc<RefCell<Context>>,
-    inner: graphics::shader::DynamicShader,
+    inner: solstice::shader::DynamicShader,
 
     projection_location: UniformLocation,
     projection_cache: mint::ColumnMatrix4<f32>,
@@ -31,7 +31,7 @@ fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
 }
 
 fn get_location(
-    shader: &graphics::shader::DynamicShader,
+    shader: &solstice::shader::DynamicShader,
     name: &str,
 ) -> Result<UniformLocation, Shader2DError> {
     shader
@@ -43,7 +43,7 @@ fn get_location(
 impl Shader2D {
     pub fn new(gfx: Rc<RefCell<Context>>, width: f32, height: f32) -> Result<Self, Shader2DError> {
         let (vertex, fragment) =
-            graphics::shader::DynamicShader::create_source(SHADER_SRC, SHADER_SRC);
+            solstice::shader::DynamicShader::create_source(SHADER_SRC, SHADER_SRC);
         let shader = DynamicShader::new(&mut gfx.borrow_mut(), vertex.as_str(), fragment.as_str())
             .map_err(Shader2DError::GraphicsError)?;
 
@@ -66,23 +66,23 @@ impl Shader2D {
         gfx.borrow_mut().use_shader(Some(&shader));
         gfx.borrow_mut().set_uniform_by_location(
             &projection_location,
-            &graphics::shader::RawUniformValue::Mat4(projection_cache),
+            &solstice::shader::RawUniformValue::Mat4(projection_cache),
         );
         gfx.borrow_mut().set_uniform_by_location(
             &view_location,
-            &graphics::shader::RawUniformValue::Mat4(identity),
+            &solstice::shader::RawUniformValue::Mat4(identity),
         );
         gfx.borrow_mut().set_uniform_by_location(
             &model_location,
-            &graphics::shader::RawUniformValue::Mat4(identity),
+            &solstice::shader::RawUniformValue::Mat4(identity),
         );
         gfx.borrow_mut().set_uniform_by_location(
             &color_location,
-            &graphics::shader::RawUniformValue::Vec4(white),
+            &solstice::shader::RawUniformValue::Vec4(white),
         );
         gfx.borrow_mut().set_uniform_by_location(
             &tex0_location,
-            &graphics::shader::RawUniformValue::SignedInt(0),
+            &solstice::shader::RawUniformValue::SignedInt(0),
         );
 
         Ok(Self {
@@ -106,7 +106,7 @@ impl Shader2D {
             self.color_cache = color;
             self.gfx.borrow_mut().set_uniform_by_location(
                 &self.color_location,
-                &graphics::shader::RawUniformValue::Vec4(self.color_cache),
+                &solstice::shader::RawUniformValue::Vec4(self.color_cache),
             )
         }
     }
@@ -117,12 +117,12 @@ impl Shader2D {
             self.projection_cache = projection_cache;
             self.gfx.borrow_mut().set_uniform_by_location(
                 &self.projection_location,
-                &graphics::shader::RawUniformValue::Mat4(self.projection_cache),
+                &solstice::shader::RawUniformValue::Mat4(self.projection_cache),
             );
         }
     }
 
-    pub fn bind_texture<T: graphics::texture::Texture>(&mut self, texture: T) {
+    pub fn bind_texture<T: solstice::texture::Texture>(&mut self, texture: T) {
         self.gfx.borrow_mut().bind_texture_to_unit(
             texture.get_texture_type(),
             texture.get_texture_key(),

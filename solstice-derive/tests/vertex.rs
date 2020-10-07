@@ -1,4 +1,4 @@
-use graphics::vertex::{Vertex, VertexFormat};
+use solstice::vertex::{Vertex, VertexFormat};
 
 #[test]
 fn derive_simple_semantics() {
@@ -19,7 +19,7 @@ fn derive_simple_semantics() {
         let binding = iter.next().unwrap();
         assert_eq!(binding.name, "position");
         assert_eq!(binding.offset, memoffset::offset_of!(TestVertex, position));
-        assert_eq!(binding.atype, graphics::vertex::AttributeType::F32F32F32);
+        assert_eq!(binding.atype, solstice::vertex::AttributeType::F32F32F32);
         assert_eq!(binding.normalize, false);
     }
 
@@ -27,7 +27,7 @@ fn derive_simple_semantics() {
         let binding = iter.next().unwrap();
         assert_eq!(binding.name, "alpha");
         assert_eq!(binding.offset, memoffset::offset_of!(TestVertex, alpha));
-        assert_eq!(binding.atype, graphics::vertex::AttributeType::F32);
+        assert_eq!(binding.atype, solstice::vertex::AttributeType::F32);
         assert_eq!(binding.normalize, false);
     }
 
@@ -35,7 +35,7 @@ fn derive_simple_semantics() {
         let binding = iter.next().unwrap();
         assert_eq!(binding.name, "uv");
         assert_eq!(binding.offset, memoffset::offset_of!(TestVertex, uv));
-        assert_eq!(binding.atype, graphics::vertex::AttributeType::F32F32);
+        assert_eq!(binding.atype, solstice::vertex::AttributeType::F32F32);
         assert_eq!(binding.normalize, false);
     }
 }

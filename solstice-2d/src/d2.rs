@@ -1,5 +1,5 @@
-use graphics::mesh::MappedVertexMesh;
-use graphics::Context;
+use solstice::mesh::MappedVertexMesh;
+use solstice::Context;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -103,14 +103,14 @@ pub struct Rectangle {
 
 pub enum Graphics2DError {
     ShaderError(shader::Shader2DError),
-    GraphicsError(graphics::GraphicsError),
+    GraphicsError(solstice::GraphicsError),
 }
 
 pub struct Graphics2D {
     gfx: Rc<RefCell<Context>>,
     mesh: MappedVertexMesh<vertex::Vertex2D>,
     default_shader: shader::Shader2D,
-    default_texture: graphics::image::Image,
+    default_texture: solstice::image::Image,
 }
 
 impl Graphics2D {
@@ -270,7 +270,7 @@ impl Graphics2D {
             0,
         );
         // self.mesh.set_draw_range(Some(0..2));
-        // self.mesh.set_draw_mode(graphics::DrawMode::Lines);
+        // self.mesh.set_draw_mode(solstice::DrawMode::Lines);
         // self.mesh.draw(&mut self.gfx.borrow_mut());
     }
     pub fn point(&mut self, x: f32, y: f32) {
@@ -279,7 +279,7 @@ impl Graphics2D {
             0,
         );
         // self.mesh.set_draw_range(Some(0..1));
-        // self.mesh.set_draw_mode(graphics::DrawMode::Points);
+        // self.mesh.set_draw_mode(solstice::DrawMode::Points);
         // self.mesh.draw(&mut self.gfx.borrow_mut());
     }
     pub fn rectangle(&mut self, draw_mode: DrawMode, rectangle: Rectangle) {
@@ -316,7 +316,7 @@ impl Graphics2D {
     }
     pub fn image<T>(&mut self, rectangle: Rectangle, texture: T)
     where
-        T: graphics::texture::Texture,
+        T: solstice::texture::Texture,
     {
         let Rectangle {
             x,
@@ -369,7 +369,7 @@ impl Graphics2D {
                     &vertices
                 };
                 self.mesh.set_vertices(vertices, 0);
-                // self.mesh.set_draw_mode(graphics::DrawMode::TriangleFan);
+                // self.mesh.set_draw_mode(solstice::DrawMode::TriangleFan);
                 // self.mesh.set_draw_range(Some(0..vertices.len()));
                 // self.mesh.draw(&mut self.gfx.borrow_mut());
             }
@@ -406,7 +406,7 @@ impl Graphics2D {
                     })
                     .collect::<Vec<_>>();
                 self.mesh.set_vertices(&vertices, 0);
-                // self.mesh.set_draw_mode(graphics::DrawMode::Triangles);
+                // self.mesh.set_draw_mode(solstice::DrawMode::Triangles);
                 // self.mesh.set_draw_range(Some(0..vertices.len()));
                 // self.mesh.draw(&mut self.gfx.borrow_mut());
             }

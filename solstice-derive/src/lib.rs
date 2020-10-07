@@ -31,13 +31,13 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                     let field_ty = &field.ty;
 
                     quote! {
-                        impl ::graphics::shader::UniformGetter<#field_ty> for #ident {
+                        impl ::solstice::shader::UniformGetter<#field_ty> for #ident {
                             fn get_uniform(&self) -> &#field_ty {
                                 &self.#field_ident
                             }
                         }
 
-                        impl ::graphics::shader::UniformGetterMut<#field_ty> for #ident {
+                        impl ::solstice::shader::UniformGetterMut<#field_ty> for #ident {
                             fn get_uniform_mut(&mut self) -> &mut #field_ty {
                                 &mut self.#field_ident
                             }
@@ -52,7 +52,7 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         #(#fields)*
-        impl ::graphics::shader::BasicUniformSetter for #ident {}
+        impl ::solstice::shader::BasicUniformSetter for #ident {}
     })
 }
 
@@ -71,11 +71,11 @@ pub fn derive_uniform(item: TokenStream) -> TokenStream {
                 .map(|field| {
                     let field_ident = field.ident.as_ref().unwrap();
                     quote! {
-                        impl ::graphics::shader::UniformTrait for #ident {
+                        impl ::solstice::shader::UniformTrait for #ident {
                             type Value = [f32; 16];
                             const NAME: &'static str = "#field_ident";
 
-                            fn get_location(&self) -> Option<&::graphics::shader::UniformLocation> {
+                            fn get_location(&self) -> Option<&::solstice::shader::UniformLocation> {
                                 self.#field_ident.as_ref()
                             }
                         }
@@ -142,18 +142,18 @@ pub fn derive_vertex(item: TokenStream) -> TokenStream {
                         };
 
                         quote! {
-                            ::graphics::vertex::VertexFormat {
+                            ::solstice::vertex::VertexFormat {
                                 name: #name,
                                 offset: #offset,
-                                atype: <#this_type as ::graphics::vertex::VertexAttributeType>::A_TYPE,
+                                atype: <#this_type as ::solstice::vertex::VertexAttributeType>::A_TYPE,
                                 normalize: false,
                             }
                         }
                     });
                 let ident = format_ident!("{}", input.ident);
                 TokenStream::from(quote! {
-                    impl ::graphics::vertex::Vertex for #ident {
-                        fn build_bindings() -> &'static [::graphics::vertex::VertexFormat] {
+                    impl ::solstice::vertex::Vertex for #ident {
+                        fn build_bindings() -> &'static [::solstice::vertex::VertexFormat] {
                             &[
                                 #(#vertex_formats),*
                             ]

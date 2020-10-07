@@ -1,6 +1,6 @@
-use graphics::shader::*;
-use graphics::ShaderKey;
-use graphics_macro::Shader;
+use solstice::shader::*;
+use solstice::ShaderKey;
+use solstice_derive::Shader;
 
 #[derive(Shader)]
 struct TestShader {
@@ -29,7 +29,7 @@ struct ShaderTex0 {
 }
 
 impl UniformTrait for ShaderTex0 {
-    type Value = Box<dyn graphics::texture::Texture>;
+    type Value = Box<dyn solstice::texture::Texture>;
     const NAME: &'static str = "tex0";
 
     fn get_location(&self) -> Option<&UniformLocation> {

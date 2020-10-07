@@ -1,4 +1,4 @@
-use graphics::vertex::Vertex;
+use solstice::vertex::Vertex;
 
 #[repr(C, packed)]
 #[derive(Vertex, Copy, Clone, Debug)]

@@ -1,5 +1,5 @@
 #[cfg(feature = "derive")]
-pub use graphics_macro::Vertex;
+pub use solstice_derive::Vertex;
 
 use std::fmt::Debug;
 
