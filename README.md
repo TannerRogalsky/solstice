@@ -1,0 +1,2 @@
+# solstice
+Cross-platform graphics.
