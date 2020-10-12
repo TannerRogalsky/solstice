@@ -1359,12 +1359,18 @@ impl Renderer for Context {
         }
     }
 
-    fn draw<S, M>(&mut self, shader: &S, geometry: &Geometry<M>, _settings: PipelineSettings)
+    fn draw<S, M>(&mut self, shader: &S, geometry: &Geometry<M>, settings: PipelineSettings)
     where
         S: shader::Shader,
         M: mesh::Mesh,
     {
         self.use_shader(Some(shader));
+
+        if let Some(depth_state) = settings.depth_state {
+            self.enable(Feature::DepthTest(depth_state.function));
+        } else {
+            self.disable(Feature::DepthTest(DepthFunction::Never));
+        }
 
         let Geometry {
             mesh,
@@ -1668,7 +1674,7 @@ impl<'a> Default for PipelineSettings<'a> {
         Self {
             viewport: Default::default(),
             framebuffer: None,
-            depth_state: None,
+            depth_state: Some(DepthState::default()),
             polygon_state: Default::default(),
             blend_state: None,
             stencil_state: None,
