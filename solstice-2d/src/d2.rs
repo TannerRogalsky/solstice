@@ -1,8 +1,4 @@
-use solstice::mesh::MappedVertexMesh;
-use solstice::Context;
-
-use std::cell::RefCell;
-use std::rc::Rc;
+use solstice::{mesh::MappedVertexMesh, texture::Texture, Context};
 
 mod shader;
 mod vertex;
@@ -13,16 +9,10 @@ pub enum DrawMode {
 }
 
 /// An angle, in radians.
-///
-/// This type is marked as `#[repr(C)]`.
-#[repr(C)]
 #[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
 pub struct Rad(pub f32);
 
 /// An angle, in degrees.
-///
-/// This type is marked as `#[repr(C)]`.
-#[repr(C)]
 #[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
 pub struct Deg(pub f32);
 
@@ -101,46 +91,54 @@ pub struct Rectangle {
     pub height: f32,
 }
 
+#[derive(Debug)]
 pub enum Graphics2DError {
     ShaderError(shader::Shader2DError),
     GraphicsError(solstice::GraphicsError),
 }
 
-pub struct Graphics2D {
-    gfx: Rc<RefCell<Context>>,
-    mesh: MappedVertexMesh<vertex::Vertex2D>,
-    default_shader: shader::Shader2D,
-    default_texture: solstice::image::Image,
+#[must_use]
+pub struct Graphics2DLock<'a> {
+    ctx: &'a mut Context,
+    inner: &'a mut Graphics2D,
+    offset: usize,
 }
 
-impl Graphics2D {
-    pub fn new(
-        gfx: Rc<RefCell<Context>>,
-        width: f32,
-        height: f32,
-    ) -> Result<Self, Graphics2DError> {
-        let mesh = MappedVertexMesh::new(&mut gfx.borrow_mut(), 1000)
-            .map_err(Graphics2DError::GraphicsError)?;
-        let default_shader = shader::Shader2D::new(gfx.clone(), width, height)
-            .map_err(Graphics2DError::ShaderError)?;
-        let default_texture = super::create_default_texture(&mut gfx.borrow_mut());
-        Ok(Self {
-            gfx,
-            mesh,
-            default_shader,
-            default_texture,
-        })
+impl Graphics2DLock<'_> {
+    fn flush(&mut self) {
+        let mesh = self.inner.mesh.unmap(self.ctx);
+        let shader = self.inner.default_shader.activate(self.ctx);
+        solstice::Renderer::draw(
+            self.ctx,
+            shader,
+            &solstice::Geometry {
+                mesh,
+                draw_range: 0..self.offset,
+                draw_mode: solstice::DrawMode::TriangleFan,
+                instance_count: 1,
+            },
+            solstice::PipelineSettings {
+                depth_state: None,
+                ..solstice::PipelineSettings::default()
+            },
+        );
+        self.offset = 0;
     }
 
-    pub fn set_width_height(&mut self, width: f32, height: f32) {
-        self.gfx
-            .borrow_mut()
-            .set_viewport(0, 0, width as i32, height as i32);
-        self.default_shader.set_width_height(width, height)
+    fn bind_default_texture(&mut self) {
+        let texture = &self.inner.default_texture;
+        if !self.inner.default_shader.is_bound(texture) {
+            self.flush();
+            let texture = &self.inner.default_texture;
+            self.inner.default_shader.bind_texture(texture);
+        }
     }
 
-    pub fn set_color(&mut self, color: mint::Vector4<f32>) {
-        self.default_shader.set_color(color)
+    fn bind_texture<T: Texture + Copy>(&mut self, texture: T) {
+        if !self.inner.default_shader.is_bound(texture) {
+            self.flush();
+            self.inner.default_shader.bind_texture(texture);
+        }
     }
 
     pub fn arc(&mut self, draw_mode: DrawMode, arc: Arc) {
@@ -212,7 +210,7 @@ impl Graphics2D {
             }
         };
 
-        self.default_shader.bind_texture(&self.default_texture);
+        self.bind_default_texture();
         self.polygon(draw_mode, &coords, true);
     }
     pub fn circle(&mut self, draw_mode: DrawMode, circle: Circle) {
@@ -258,29 +256,19 @@ impl Graphics2D {
 
         vertices.push(vertices[extra_segments as usize - 1]);
 
-        self.default_shader.bind_texture(&self.default_texture);
+        self.bind_default_texture();
         self.polygon(draw_mode, &vertices, false);
     }
     pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
-        self.mesh.set_vertices(
+        self.bind_default_texture();
+        self.polygon(
+            DrawMode::Stroke,
             &[
                 vertex::Vertex2D::new([x1, y1], [1., 1., 1., 1.], [0.5, 0.5]),
                 vertex::Vertex2D::new([x2, y2], [1., 1., 1., 1.], [0.5, 0.5]),
             ],
-            0,
+            false,
         );
-        // self.mesh.set_draw_range(Some(0..2));
-        // self.mesh.set_draw_mode(solstice::DrawMode::Lines);
-        // self.mesh.draw(&mut self.gfx.borrow_mut());
-    }
-    pub fn point(&mut self, x: f32, y: f32) {
-        self.mesh.set_vertices(
-            &[vertex::Vertex2D::new([x, y], [1., 1., 1., 1.], [0.5, 0.5])],
-            0,
-        );
-        // self.mesh.set_draw_range(Some(0..1));
-        // self.mesh.set_draw_mode(solstice::DrawMode::Points);
-        // self.mesh.draw(&mut self.gfx.borrow_mut());
     }
     pub fn rectangle(&mut self, draw_mode: DrawMode, rectangle: Rectangle) {
         let Rectangle {
@@ -289,7 +277,6 @@ impl Graphics2D {
             width,
             height,
         } = rectangle;
-        self.default_shader.bind_texture(&self.default_texture);
         let vertices = [
             vertex::Vertex2D {
                 position: [x, y],
@@ -312,19 +299,16 @@ impl Graphics2D {
                 ..vertex::Vertex2D::default()
             },
         ];
+        self.bind_default_texture();
         self.polygon(draw_mode, &vertices, true);
     }
-    pub fn image<T>(&mut self, rectangle: Rectangle, texture: T)
-    where
-        T: solstice::texture::Texture,
-    {
+    pub fn image<T: Texture + Copy>(&mut self, rectangle: Rectangle, texture: T) {
         let Rectangle {
             x,
             y,
             width,
             height,
         } = rectangle;
-        self.default_shader.bind_texture(texture);
         let vertices = [
             vertex::Vertex2D {
                 position: [x, y],
@@ -352,6 +336,7 @@ impl Graphics2D {
                 ..vertex::Vertex2D::default()
             },
         ];
+        self.bind_texture(texture);
         self.polygon(DrawMode::Fill, &vertices, true)
     }
 
@@ -368,10 +353,8 @@ impl Graphics2D {
                 } else {
                     &vertices
                 };
-                self.mesh.set_vertices(vertices, 0);
-                // self.mesh.set_draw_mode(solstice::DrawMode::TriangleFan);
-                // self.mesh.set_draw_range(Some(0..vertices.len()));
-                // self.mesh.draw(&mut self.gfx.borrow_mut());
+                self.inner.mesh.set_vertices(vertices, self.offset);
+                self.offset += vertices.len();
             }
             DrawMode::Stroke => {
                 use lyon_tessellation::*;
@@ -405,11 +388,53 @@ impl Graphics2D {
                         }
                     })
                     .collect::<Vec<_>>();
-                self.mesh.set_vertices(&vertices, 0);
-                // self.mesh.set_draw_mode(solstice::DrawMode::Triangles);
-                // self.mesh.set_draw_range(Some(0..vertices.len()));
-                // self.mesh.draw(&mut self.gfx.borrow_mut());
+                self.inner.mesh.set_vertices(&vertices, self.offset);
+                self.offset += vertices.len();
             }
         }
+    }
+}
+
+impl Drop for Graphics2DLock<'_> {
+    fn drop(&mut self) {
+        self.flush();
+    }
+}
+
+pub struct Graphics2D {
+    mesh: MappedVertexMesh<vertex::Vertex2D>,
+    default_shader: shader::Shader2D,
+    default_texture: solstice::image::Image,
+    width: f32,
+    height: f32,
+}
+
+impl Graphics2D {
+    pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, Graphics2DError> {
+        let mesh = MappedVertexMesh::new(ctx, 1000).map_err(Graphics2DError::GraphicsError)?;
+        let default_shader =
+            shader::Shader2D::new(ctx, width, height).map_err(Graphics2DError::ShaderError)?;
+        let default_texture = super::create_default_texture(ctx);
+        Ok(Self {
+            mesh,
+            default_shader,
+            default_texture,
+            width,
+            height,
+        })
+    }
+
+    pub fn start<'a>(&'a mut self, ctx: &'a mut Context) -> Graphics2DLock<'a> {
+        Graphics2DLock {
+            ctx,
+            inner: self,
+            offset: 0,
+        }
+    }
+
+    pub fn set_width_height(&mut self, width: f32, height: f32) {
+        self.width = width;
+        self.height = height;
+        self.default_shader.set_width_height(width, height)
     }
 }

@@ -1,15 +1,21 @@
 use solstice::shader::{DynamicShader, UniformLocation};
 use solstice::Context;
-use std::{cell::RefCell, rc::Rc};
 
+#[derive(Debug)]
 pub enum Shader2DError {
-    ShaderNotFound,
     GraphicsError(solstice::GraphicsError),
     UniformNotFound(String),
 }
 
+#[derive(Eq, PartialEq)]
+struct TextureCache {
+    ty: solstice::texture::TextureType,
+    key: solstice::TextureKey,
+    unit: solstice::TextureUnit,
+}
+
+#[allow(unused)]
 pub struct Shader2D {
-    gfx: Rc<RefCell<Context>>,
     inner: solstice::shader::DynamicShader,
 
     projection_location: UniformLocation,
@@ -21,13 +27,46 @@ pub struct Shader2D {
     color_location: UniformLocation,
     color_cache: mint::Vector4<f32>,
     tex0_location: UniformLocation,
-    tex0_cache: i32,
+    tex0_cache: TextureCache,
 }
 
 const SHADER_SRC: &str = include_str!("shader.glsl");
 
 fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
-    cgmath::ortho(0., width, height, 0., 0., 1000.).into()
+    let left = 0.;
+    let right = width;
+    let bottom = height;
+    let top = 0.;
+    let near = 0.;
+    let far = 1000.;
+
+    let c0r0 = 2. / (right - left);
+    let c0r1 = 0.;
+    let c0r2 = 0.;
+    let c0r3 = 0.;
+
+    let c1r0 = 0.;
+    let c1r1 = 2. / (top - bottom);
+    let c1r2 = 0.;
+    let c1r3 = 0.;
+
+    let c2r0 = 0.;
+    let c2r1 = 0.;
+    let c2r2 = -2. / (far - near);
+    let c2r3 = 0.;
+
+    let c3r0 = -(right + left) / (right - left);
+    let c3r1 = -(top + bottom) / (top - bottom);
+    let c3r2 = -(far + near) / (far - near);
+    let c3r3 = 1.;
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    [
+        [c0r0, c0r1, c0r2, c0r3],
+        [c1r0, c1r1, c1r2, c1r3],
+        [c2r0, c2r1, c2r2, c2r3],
+        [c3r0, c3r1, c3r2, c3r3],
+    ]
 }
 
 fn get_location(
@@ -41,10 +80,10 @@ fn get_location(
 }
 
 impl Shader2D {
-    pub fn new(gfx: Rc<RefCell<Context>>, width: f32, height: f32) -> Result<Self, Shader2DError> {
+    pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, Shader2DError> {
         let (vertex, fragment) =
             solstice::shader::DynamicShader::create_source(SHADER_SRC, SHADER_SRC);
-        let shader = DynamicShader::new(&mut gfx.borrow_mut(), vertex.as_str(), fragment.as_str())
+        let shader = DynamicShader::new(ctx, vertex.as_str(), fragment.as_str())
             .map_err(Shader2DError::GraphicsError)?;
 
         let projection_location = get_location(&shader, "uProjection")?;
@@ -63,30 +102,29 @@ impl Shader2D {
         ].into();
         let white: mint::Vector4<f32> = [1., 1., 1., 1.].into();
 
-        gfx.borrow_mut().use_shader(Some(&shader));
-        gfx.borrow_mut().set_uniform_by_location(
+        ctx.use_shader(Some(&shader));
+        ctx.set_uniform_by_location(
             &projection_location,
             &solstice::shader::RawUniformValue::Mat4(projection_cache),
         );
-        gfx.borrow_mut().set_uniform_by_location(
+        ctx.set_uniform_by_location(
             &view_location,
             &solstice::shader::RawUniformValue::Mat4(identity),
         );
-        gfx.borrow_mut().set_uniform_by_location(
+        ctx.set_uniform_by_location(
             &model_location,
             &solstice::shader::RawUniformValue::Mat4(identity),
         );
-        gfx.borrow_mut().set_uniform_by_location(
+        ctx.set_uniform_by_location(
             &color_location,
             &solstice::shader::RawUniformValue::Vec4(white),
         );
-        gfx.borrow_mut().set_uniform_by_location(
+        ctx.set_uniform_by_location(
             &tex0_location,
             &solstice::shader::RawUniformValue::SignedInt(0),
         );
 
         Ok(Self {
-            gfx,
             inner: shader,
             projection_location,
             projection_cache,
@@ -97,36 +135,47 @@ impl Shader2D {
             color_location,
             color_cache: white,
             tex0_location,
-            tex0_cache: 0,
+            tex0_cache: TextureCache {
+                ty: solstice::texture::TextureType::Tex2D,
+                key: Default::default(),
+                unit: 0.into(),
+            },
         })
-    }
-
-    pub fn set_color(&mut self, color: mint::Vector4<f32>) {
-        if color != self.color_cache {
-            self.color_cache = color;
-            self.gfx.borrow_mut().set_uniform_by_location(
-                &self.color_location,
-                &solstice::shader::RawUniformValue::Vec4(self.color_cache),
-            )
-        }
     }
 
     pub fn set_width_height(&mut self, width: f32, height: f32) {
         let projection_cache = ortho(width, height).into();
-        if projection_cache != self.projection_cache {
-            self.projection_cache = projection_cache;
-            self.gfx.borrow_mut().set_uniform_by_location(
-                &self.projection_location,
-                &solstice::shader::RawUniformValue::Mat4(self.projection_cache),
-            );
-        }
+        self.projection_cache = projection_cache;
     }
 
     pub fn bind_texture<T: solstice::texture::Texture>(&mut self, texture: T) {
-        self.gfx.borrow_mut().bind_texture_to_unit(
-            texture.get_texture_type(),
-            texture.get_texture_key(),
-            0.into(),
+        self.tex0_cache = TextureCache {
+            ty: texture.get_texture_type(),
+            key: texture.get_texture_key(),
+            unit: 0.into(),
+        };
+    }
+
+    pub fn is_bound<T: solstice::texture::Texture>(&self, texture: T) -> bool {
+        self.tex0_cache
+            == TextureCache {
+                ty: texture.get_texture_type(),
+                key: texture.get_texture_key(),
+                unit: 0.into(),
+            }
+    }
+
+    pub fn activate(&self, ctx: &mut Context) -> &solstice::shader::DynamicShader {
+        ctx.use_shader(Some(&self.inner));
+        ctx.bind_texture_to_unit(
+            self.tex0_cache.ty,
+            self.tex0_cache.key,
+            self.tex0_cache.unit,
         );
+        ctx.set_uniform_by_location(
+            &self.projection_location,
+            &solstice::shader::RawUniformValue::Mat4(self.projection_cache),
+        );
+        &self.inner
     }
 }
