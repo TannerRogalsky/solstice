@@ -1,8 +1,11 @@
-use solstice::{mesh::MappedVertexMesh, texture::Texture, Context};
+use crate::d2::vertex::Vertex2D;
+use lyon_tessellation::path::math::Point;
+use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context};
 
 mod shader;
 mod vertex;
 
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum DrawMode {
     Fill,
     Stroke,
@@ -101,7 +104,9 @@ pub enum Graphics2DError {
 pub struct Graphics2DLock<'a> {
     ctx: &'a mut Context,
     inner: &'a mut Graphics2D,
-    offset: usize,
+    color: [f32; 4],
+    index_offset: usize,
+    vertex_offset: usize,
 }
 
 impl Graphics2DLock<'_> {
@@ -113,8 +118,8 @@ impl Graphics2DLock<'_> {
             shader,
             &solstice::Geometry {
                 mesh,
-                draw_range: 0..self.offset,
-                draw_mode: solstice::DrawMode::TriangleFan,
+                draw_range: 0..self.index_offset,
+                draw_mode: solstice::DrawMode::Triangles,
                 instance_count: 1,
             },
             solstice::PipelineSettings {
@@ -122,7 +127,8 @@ impl Graphics2DLock<'_> {
                 ..solstice::PipelineSettings::default()
             },
         );
-        self.offset = 0;
+        self.index_offset = 0;
+        self.vertex_offset = 0;
     }
 
     fn bind_default_texture(&mut self) {
@@ -141,7 +147,12 @@ impl Graphics2DLock<'_> {
         }
     }
 
+    pub fn set_color<C: Into<[f32; 4]>>(&mut self, color: C) {
+        self.color = color.into();
+    }
+
     pub fn arc(&mut self, draw_mode: DrawMode, arc: Arc) {
+        self.bind_default_texture();
         let Arc {
             arc_type,
             x,
@@ -184,7 +195,7 @@ impl Graphics2DLock<'_> {
             }
         };
 
-        let coords = match arc_type {
+        let vertices = match arc_type {
             ArcType::Pie => {
                 let num_coords = segments as usize + 3;
                 let mut coords = vec![vertex::Vertex2D::default(); num_coords];
@@ -210,8 +221,19 @@ impl Graphics2DLock<'_> {
             }
         };
 
-        self.bind_default_texture();
-        self.polygon(draw_mode, &coords, true);
+        match draw_mode {
+            DrawMode::Fill => {
+                let mut indices = Vec::with_capacity(vertices.len() * 3);
+                let offset = self.vertex_offset as u32;
+                for i in 1..(vertices.len() - 2) as u32 {
+                    indices.push(offset);
+                    indices.push(offset + i);
+                    indices.push(offset + i + 1);
+                }
+                self.fill_polygon(&vertices, &indices);
+            }
+            DrawMode::Stroke => self.stroke_polygon(&vertices[..vertices.len() - 1]),
+        }
     }
     pub fn circle(&mut self, draw_mode: DrawMode, circle: Circle) {
         self.ellipse(draw_mode, circle.into());
@@ -238,161 +260,161 @@ impl Graphics2DLock<'_> {
 
         let mut vertices = Vec::with_capacity((segments + extra_segments) as usize);
 
-        match draw_mode {
-            DrawMode::Fill => {
-                vertices.push(vertex::Vertex2D::new([x, y], [1., 1., 1., 1.], [0.5, 0.5]));
-            }
-            DrawMode::Stroke => (),
+        if draw_mode == DrawMode::Fill {
+            vertices.push(vertex::Vertex2D::new([x, y], self.color, [0.5, 0.5]));
         }
 
         for _ in 0..segments {
             phi += angle_shift;
             vertices.push(vertex::Vertex2D::new(
                 [x + radius_x * phi.cos(), y + radius_y * phi.sin()],
-                [1., 1., 1., 1.],
+                self.color,
                 [0.5, 0.5],
             ));
         }
-
         vertices.push(vertices[extra_segments as usize - 1]);
 
         self.bind_default_texture();
-        self.polygon(draw_mode, &vertices, false);
+
+        if draw_mode == DrawMode::Fill {
+            let mut indices = Vec::with_capacity(segments as usize * 3);
+            let offset = self.vertex_offset as u32;
+            for i in 1..=segments {
+                indices.push(offset);
+                indices.push(offset + i);
+                indices.push(offset + i + 1);
+            }
+            self.fill_polygon(&vertices, &indices);
+        } else {
+            self.stroke_polygon(&vertices);
+        }
     }
     pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
         self.bind_default_texture();
-        self.polygon(
-            DrawMode::Stroke,
-            &[
-                vertex::Vertex2D::new([x1, y1], [1., 1., 1., 1.], [0.5, 0.5]),
-                vertex::Vertex2D::new([x2, y2], [1., 1., 1., 1.], [0.5, 0.5]),
-            ],
-            false,
-        );
+        self.stroke_polygon(&[
+            vertex::Vertex2D::new([x1, y1], self.color, [0.5, 0.5]),
+            vertex::Vertex2D::new([x2, y2], self.color, [0.5, 0.5]),
+        ]);
     }
     pub fn rectangle(&mut self, draw_mode: DrawMode, rectangle: Rectangle) {
-        let Rectangle {
-            x,
-            y,
-            width,
-            height,
-        } = rectangle;
-        let vertices = [
-            vertex::Vertex2D {
-                position: [x, y],
-                ..vertex::Vertex2D::default()
-            },
-            vertex::Vertex2D {
-                position: [x, y + height],
-                ..vertex::Vertex2D::default()
-            },
-            vertex::Vertex2D {
-                position: [x + width, y + height],
-                ..vertex::Vertex2D::default()
-            },
-            vertex::Vertex2D {
-                position: [x + width, y],
-                ..vertex::Vertex2D::default()
-            },
-            vertex::Vertex2D {
-                position: [x, y],
-                ..vertex::Vertex2D::default()
-            },
-        ];
         self.bind_default_texture();
-        self.polygon(draw_mode, &vertices, true);
-    }
-    pub fn image<T: Texture + Copy>(&mut self, rectangle: Rectangle, texture: T) {
-        let Rectangle {
-            x,
-            y,
-            width,
-            height,
-        } = rectangle;
-        let vertices = [
-            vertex::Vertex2D {
-                position: [x, y],
-                uv: [0., 0.],
-                ..vertex::Vertex2D::default()
-            },
-            vertex::Vertex2D {
-                position: [x, y + height],
-                uv: [0., 1.],
-                ..vertex::Vertex2D::default()
-            },
-            vertex::Vertex2D {
-                position: [x + width, y + height],
-                uv: [1., 1.],
-                ..vertex::Vertex2D::default()
-            },
-            vertex::Vertex2D {
-                position: [x + width, y],
-                uv: [1., 0.],
-                ..vertex::Vertex2D::default()
-            },
-            vertex::Vertex2D {
-                position: [x, y],
-                uv: [0., 0.],
-                ..vertex::Vertex2D::default()
-            },
-        ];
-        self.bind_texture(texture);
-        self.polygon(DrawMode::Fill, &vertices, true)
-    }
-
-    pub fn polygon(
-        &mut self,
-        draw_mode: DrawMode,
-        vertices: &[vertex::Vertex2D],
-        skip_last_filled: bool,
-    ) {
+        let (vertices, indices) =
+            rectangle_geometry(rectangle, self.color, self.vertex_offset as _);
         match draw_mode {
-            DrawMode::Fill => {
-                let vertices = if skip_last_filled {
-                    &vertices[0..vertices.len() - 1]
-                } else {
-                    &vertices
-                };
-                self.inner.mesh.set_vertices(vertices, self.offset);
-                self.offset += vertices.len();
-            }
-            DrawMode::Stroke => {
-                use lyon_tessellation::*;
-                let mut builder = path::Builder::new();
-                builder.polygon(
-                    &vertices
-                        .iter()
-                        .map(|v| v.position.into())
-                        .collect::<Vec<_>>(),
-                );
-                let path = builder.build();
-
-                let mut buffers: VertexBuffers<math::Point, u16> = VertexBuffers::new();
-                {
-                    let mut vertex_builder = geometry_builder::simple_builder(&mut buffers);
-                    let mut tessellator = StrokeTessellator::new();
-                    let _r = tessellator.tessellate(
-                        &path,
-                        &StrokeOptions::default(),
-                        &mut vertex_builder,
-                    );
-                }
-                let vertices = buffers
-                    .indices
-                    .iter()
-                    .map(|i| {
-                        let i = *i as usize;
-                        vertex::Vertex2D {
-                            position: [buffers.vertices[i].x, buffers.vertices[i].y],
-                            ..vertex::Vertex2D::default()
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                self.inner.mesh.set_vertices(&vertices, self.offset);
-                self.offset += vertices.len();
-            }
+            DrawMode::Fill => self.fill_polygon(&vertices, &indices),
+            DrawMode::Stroke => self.stroke_polygon(&vertices),
         }
     }
+    pub fn image<T: Texture + Copy>(&mut self, rectangle: Rectangle, texture: T) {
+        self.bind_texture(texture);
+        let (vertices, indices) =
+            rectangle_geometry(rectangle, self.color, self.vertex_offset as _);
+        self.fill_polygon(&vertices, &indices);
+    }
+
+    fn fill_polygon(&mut self, vertices: &[vertex::Vertex2D], indices: &[u32]) {
+        self.inner.mesh.set_vertices(vertices, self.vertex_offset);
+        self.inner.mesh.set_indices(indices, self.index_offset);
+        self.vertex_offset += vertices.len();
+        self.index_offset += indices.len();
+    }
+
+    fn stroke_polygon(&mut self, vertices: &[vertex::Vertex2D]) {
+        use lyon_tessellation::*;
+        let mut builder = path::Builder::new();
+        builder.polygon(
+            &vertices
+                .iter()
+                .map(|v| v.position.into())
+                .collect::<Vec<_>>(),
+        );
+        let path = builder.build();
+
+        struct WithColor([f32; 4]);
+
+        impl StrokeVertexConstructor<vertex::Vertex2D> for WithColor {
+            fn new_vertex(
+                &mut self,
+                point: Point,
+                attributes: StrokeAttributes<'_, '_>,
+            ) -> Vertex2D {
+                vertex::Vertex2D {
+                    position: [point.x, point.y],
+                    color: self.0,
+                    uv: attributes.normal().into(),
+                }
+            }
+        }
+
+        let mut buffers: VertexBuffers<vertex::Vertex2D, u32> = VertexBuffers::new();
+        {
+            let mut tessellator = StrokeTessellator::new();
+            tessellator
+                .tessellate(
+                    &path,
+                    &StrokeOptions::default().with_line_width(5.),
+                    &mut BuffersBuilder::new(&mut buffers, WithColor(self.color)),
+                )
+                .unwrap();
+        }
+
+        let indices = buffers
+            .indices
+            .iter()
+            .map(|i| self.vertex_offset as u32 + *i)
+            .collect::<Vec<_>>();
+
+        self.inner
+            .mesh
+            .set_vertices(&buffers.vertices, self.vertex_offset);
+        self.inner.mesh.set_indices(&indices, self.index_offset);
+        self.vertex_offset += buffers.vertices.len();
+        self.index_offset += buffers.indices.len();
+    }
+}
+
+fn rectangle_geometry(
+    rectangle: Rectangle,
+    color: [f32; 4],
+    offset: u32,
+) -> ([Vertex2D; 4], [u32; 6]) {
+    let Rectangle {
+        x,
+        y,
+        width,
+        height,
+    } = rectangle;
+    let vertices = [
+        vertex::Vertex2D {
+            position: [x, y],
+            color,
+            uv: [0., 0.],
+        },
+        vertex::Vertex2D {
+            position: [x, y + height],
+            color,
+            uv: [0., 1.],
+        },
+        vertex::Vertex2D {
+            position: [x + width, y + height],
+            color,
+            uv: [1., 1.],
+        },
+        vertex::Vertex2D {
+            position: [x + width, y],
+            color,
+            uv: [1., 0.],
+        },
+    ];
+    let indices = [
+        offset + 0,
+        offset + 1,
+        offset + 2,
+        offset + 0,
+        offset + 3,
+        offset + 2,
+    ];
+    (vertices, indices)
 }
 
 impl Drop for Graphics2DLock<'_> {
@@ -402,7 +424,7 @@ impl Drop for Graphics2DLock<'_> {
 }
 
 pub struct Graphics2D {
-    mesh: MappedVertexMesh<vertex::Vertex2D>,
+    mesh: MappedIndexedMesh<vertex::Vertex2D, u32>,
     default_shader: shader::Shader2D,
     default_texture: solstice::image::Image,
     width: f32,
@@ -411,7 +433,8 @@ pub struct Graphics2D {
 
 impl Graphics2D {
     pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, Graphics2DError> {
-        let mesh = MappedVertexMesh::new(ctx, 1000).map_err(Graphics2DError::GraphicsError)?;
+        let mesh =
+            MappedIndexedMesh::new(ctx, 10000, 10000).map_err(Graphics2DError::GraphicsError)?;
         let default_shader =
             shader::Shader2D::new(ctx, width, height).map_err(Graphics2DError::ShaderError)?;
         let default_texture = super::create_default_texture(ctx);
@@ -428,7 +451,9 @@ impl Graphics2D {
         Graphics2DLock {
             ctx,
             inner: self,
-            offset: 0,
+            color: [1., 1., 1., 1.],
+            index_offset: 0,
+            vertex_offset: 0,
         }
     }
 
