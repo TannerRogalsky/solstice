@@ -39,6 +39,7 @@ fn draw(mut ctx: solstice_2d::Graphics2DLock, image: &solstice::image::Image) {
         image,
     );
 
+    ctx.transforms.push();
     let rectangle = Rectangle {
         x: 400.,
         y: 400.,
@@ -48,12 +49,14 @@ fn draw(mut ctx: solstice_2d::Graphics2DLock, image: &solstice::image::Image) {
     ctx.rectangle(DrawMode::Fill, rectangle);
     ctx.set_color([1., 0., 0., 1.]);
     ctx.rectangle(DrawMode::Stroke, rectangle);
+    ctx.transforms.pop();
 
+    ctx.transforms.push();
     let arc = Arc {
         arc_type: ArcType::Pie,
         x: 800.,
         y: 100.,
-        radius: 100.0,
+        radius: 25.0,
         angle1: Rad(0.),
         angle2: Rad(std::f32::consts::PI * 1.75),
         segments: 100,
@@ -82,6 +85,8 @@ fn draw(mut ctx: solstice_2d::Graphics2DLock, image: &solstice::image::Image) {
     ctx.arc(DrawMode::Fill, arc);
     ctx.set_color([1., 0., 1., 1.]);
     ctx.arc(DrawMode::Stroke, arc);
+
+    ctx.transforms.pop();
 }
 
 fn main() {

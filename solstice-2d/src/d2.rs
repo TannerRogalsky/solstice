@@ -3,95 +3,17 @@ use lyon_tessellation::path::math::Point;
 use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context};
 
 mod shader;
+mod shapes;
+mod transforms;
 mod vertex;
+
+pub use shapes::*;
+pub use transforms::*;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum DrawMode {
     Fill,
     Stroke,
-}
-
-/// An angle, in radians.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
-pub struct Rad(pub f32);
-
-/// An angle, in degrees.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
-pub struct Deg(pub f32);
-
-impl From<Rad> for Deg {
-    #[inline]
-    fn from(rad: Rad) -> Deg {
-        Deg(rad.0 * 180.0 / std::f32::consts::PI)
-    }
-}
-
-impl From<Deg> for Rad {
-    #[inline]
-    fn from(deg: Deg) -> Rad {
-        Rad(deg.0 * std::f32::consts::PI / 180.0)
-    }
-}
-
-#[derive(Copy, Clone, Default)]
-pub struct Arc {
-    pub arc_type: ArcType,
-    pub x: f32,
-    pub y: f32,
-    pub radius: f32,
-    pub angle1: Rad,
-    pub angle2: Rad,
-    pub segments: u32,
-}
-
-#[derive(Copy, Clone)]
-pub enum ArcType {
-    Pie,
-    Open,
-    Closed,
-}
-
-impl Default for ArcType {
-    fn default() -> Self {
-        ArcType::Pie
-    }
-}
-
-#[derive(Copy, Clone, Default)]
-pub struct Circle {
-    pub x: f32,
-    pub y: f32,
-    pub radius: f32,
-    pub segments: u32,
-}
-
-impl Into<Ellipse> for Circle {
-    fn into(self) -> Ellipse {
-        Ellipse {
-            x: self.x,
-            y: self.y,
-            radius_x: self.radius,
-            radius_y: self.radius,
-            segments: self.segments,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Default)]
-pub struct Ellipse {
-    pub x: f32,
-    pub y: f32,
-    pub radius_x: f32,
-    pub radius_y: f32,
-    pub segments: u32,
-}
-
-#[derive(Copy, Clone, Default)]
-pub struct Rectangle {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
 }
 
 #[derive(Debug)]
@@ -107,6 +29,7 @@ pub struct Graphics2DLock<'a> {
     color: [f32; 4],
     index_offset: usize,
     vertex_offset: usize,
+    pub transforms: Transforms,
 }
 
 impl Graphics2DLock<'_> {
@@ -186,12 +109,18 @@ impl Graphics2DLock<'_> {
             return; // bail on precision fail
         }
 
-        let mut phi = angle1;
-        let mut create_points = |coordinates: &mut [vertex::Vertex2D]| {
-            for coordinate in coordinates.iter_mut() {
-                phi += angle_shift;
-                coordinate.position[0] = x + radius * phi.cos();
-                coordinate.position[1] = y + radius * phi.sin();
+        let transform = self.transforms.current();
+        let mut create_points = {
+            let mut phi = angle1;
+            move |coordinates: &mut [vertex::Vertex2D]| {
+                for coordinate in coordinates.iter_mut() {
+                    phi += angle_shift;
+                    let x = x + radius * phi.cos();
+                    let y = y + radius * phi.sin();
+                    let (x, y) = transform.transform_point(x, y);
+                    coordinate.position[0] = x;
+                    coordinate.position[1] = y;
+                }
             }
         };
 
@@ -199,6 +128,7 @@ impl Graphics2DLock<'_> {
             ArcType::Pie => {
                 let num_coords = segments as usize + 3;
                 let mut coords = vec![vertex::Vertex2D::default(); num_coords];
+                let (x, y) = transform.transform_point(x, y);
                 coords[0] = vertex::Vertex2D {
                     position: [x, y],
                     ..vertex::Vertex2D::default()
@@ -261,16 +191,16 @@ impl Graphics2DLock<'_> {
         let mut vertices = Vec::with_capacity((segments + extra_segments) as usize);
 
         if draw_mode == DrawMode::Fill {
+            let (x, y) = self.transforms.current().transform_point(x, y);
             vertices.push(vertex::Vertex2D::new([x, y], self.color, [0.5, 0.5]));
         }
 
+        let transform = self.transforms.current();
         for _ in 0..segments {
             phi += angle_shift;
-            vertices.push(vertex::Vertex2D::new(
-                [x + radius_x * phi.cos(), y + radius_y * phi.sin()],
-                self.color,
-                [0.5, 0.5],
-            ));
+            let (x, y) = (x + radius_x * phi.cos(), y + radius_y * phi.sin());
+            let (x, y) = transform.transform_point(x, y);
+            vertices.push(vertex::Vertex2D::new([x, y], self.color, [0.5, 0.5]));
         }
         vertices.push(vertices[extra_segments as usize - 1]);
 
@@ -291,6 +221,8 @@ impl Graphics2DLock<'_> {
     }
     pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
         self.bind_default_texture();
+        let (x1, y1) = self.transforms.current().transform_point(x1, y1);
+        let (x2, y2) = self.transforms.current().transform_point(x2, y2);
         self.stroke_polygon(&[
             vertex::Vertex2D::new([x1, y1], self.color, [0.5, 0.5]),
             vertex::Vertex2D::new([x2, y2], self.color, [0.5, 0.5]),
@@ -298,8 +230,7 @@ impl Graphics2DLock<'_> {
     }
     pub fn rectangle(&mut self, draw_mode: DrawMode, rectangle: Rectangle) {
         self.bind_default_texture();
-        let (vertices, indices) =
-            rectangle_geometry(rectangle, self.color, self.vertex_offset as _);
+        let (vertices, indices) = self.rectangle_geometry(rectangle);
         match draw_mode {
             DrawMode::Fill => self.fill_polygon(&vertices, &indices),
             DrawMode::Stroke => self.stroke_polygon(&vertices),
@@ -307,8 +238,7 @@ impl Graphics2DLock<'_> {
     }
     pub fn image<T: Texture + Copy>(&mut self, rectangle: Rectangle, texture: T) {
         self.bind_texture(texture);
-        let (vertices, indices) =
-            rectangle_geometry(rectangle, self.color, self.vertex_offset as _);
+        let (vertices, indices) = self.rectangle_geometry(rectangle);
         self.fill_polygon(&vertices, &indices);
     }
 
@@ -371,50 +301,51 @@ impl Graphics2DLock<'_> {
         self.vertex_offset += buffers.vertices.len();
         self.index_offset += buffers.indices.len();
     }
-}
+    fn rectangle_geometry(&self, rectangle: Rectangle) -> ([Vertex2D; 4], [u32; 6]) {
+        let offset = self.vertex_offset as u32;
+        let color = self.color;
+        let Rectangle {
+            x,
+            y,
+            width,
+            height,
+        } = rectangle;
+        let transform = self.transforms.current();
+        let (x1, y1) = transform.transform_point(x, y);
+        let (x2, y2) = transform.transform_point(x + width, y + height);
 
-fn rectangle_geometry(
-    rectangle: Rectangle,
-    color: [f32; 4],
-    offset: u32,
-) -> ([Vertex2D; 4], [u32; 6]) {
-    let Rectangle {
-        x,
-        y,
-        width,
-        height,
-    } = rectangle;
-    let vertices = [
-        vertex::Vertex2D {
-            position: [x, y],
-            color,
-            uv: [0., 0.],
-        },
-        vertex::Vertex2D {
-            position: [x, y + height],
-            color,
-            uv: [0., 1.],
-        },
-        vertex::Vertex2D {
-            position: [x + width, y + height],
-            color,
-            uv: [1., 1.],
-        },
-        vertex::Vertex2D {
-            position: [x + width, y],
-            color,
-            uv: [1., 0.],
-        },
-    ];
-    let indices = [
-        offset + 0,
-        offset + 1,
-        offset + 2,
-        offset + 0,
-        offset + 3,
-        offset + 2,
-    ];
-    (vertices, indices)
+        let vertices = [
+            vertex::Vertex2D {
+                position: [x1, y1],
+                color,
+                uv: [0., 0.],
+            },
+            vertex::Vertex2D {
+                position: [x1, y2],
+                color,
+                uv: [0., 1.],
+            },
+            vertex::Vertex2D {
+                position: [x2, y2],
+                color,
+                uv: [1., 1.],
+            },
+            vertex::Vertex2D {
+                position: [x2, y1],
+                color,
+                uv: [1., 0.],
+            },
+        ];
+        let indices = [
+            offset + 0,
+            offset + 1,
+            offset + 2,
+            offset + 0,
+            offset + 3,
+            offset + 2,
+        ];
+        (vertices, indices)
+    }
 }
 
 impl Drop for Graphics2DLock<'_> {
@@ -454,6 +385,7 @@ impl Graphics2D {
             color: [1., 1., 1., 1.],
             index_offset: 0,
             vertex_offset: 0,
+            transforms: Default::default(),
         }
     }
 
