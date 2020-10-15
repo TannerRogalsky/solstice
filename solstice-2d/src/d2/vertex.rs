@@ -1,6 +1,6 @@
 use solstice::vertex::Vertex;
 
-#[repr(C, packed)]
+#[repr(C)]
 #[derive(Vertex, Copy, Clone, Debug)]
 pub struct Vertex2D {
     pub position: [f32; 2],

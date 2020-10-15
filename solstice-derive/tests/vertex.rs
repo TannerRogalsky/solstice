@@ -1,8 +1,9 @@
 use solstice::vertex::{Vertex, VertexFormat};
+use solstice_derive::Vertex;
 
 #[test]
 fn derive_simple_semantics() {
-    #[repr(C, packed)]
+    #[repr(C)]
     #[derive(Clone, Copy, Debug, Vertex)]
     pub struct TestVertex {
         pub position: [f32; 3],
