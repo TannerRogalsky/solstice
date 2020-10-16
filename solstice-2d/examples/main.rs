@@ -116,21 +116,16 @@ fn main() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("examples")
             .join("rust-logo-512x512.png");
-        let decoder = png::Decoder::new(std::fs::File::open(path).unwrap());
-        let (info, mut reader) = decoder.read_info().unwrap();
-
-        // Allocate the output buffer.
-        let mut buf = vec![0; info.buffer_size()];
-        // Read the next frame. An APNG might contain multiple frames.
-        reader.next_frame(&mut buf).unwrap();
+        let image = image::open(path).unwrap();
+        let image = image.as_rgba8().unwrap();
 
         solstice::image::Image::with_data(
             &mut context,
             solstice::texture::TextureType::Tex2D,
             solstice::PixelFormat::RGBA8,
-            info.width,
-            info.height,
-            &buf,
+            image.width(),
+            image.height(),
+            image.as_raw(),
             solstice::image::Settings::default(),
         )
         .unwrap()
