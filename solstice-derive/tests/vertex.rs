@@ -1,4 +1,4 @@
-use solstice::vertex::{Vertex, VertexFormat};
+use solstice::vertex::VertexFormat;
 use solstice_derive::Vertex;
 
 #[test]
@@ -11,7 +11,7 @@ fn derive_simple_semantics() {
         pub uv: [f32; 2],
     }
 
-    let bindings: &[VertexFormat] = <TestVertex as Vertex>::build_bindings();
+    let bindings: &[VertexFormat] = <TestVertex as solstice::vertex::Vertex>::build_bindings();
     assert_eq!(bindings.len(), 3);
 
     let mut iter = bindings.iter();
