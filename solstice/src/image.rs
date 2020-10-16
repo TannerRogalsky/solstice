@@ -8,6 +8,7 @@ use super::{
     Context,
 };
 
+#[derive(Copy, Clone, Debug)]
 pub struct Settings {
     pub mipmaps: bool,
     pub dpi_scale: f32,
@@ -170,7 +171,7 @@ impl MappedImage {
     }
 
     pub fn set_pixels(&mut self, region: Viewport<usize>, data: &[u8]) {
-        let pixel_stride = super::gl::pixel_format::size(self.inner.texture_info.get_format());
+        let pixel_stride = self.pixel_stride();
         let (v_width, v_height) = region.dimensions();
         let (x1, y1) = region.position();
         let (x1, y1) = (x1 * pixel_stride, y1);
@@ -184,6 +185,23 @@ impl MappedImage {
 
     pub fn get_pixels(&self) -> &[u8] {
         self.memory_map()
+    }
+
+    pub fn get_pixel(&self, x: usize, y: usize) -> &[u8] {
+        let pixel_stride = self.pixel_stride();
+        let index = y * self.inner.texture_info.width() as usize * pixel_stride + x * pixel_stride;
+        &self.memory_map()[index..(index + pixel_stride)]
+    }
+
+    pub fn set_pixel(&mut self, x: usize, y: usize, pixel: &[u8]) {
+        let pixel_stride = self.pixel_stride();
+        assert_eq!(pixel_stride, pixel.len());
+        let region = Viewport::new(x, y, 1, 1);
+        self.set_pixels(region, pixel)
+    }
+
+    pub fn pixel_stride(&self) -> usize {
+        super::gl::pixel_format::size(self.inner.texture_info.get_format())
     }
 
     pub fn unmap(&mut self, ctx: &mut Context) -> &Image {
