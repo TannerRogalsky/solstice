@@ -1863,21 +1863,75 @@ void main() {
 
         let (ctx, _window) = get_headless_context(100, 100);
         let mut ctx = Context::new(ctx);
+        {
+            // RGBA
+            let data = vec![234; 3 * 3 * 4];
 
-        let mut image = MappedImage::with_data(
-            &mut ctx,
-            TextureType::Tex2D,
-            PixelFormat::RGBA8,
-            3,
-            3,
-            vec![234; 3 * 3 * 4],
-            Settings::default(),
-        )
-        .unwrap();
+            let mut image = MappedImage::with_data(
+                &mut ctx,
+                TextureType::Tex2D,
+                PixelFormat::RGBA8,
+                3,
+                3,
+                data.clone(),
+                Settings::default(),
+            )
+            .unwrap();
+            let pixel_stride = image.pixel_stride();
+            assert_eq!(image.get_pixels(), data);
 
-        let pixel = [1, 2, 3, 4];
-        image.set_pixels(viewport::Viewport::new(0, 0, 1, 1), &pixel);
-        assert_eq!(image.get_pixels()[..4], pixel);
+            let pixel = [1, 2, 3, 4];
+            image.set_pixels(viewport::Viewport::new(0, 0, 1, 1), &pixel);
+            assert_eq!(image.get_pixels()[..4], pixel);
+
+            let pixel = [0, 0, 1, 0];
+            image.set_pixel(0, 0, &pixel);
+            assert_eq!(image.get_pixels()[..4], pixel);
+            assert_eq!(image.get_pixel(0, 0), pixel);
+
+            assert_eq!(image.get_pixel(0, 1), [234, 234, 234, 234]);
+            image.set_pixel(0, 1, &pixel);
+            assert_eq!(image.get_pixel(0, 1), pixel);
+            assert_eq!(
+                image.get_pixels()[(3 * pixel_stride)..(4 * pixel_stride)],
+                pixel
+            );
+        }
+
+        {
+            // RGB
+            let data = vec![234; 3 * 3 * 3];
+
+            let mut image = MappedImage::with_data(
+                &mut ctx,
+                TextureType::Tex2D,
+                PixelFormat::RGB8,
+                3,
+                3,
+                data.clone(),
+                Settings::default(),
+            )
+            .unwrap();
+            let pixel_stride = image.pixel_stride();
+            assert_eq!(image.get_pixels(), data);
+
+            let pixel = [1, 2, 3];
+            image.set_pixels(viewport::Viewport::new(0, 0, 1, 1), &pixel);
+            assert_eq!(image.get_pixels()[..pixel_stride], pixel);
+
+            let pixel = [0, 0, 1];
+            image.set_pixel(0, 0, &pixel);
+            assert_eq!(image.get_pixels()[..pixel_stride], pixel);
+            assert_eq!(image.get_pixel(0, 0), pixel);
+
+            assert_eq!(image.get_pixel(0, 1), [234, 234, 234]);
+            image.set_pixel(0, 1, &pixel);
+            assert_eq!(image.get_pixel(0, 1), pixel);
+            assert_eq!(
+                image.get_pixels()[(3 * pixel_stride)..(4 * pixel_stride)],
+                pixel
+            );
+        }
     }
 
     #[test]

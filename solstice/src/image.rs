@@ -67,8 +67,8 @@ impl Image {
             texture_key,
             texture_info: TextureInfo::new(
                 format,
-                (width as f32 * settings.dpi_scale + 0.5) as usize,
-                (height as f32 * settings.dpi_scale + 0.5) as usize,
+                (width as f32 * settings.dpi_scale + 0.5) as u32,
+                (height as f32 * settings.dpi_scale + 0.5) as u32,
                 filter,
                 wrap,
                 settings.mipmaps,

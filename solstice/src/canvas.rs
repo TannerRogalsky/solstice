@@ -52,8 +52,8 @@ impl Canvas {
     pub fn new(ctx: &mut Context, settings: Settings) -> Result<Self, super::GraphicsError> {
         let texture = TextureInfo::new(
             settings.format,
-            (settings.width as f32 * settings.dpi_scale + 0.5) as usize,
-            (settings.height as f32 * settings.dpi_scale + 0.5) as usize,
+            (settings.width as f32 * settings.dpi_scale + 0.5) as u32,
+            (settings.height as f32 * settings.dpi_scale + 0.5) as u32,
             Filter::default(),
             Wrap::default(),
             settings.mipmap_mode != MipmapMode::None,

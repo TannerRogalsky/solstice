@@ -156,8 +156,8 @@ impl Default for Wrap {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TextureInfo {
     format: super::PixelFormat,
-    width: usize,
-    height: usize,
+    width: u32,
+    height: u32,
     filter: Filter,
     wrap: Wrap,
     mipmaps: bool,
@@ -179,8 +179,8 @@ impl Default for TextureInfo {
 impl TextureInfo {
     pub fn new(
         format: super::PixelFormat,
-        width: usize,
-        height: usize,
+        width: u32,
+        height: u32,
         filter: Filter,
         wrap: Wrap,
         mipmaps: bool,
@@ -195,19 +195,19 @@ impl TextureInfo {
         }
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> u32 {
         self.width
     }
 
-    pub fn set_width(&mut self, width: usize) {
+    pub fn set_width(&mut self, width: u32) {
         self.width = width
     }
 
-    pub fn height(&self) -> usize {
+    pub fn height(&self) -> u32 {
         self.height
     }
 
-    pub fn set_height(&mut self, height: usize) {
+    pub fn set_height(&mut self, height: u32) {
         self.height = height
     }
 
