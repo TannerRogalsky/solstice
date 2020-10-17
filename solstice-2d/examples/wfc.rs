@@ -312,7 +312,7 @@ fn main() {
                     x: 400.0,
                     y: 0.0,
                     width: 400.0,
-                    height: 400.0
+                    height: 400.0,
                 };
                 g.image(rectangle, proto.inner());
 

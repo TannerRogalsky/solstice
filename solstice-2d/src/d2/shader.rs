@@ -1,5 +1,5 @@
-use solstice::shader::{DynamicShader, UniformLocation};
-use solstice::Context;
+use solstice::shader::{Attribute, DynamicShader, Uniform, UniformLocation};
+use solstice::{Context, ShaderKey};
 
 #[derive(Debug)]
 pub enum Shader2DError {
@@ -157,12 +157,12 @@ impl Shader2D {
     }
 
     pub fn is_bound<T: solstice::texture::Texture>(&self, texture: T) -> bool {
-        self.tex0_cache
-            == TextureCache {
-                ty: texture.get_texture_type(),
-                key: texture.get_texture_key(),
-                unit: 0.into(),
-            }
+        let tex0 = TextureCache {
+            ty: texture.get_texture_type(),
+            key: texture.get_texture_key(),
+            unit: 0.into(),
+        };
+        self.tex0_cache == tex0
     }
 
     pub fn activate(&self, ctx: &mut Context) -> &solstice::shader::DynamicShader {
@@ -177,5 +177,19 @@ impl Shader2D {
             &solstice::shader::RawUniformValue::Mat4(self.projection_cache),
         );
         &self.inner
+    }
+}
+
+impl solstice::shader::Shader for Shader2D {
+    fn handle(&self) -> ShaderKey {
+        self.inner.handle()
+    }
+
+    fn attributes(&self) -> &[Attribute] {
+        self.inner.attributes()
+    }
+
+    fn uniforms(&self) -> &[Uniform] {
+        self.inner.uniforms()
     }
 }

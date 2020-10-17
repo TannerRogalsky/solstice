@@ -1,5 +1,11 @@
-fn draw(mut ctx: solstice_2d::Graphics2DLock, image: &solstice::image::Image) {
+struct Resources<'a> {
+    image: &'a solstice::image::Image,
+    text: &'a mut solstice_2d::Text,
+}
+
+fn draw(mut ctx: solstice_2d::Graphics2DLock, resources: Resources) {
     use solstice_2d::*;
+    let Resources { image, text } = resources;
 
     let circle = Circle {
         x: 200.,
@@ -87,6 +93,8 @@ fn draw(mut ctx: solstice_2d::Graphics2DLock, image: &solstice::image::Image) {
     ctx.arc(DrawMode::Stroke, arc);
 
     ctx.transforms.pop();
+
+    text.draw(&mut ctx);
 }
 
 fn main() {
@@ -112,11 +120,10 @@ fn main() {
     let mut context = solstice::Context::new(glow_ctx);
     let mut d2 = solstice_2d::Graphics2D::new(&mut context, width as _, height as _).unwrap();
 
+    let resources = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples");
+
     let image = {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("examples")
-            .join("rust-logo-512x512.png");
-        let image = image::open(path).unwrap();
+        let image = image::open(resources.join("rust-logo-512x512.png")).unwrap();
         let image = image.as_rgba8().unwrap();
 
         solstice::image::Image::with_data(
@@ -129,6 +136,16 @@ fn main() {
             solstice::image::Settings::default(),
         )
         .unwrap()
+    };
+
+    let mut text = {
+        let path = resources.join("DejaVuSans.ttf");
+        let font_data = std::fs::read(path).unwrap();
+        let font = glyph_brush::ab_glyph::FontArc::try_from_vec(font_data).unwrap();
+
+        let mut text = solstice_2d::Text::new(&mut context, font).unwrap();
+        text.set_text("Hello, World!", &mut d2.start(&mut context));
+        text
     };
 
     event_loop.run(move |event, _, cf| match event {
@@ -151,7 +168,14 @@ fn main() {
         }
         Event::RedrawRequested(window_id) => {
             if window_id == window.window().id() {
-                draw(d2.start(&mut context), &image);
+                context.clear();
+                draw(
+                    d2.start(&mut context),
+                    Resources {
+                        image: &image,
+                        text: &mut text,
+                    },
+                );
                 window.swap_buffers().unwrap();
             }
         }
