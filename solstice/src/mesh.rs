@@ -357,6 +357,10 @@ where
         self.inner.set_draw_range(draw_range)
     }
 
+    pub fn draw_range(&self) -> std::ops::Range<usize> {
+        self.inner.draw_range()
+    }
+
     pub fn set_vertices(&mut self, vertices: &[V], offset: usize) {
         set_buffer(&mut self.vbo, vertices, offset)
     }

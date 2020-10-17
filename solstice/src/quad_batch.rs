@@ -1,4 +1,4 @@
-use super::{mesh::MappedIndexedMesh, Context};
+use super::{mesh::{MappedIndexedMesh, IndexedMesh}, Context};
 
 pub struct QuadIndex(usize);
 
@@ -140,5 +140,16 @@ where
     pub fn clear(&mut self) {
         self.count = 0;
         self.mesh.set_draw_range(Some(0..0));
+    }
+
+    pub fn unmap(&mut self, ctx: &mut Context) -> super::Geometry<&IndexedMesh<T, u16>> {
+        let draw_range = self.mesh.draw_range();
+        let mesh = self.mesh.unmap(ctx);
+        super::Geometry {
+            mesh,
+            draw_range,
+            draw_mode: super::DrawMode::Triangles,
+            instance_count: 1,
+        }
     }
 }
