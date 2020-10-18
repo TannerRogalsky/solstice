@@ -1,6 +1,6 @@
 use crate::d2::vertex::Vertex2D;
 use lyon_tessellation::path::math::Point;
-use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context, Geometry};
+use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context};
 
 mod shader;
 mod shapes;
@@ -8,8 +8,10 @@ mod text;
 mod transforms;
 mod vertex;
 
+use shader::CachedShader;
+
+pub use glyph_brush::FontId;
 pub use shapes::*;
-pub use text::Text;
 pub use transforms::*;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -49,7 +51,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
 
         let shader = match self.active_shader {
             None => {
-                shader::CachedShader::activate(&mut self.inner.default_shader, self.ctx);
+                &mut self.inner.default_shader.activate(self.ctx);
                 &self.inner.default_shader
             }
             Some(shader) => shader,
@@ -372,31 +374,41 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         (vertices, indices)
     }
 
-    pub fn draw<M, T, S>(&mut self, shader: &S, geometry: &Geometry<M>, textures: [Option<T>; 32])
-    where
-        M: solstice::mesh::Mesh,
-        T: solstice::texture::Texture,
-        S: solstice::shader::Shader,
-    {
-        self.ctx.use_shader(Some(shader));
-        for (i, texture) in textures.iter().enumerate() {
-            if let Some(texture) = texture {
-                self.ctx.bind_texture_to_unit(
-                    texture.get_texture_type(),
-                    texture.get_texture_key(),
-                    (i as u32).into(),
-                );
-            }
-        }
+    pub fn print<S: AsRef<str>>(
+        &mut self,
+        font: glyph_brush::FontId,
+        text: S,
+        x: f32,
+        y: f32,
+        scale: f32,
+    ) {
+        self.flush();
+        let bounds = Rectangle {
+            x,
+            y,
+            width: self.inner.width - x,
+            height: self.inner.height - y,
+        };
+        let text = glyph_brush::Text::new(text.as_ref())
+            .with_color(self.color)
+            .with_font_id(font)
+            .with_scale(scale);
+        let text_workspace = &mut self.inner.text_workspace;
+        text_workspace.set_text(text, bounds, self.ctx);
+
+        let shader = &mut self.inner.default_shader;
+        shader.bind_texture(text_workspace.texture());
+        shader.activate(self.ctx);
+        let geometry = text_workspace.geometry(self.ctx);
         solstice::Renderer::draw(
             self.ctx,
             shader,
-            geometry,
+            &geometry,
             solstice::PipelineSettings {
                 depth_state: None,
                 ..solstice::PipelineSettings::default()
             },
-        )
+        );
     }
 }
 
@@ -410,6 +422,7 @@ pub struct Graphics2D {
     mesh: MappedIndexedMesh<vertex::Vertex2D, u32>,
     default_shader: shader::Shader2D,
     default_texture: solstice::image::Image,
+    text_workspace: text::Text,
     width: f32,
     height: f32,
 }
@@ -421,10 +434,12 @@ impl Graphics2D {
         let default_shader =
             shader::Shader2D::new(ctx, width, height).map_err(Graphics2DError::ShaderError)?;
         let default_texture = super::create_default_texture(ctx);
+        let text_workspace = text::Text::new(ctx).map_err(Graphics2DError::GraphicsError)?;
         Ok(Self {
             mesh,
             default_shader,
             default_texture,
+            text_workspace,
             width,
             height,
         })
@@ -440,6 +455,10 @@ impl Graphics2D {
             transforms: Default::default(),
             active_shader: None,
         }
+    }
+
+    pub fn add_font(&mut self, font_data: glyph_brush::ab_glyph::FontVec) -> glyph_brush::FontId {
+        self.text_workspace.add_font(font_data)
     }
 
     pub fn set_width_height(&mut self, width: f32, height: f32) {

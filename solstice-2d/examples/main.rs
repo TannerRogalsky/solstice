@@ -1,6 +1,7 @@
 struct Resources<'a> {
     image: &'a solstice::image::Image,
-    text: &'a mut solstice_2d::Text,
+    deja_vu_sans: solstice_2d::FontId,
+    pixel_font: solstice_2d::FontId,
     custom_shader: &'a mut solstice::shader::DynamicShader,
     time: std::time::Duration,
 }
@@ -9,7 +10,8 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
     use solstice_2d::*;
     let Resources {
         image,
-        text,
+        deja_vu_sans,
+        pixel_font,
         custom_shader,
         time,
     } = resources;
@@ -105,7 +107,10 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
 
     ctx.transforms.pop();
 
-    text.draw(&mut ctx);
+    ctx.set_color([1., 1., 1., 1.]);
+    ctx.print(deja_vu_sans, "Hello, World!", 0., 0., 128.);
+    ctx.set_color([0.5, 0.1, 1., 1.]);
+    ctx.print(pixel_font, "Test", 0., 128., 50.);
 }
 
 fn main() {
@@ -131,7 +136,9 @@ fn main() {
     let mut context = solstice::Context::new(glow_ctx);
     let mut d2 = solstice_2d::Graphics2D::new(&mut context, width as _, height as _).unwrap();
 
-    let resources = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples");
+    let resources = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("examples")
+        .join("resources");
 
     let image = {
         let image = image::open(resources.join("rust-logo-512x512.png")).unwrap();
@@ -149,14 +156,18 @@ fn main() {
         .unwrap()
     };
 
-    let mut text = {
+    let deja_vu_sans_font = {
         let path = resources.join("DejaVuSans.ttf");
         let font_data = std::fs::read(path).unwrap();
-        let font = glyph_brush::ab_glyph::FontArc::try_from_vec(font_data).unwrap();
+        let font = glyph_brush::ab_glyph::FontVec::try_from_vec(font_data).unwrap();
+        d2.add_font(font)
+    };
 
-        let mut text = solstice_2d::Text::new(&mut context, font).unwrap();
-        text.set_text("Hello, World!", &mut d2.start(&mut context));
-        text
+    let pixel_font = {
+        let path = resources.join("04b03.TTF");
+        let font_data = std::fs::read(path).unwrap();
+        let font = glyph_brush::ab_glyph::FontVec::try_from_vec(font_data).unwrap();
+        d2.add_font(font)
     };
 
     let mut custom_shader = {
@@ -199,7 +210,8 @@ fn main() {
                     d2.start(&mut context),
                     Resources {
                         image: &image,
-                        text: &mut text,
+                        deja_vu_sans: deja_vu_sans_font,
+                        pixel_font,
                         custom_shader: &mut custom_shader,
                         time: start.elapsed(),
                     },

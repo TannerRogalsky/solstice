@@ -1,7 +1,7 @@
-use crate::Graphics2DLock;
-use glyph_brush::ab_glyph::{point, FontArc};
-use glyph_brush::{BrushAction, BrushError, HorizontalAlign, VerticalAlign};
+use glyph_brush::ab_glyph::{point, FontVec};
+use glyph_brush::{BrushAction, BrushError, FontId};
 use solstice::image::{Image, Settings};
+use solstice::mesh::IndexedMesh;
 use solstice::quad_batch::*;
 use solstice::texture::*;
 use solstice::Context;
@@ -9,12 +9,12 @@ use solstice::Context;
 pub struct Text {
     quad_batch: QuadBatch<super::Vertex2D>,
     font_texture: Image,
-    glyph_brush: glyph_brush::GlyphBrush<Quad<super::Vertex2D>, glyph_brush::Extra, FontArc>,
+    glyph_brush: glyph_brush::GlyphBrush<Quad<super::Vertex2D>, glyph_brush::Extra, FontVec>,
 }
 
 impl Text {
-    pub fn new(ctx: &mut Context, font: FontArc) -> Result<Self, solstice::GraphicsError> {
-        let glyph_brush = glyph_brush::GlyphBrushBuilder::using_font(font).build();
+    pub fn new(ctx: &mut Context) -> Result<Self, solstice::GraphicsError> {
+        let glyph_brush = glyph_brush::GlyphBrushBuilder::using_fonts(vec![]).build();
 
         let font_texture = {
             let (width, height) = glyph_brush.texture_dimensions();
@@ -22,7 +22,7 @@ impl Text {
             Image::new(
                 ctx,
                 TextureType::Tex2D,
-                solstice::PixelFormat::R8,
+                solstice::PixelFormat::LUMINANCE,
                 width,
                 height,
                 Settings::default(),
@@ -45,39 +45,38 @@ impl Text {
         })
     }
 
-    pub fn set_text<S: AsRef<str>>(&mut self, text: S, ctx: &mut Graphics2DLock) {
-        let text = glyph_brush::Text::new(text.as_ref())
-            .with_color([1., 1., 1., 1.])
-            .with_scale(128.);
+    pub fn add_font(&mut self, font_data: FontVec) -> FontId {
+        self.glyph_brush.add_font(font_data)
+    }
+
+    pub fn set_text(
+        &mut self,
+        text: glyph_brush::Text,
+        bounds: super::Rectangle,
+        ctx: &mut Context,
+    ) {
         self.glyph_brush.queue(glyph_brush::Section {
             text: vec![text],
-            screen_position: (ctx.inner.width / 2.0, ctx.inner.height / 2.0),
-            bounds: (ctx.inner.width, ctx.inner.height),
-            layout: glyph_brush::Layout::default()
-                .h_align(HorizontalAlign::Center)
-                .v_align(VerticalAlign::Center),
+            screen_position: (bounds.x, bounds.y),
+            bounds: (bounds.width, bounds.height),
+            layout: glyph_brush::Layout::default(),
             ..glyph_brush::Section::default()
         });
         self.update(ctx);
     }
 
-    pub fn draw(&mut self, ctx: &mut Graphics2DLock) {
-        ctx.bind_texture(&self.font_texture);
-        use super::shader::CachedShader;
-        ctx.inner.default_shader.activate(ctx.ctx);
-        let geometry = self.quad_batch.unmap(ctx.ctx);
-        solstice::Renderer::draw(
-            ctx.ctx,
-            &ctx.inner.default_shader,
-            &geometry,
-            solstice::PipelineSettings {
-                depth_state: None,
-                ..solstice::PipelineSettings::default()
-            },
-        );
+    pub fn texture(&self) -> &solstice::image::Image {
+        &self.font_texture
     }
 
-    fn update(&mut self, ctx: &mut Graphics2DLock) {
+    pub fn geometry(
+        &mut self,
+        ctx: &mut Context,
+    ) -> solstice::Geometry<&IndexedMesh<super::Vertex2D, u16>> {
+        self.quad_batch.unmap(ctx)
+    }
+
+    fn update(&mut self, ctx: &mut Context) {
         let Self {
             quad_batch,
             font_texture,
@@ -153,7 +152,7 @@ impl Text {
                 let mut info = font_texture.get_texture_info();
                 info.set_width(rect.width());
                 info.set_height(rect.height());
-                ctx.ctx.set_texture_sub_data(
+                ctx.set_texture_sub_data(
                     font_texture.get_texture_key(),
                     info,
                     font_texture.get_texture_type(),
@@ -166,20 +165,9 @@ impl Text {
                 Ok(action) => match action {
                     BrushAction::Draw(quads) => {
                         quad_batch.clear();
-                        println!(
-                            "cleared text quads in prepartion for {} new quads",
-                            quads.len()
-                        );
-                        //                        quadbatch.push(Vertex::build_quad(Viewport::new(0., 0., 720., 480.)));
                         for quad in quads {
                             quad_batch.push(quad);
                         }
-                        //                        for mut quad in quads {
-                        //                            quad.vertices.iter_mut().for_each(|v| {
-                        //                                v.position = [v.uv[0] * 720., v.uv[1] * 480.];
-                        //                            });
-                        //                            quadbatch.push(quad);
-                        //                        }
                         break;
                     }
                     BrushAction::ReDraw => {
@@ -193,7 +181,7 @@ impl Text {
                         info.set_width(w);
                         info.set_height(h);
                         font_texture.set_texture_info(info);
-                        ctx.ctx.set_texture_data(
+                        ctx.set_texture_data(
                             font_texture.get_texture_key(),
                             font_texture.get_texture_info(),
                             font_texture.get_texture_type(),

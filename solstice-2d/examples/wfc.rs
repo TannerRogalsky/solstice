@@ -241,6 +241,7 @@ fn main() {
     let input_image = {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("examples")
+            .join("resources")
             .join("flowers.png");
         image::open(path).unwrap()
     };
