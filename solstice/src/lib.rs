@@ -266,7 +266,7 @@ impl FromStr for GLVersion {
         } else if s.contains("OpenGL ES ") {
             (s.chars().nth(10), s.chars().nth(12), true, false)
         } else {
-            (s.chars().nth(0), s.chars().nth(2), false, false)
+            (s.chars().next(), s.chars().nth(2), false, false)
         };
 
         // this conflates WebGL X with OpenGL ES X+1 but
@@ -1357,21 +1357,21 @@ impl Renderer for Context {
             unsafe {
                 self.ctx.clear_color(red, green, blue, alpha);
             }
-            clear_bits = clear_bits | glow::COLOR_BUFFER_BIT;
+            clear_bits |= glow::COLOR_BUFFER_BIT;
         }
 
         if let Some(depth) = depth {
             unsafe {
                 self.ctx.clear_depth_f32(depth.0);
             }
-            clear_bits = clear_bits | glow::DEPTH_BUFFER_BIT;
+            clear_bits |= glow::DEPTH_BUFFER_BIT;
         }
 
         if let Some(stencil) = stencil {
             unsafe {
                 self.ctx.clear_stencil(stencil);
             }
-            clear_bits = clear_bits | glow::STENCIL_BUFFER_BIT;
+            clear_bits |= glow::STENCIL_BUFFER_BIT;
         }
 
         unsafe {

@@ -60,7 +60,6 @@ fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
     let c3r2 = -(far + near) / (far - near);
     let c3r3 = 1.;
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
     [
         [c0r0, c0r1, c0r2, c0r3],
         [c1r0, c1r1, c1r2, c1r3],
@@ -75,7 +74,7 @@ fn get_location(
 ) -> Result<UniformLocation, Shader2DError> {
     shader
         .get_uniform_by_name(name)
-        .ok_or(Shader2DError::UniformNotFound(name.to_owned()))
+        .ok_or_else(|| Shader2DError::UniformNotFound(name.to_owned()))
         .map(|uniform| uniform.location.clone())
 }
 
@@ -93,7 +92,7 @@ impl Shader2D {
         let tex0_location = get_location(&shader, "tex0")?;
 
         let projection_cache = ortho(width, height).into();
-        #[cfg_attr(rustfmt, rustfmt_skip)]
+        #[rustfmt::skip]
         let identity: mint::ColumnMatrix4<f32> = [
             1., 0., 0., 0.,
             0., 1., 0., 0.,

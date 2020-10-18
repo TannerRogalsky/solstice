@@ -60,7 +60,6 @@ impl Text {
             screen_position: (bounds.x, bounds.y),
             bounds: (bounds.width, bounds.height),
             layout: glyph_brush::Layout::default(),
-            ..glyph_brush::Section::default()
         });
         self.update(ctx);
     }

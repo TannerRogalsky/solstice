@@ -51,7 +51,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
 
         let shader = match self.active_shader {
             None => {
-                &mut self.inner.default_shader.activate(self.ctx);
+                self.inner.default_shader.activate(self.ctx);
                 &self.inner.default_shader
             }
             Some(shader) => shader,
@@ -114,7 +114,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         } = arc;
         let (angle1, angle2) = (angle1.0, angle2.0);
 
-        if segments == 0 || angle1 == angle2 {
+        if segments == 0 || (angle1 - angle2).abs() < std::f32::EPSILON {
             return;
         }
 
@@ -364,10 +364,10 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             },
         ];
         let indices = [
-            offset + 0,
+            offset,
             offset + 1,
             offset + 2,
-            offset + 0,
+            offset,
             offset + 3,
             offset + 2,
         ];

@@ -38,7 +38,7 @@ where
     buffer.write(to_bytes(data), offset * std::mem::size_of::<T>());
 }
 
-fn get_buffer<'a, T>(buffer: &'a MappedBuffer) -> &'a [T]
+fn get_buffer<T>(buffer: &MappedBuffer) -> &[T]
 where
     T: Sized,
 {
