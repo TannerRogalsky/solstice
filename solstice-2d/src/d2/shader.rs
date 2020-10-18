@@ -11,7 +11,7 @@ pub enum Shader2DError {
 struct TextureCache {
     ty: solstice::texture::TextureType,
     key: solstice::TextureKey,
-    unit: solstice::TextureUnit,
+    location: UniformLocation,
 }
 
 #[allow(unused)]
@@ -26,8 +26,8 @@ pub struct Shader2D {
     model_cache: mint::ColumnMatrix4<f32>,
     color_location: UniformLocation,
     color_cache: mint::Vector4<f32>,
-    tex0_location: UniformLocation,
-    tex0_cache: TextureCache,
+
+    textures: [TextureCache; 1],
 }
 
 const SHADER_SRC: &str = include_str!("shader.glsl");
@@ -134,12 +134,11 @@ impl Shader2D {
             model_cache: identity,
             color_location,
             color_cache: white,
-            tex0_location,
-            tex0_cache: TextureCache {
+            textures: [TextureCache {
                 ty: solstice::texture::TextureType::Tex2D,
                 key: Default::default(),
-                unit: 0.into(),
-            },
+                location: tex0_location,
+            }],
         })
     }
 
@@ -149,34 +148,12 @@ impl Shader2D {
     }
 
     pub fn bind_texture<T: solstice::texture::Texture>(&mut self, texture: T) {
-        self.tex0_cache = TextureCache {
-            ty: texture.get_texture_type(),
-            key: texture.get_texture_key(),
-            unit: 0.into(),
-        };
+        self.textures[0].key = texture.get_texture_key();
+        self.textures[0].ty = texture.get_texture_type();
     }
 
     pub fn is_bound<T: solstice::texture::Texture>(&self, texture: T) -> bool {
-        let tex0 = TextureCache {
-            ty: texture.get_texture_type(),
-            key: texture.get_texture_key(),
-            unit: 0.into(),
-        };
-        self.tex0_cache == tex0
-    }
-
-    pub fn activate(&self, ctx: &mut Context) -> &solstice::shader::DynamicShader {
-        ctx.use_shader(Some(&self.inner));
-        ctx.bind_texture_to_unit(
-            self.tex0_cache.ty,
-            self.tex0_cache.key,
-            self.tex0_cache.unit,
-        );
-        ctx.set_uniform_by_location(
-            &self.projection_location,
-            &solstice::shader::RawUniformValue::Mat4(self.projection_cache),
-        );
-        &self.inner
+        self.textures[0].key == texture.get_texture_key()
     }
 }
 
@@ -192,4 +169,25 @@ impl solstice::shader::Shader for Shader2D {
     fn uniforms(&self) -> &[Uniform] {
         self.inner.uniforms()
     }
+}
+
+impl CachedShader for Shader2D {
+    fn is_dirty(&self) -> bool {
+        true
+    }
+
+    fn activate(&mut self, ctx: &mut Context) {
+        use solstice::shader::RawUniformValue::{Mat4, SignedInt};
+        ctx.use_shader(Some(&self.inner));
+        for (index, texture) in self.textures.iter().enumerate() {
+            ctx.bind_texture_to_unit(texture.ty, texture.key, index.into());
+            ctx.set_uniform_by_location(&texture.location, &SignedInt(index as _));
+        }
+        ctx.set_uniform_by_location(&self.projection_location, &Mat4(self.projection_cache));
+    }
+}
+
+pub trait CachedShader {
+    fn is_dirty(&self) -> bool;
+    fn activate(&mut self, ctx: &mut Context);
 }

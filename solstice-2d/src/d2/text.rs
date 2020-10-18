@@ -63,11 +63,12 @@ impl Text {
 
     pub fn draw(&mut self, ctx: &mut Graphics2DLock) {
         ctx.bind_texture(&self.font_texture);
-        let shader = ctx.inner.default_shader.activate(ctx.ctx);
+        use super::shader::CachedShader;
+        ctx.inner.default_shader.activate(ctx.ctx);
         let geometry = self.quad_batch.unmap(ctx.ctx);
         solstice::Renderer::draw(
             ctx.ctx,
-            shader,
+            &ctx.inner.default_shader,
             &geometry,
             solstice::PipelineSettings {
                 depth_state: None,

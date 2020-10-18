@@ -1,11 +1,20 @@
 struct Resources<'a> {
     image: &'a solstice::image::Image,
     text: &'a mut solstice_2d::Text,
+    custom_shader: &'a mut solstice::shader::DynamicShader,
+    time: std::time::Duration,
 }
 
-fn draw(mut ctx: solstice_2d::Graphics2DLock, resources: Resources) {
+fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Resources<'c>) {
     use solstice_2d::*;
-    let Resources { image, text } = resources;
+    let Resources {
+        image,
+        text,
+        custom_shader,
+        time,
+    } = resources;
+
+    let t = time.as_secs_f32() % 10. / 10.;
 
     let circle = Circle {
         x: 200.,
@@ -46,15 +55,17 @@ fn draw(mut ctx: solstice_2d::Graphics2DLock, resources: Resources) {
     );
 
     ctx.transforms.push();
+    ctx.set_shader(custom_shader);
     let rectangle = Rectangle {
-        x: 400.,
-        y: 400.,
+        x: 400. + (t * std::f32::consts::PI * 2.).sin() * 300.,
+        y: 400. + (t * std::f32::consts::PI * 2.).cos() * 100.,
         width: 100.,
         height: 100.,
     };
     ctx.rectangle(DrawMode::Fill, rectangle);
     ctx.set_color([1., 0., 0., 1.]);
     ctx.rectangle(DrawMode::Stroke, rectangle);
+    ctx.remove_active_shader();
     ctx.transforms.pop();
 
     ctx.transforms.push();
@@ -148,6 +159,21 @@ fn main() {
         text
     };
 
+    let mut custom_shader = {
+        let path = resources.join("custom.glsl");
+        let shader_src = std::fs::read_to_string(path).unwrap();
+        let (vert, frag) = solstice::shader::DynamicShader::create_source(&shader_src, &shader_src);
+        let shader = solstice::shader::DynamicShader::new(&mut context, &vert, &frag).unwrap();
+        context.use_shader(Some(&shader));
+        context.set_uniform_by_location(
+            &shader.get_uniform_by_name("uProjection").unwrap().location,
+            &solstice::shader::RawUniformValue::Mat4(ortho(width as _, height as _).into()),
+        );
+        shader
+    };
+
+    let start = std::time::Instant::now();
+
     event_loop.run(move |event, _, cf| match event {
         Event::WindowEvent { window_id, event } => {
             if window_id == window.window().id() {
@@ -174,6 +200,8 @@ fn main() {
                     Resources {
                         image: &image,
                         text: &mut text,
+                        custom_shader: &mut custom_shader,
+                        time: start.elapsed(),
                     },
                 );
                 window.swap_buffers().unwrap();
@@ -184,4 +212,41 @@ fn main() {
         }
         _ => {}
     })
+}
+
+fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
+    let left = 0.;
+    let right = width;
+    let bottom = height;
+    let top = 0.;
+    let near = 0.;
+    let far = 1000.;
+
+    let c0r0 = 2. / (right - left);
+    let c0r1 = 0.;
+    let c0r2 = 0.;
+    let c0r3 = 0.;
+
+    let c1r0 = 0.;
+    let c1r1 = 2. / (top - bottom);
+    let c1r2 = 0.;
+    let c1r3 = 0.;
+
+    let c2r0 = 0.;
+    let c2r1 = 0.;
+    let c2r2 = -2. / (far - near);
+    let c2r3 = 0.;
+
+    let c3r0 = -(right + left) / (right - left);
+    let c3r1 = -(top + bottom) / (top - bottom);
+    let c3r2 = -(far + near) / (far - near);
+    let c3r3 = 1.;
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    [
+        [c0r0, c0r1, c0r2, c0r3],
+        [c1r0, c1r1, c1r2, c1r3],
+        [c2r0, c2r1, c2r2, c2r3],
+        [c3r0, c3r1, c3r2, c3r3],
+    ]
 }

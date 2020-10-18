@@ -1,13 +1,16 @@
 use crate::d2::vertex::Vertex2D;
 use lyon_tessellation::path::math::Point;
-use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context};
+use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context, Geometry};
 
 mod shader;
 mod shapes;
+mod text;
 mod transforms;
 mod vertex;
 
 pub use shapes::*;
+use solstice::shader::Shader;
+pub use text::Text;
 pub use transforms::*;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -23,28 +26,39 @@ pub enum Graphics2DError {
 }
 
 #[must_use]
-pub struct Graphics2DLock<'a> {
+pub struct Graphics2DLock<'a, 's> {
     ctx: &'a mut Context,
     inner: &'a mut Graphics2D,
     color: [f32; 4],
     index_offset: usize,
     vertex_offset: usize,
     pub transforms: Transforms,
+
+    active_shader: Option<&'s dyn solstice::shader::Shader>,
 }
 
-impl Graphics2DLock<'_> {
+impl<'a, 's> Graphics2DLock<'a, 's> {
     fn flush(&mut self) {
         let mesh = self.inner.mesh.unmap(self.ctx);
-        let shader = self.inner.default_shader.activate(self.ctx);
+        use shader::CachedShader;
+
+        let shader: &dyn solstice::shader::Shader = match self.active_shader {
+            None => {
+                self.inner.default_shader.activate(self.ctx);
+                &self.inner.default_shader
+            }
+            Some(shader) => shader,
+        };
+        let geometry = solstice::Geometry {
+            mesh,
+            draw_range: 0..self.index_offset,
+            draw_mode: solstice::DrawMode::Triangles,
+            instance_count: 1,
+        };
         solstice::Renderer::draw(
             self.ctx,
             shader,
-            &solstice::Geometry {
-                mesh,
-                draw_range: 0..self.index_offset,
-                draw_mode: solstice::DrawMode::Triangles,
-                instance_count: 1,
-            },
+            &geometry,
             solstice::PipelineSettings {
                 depth_state: None,
                 ..solstice::PipelineSettings::default()
@@ -52,6 +66,16 @@ impl Graphics2DLock<'_> {
         );
         self.index_offset = 0;
         self.vertex_offset = 0;
+    }
+
+    pub fn set_shader<S: Shader>(&mut self, shader: &'s S) {
+        self.flush();
+        self.active_shader.replace(shader);
+    }
+
+    pub fn remove_active_shader(&mut self) {
+        self.flush();
+        self.active_shader.take();
     }
 
     fn bind_default_texture(&mut self) {
@@ -346,9 +370,36 @@ impl Graphics2DLock<'_> {
         ];
         (vertices, indices)
     }
+
+    pub fn draw<M, T, S>(&mut self, shader: &S, geometry: &Geometry<M>, textures: [Option<T>; 32])
+    where
+        M: solstice::mesh::Mesh,
+        T: solstice::texture::Texture,
+        S: solstice::shader::Shader,
+    {
+        self.ctx.use_shader(Some(shader));
+        for (i, texture) in textures.iter().enumerate() {
+            if let Some(texture) = texture {
+                self.ctx.bind_texture_to_unit(
+                    texture.get_texture_type(),
+                    texture.get_texture_key(),
+                    (i as u32).into(),
+                );
+            }
+        }
+        solstice::Renderer::draw(
+            self.ctx,
+            shader,
+            geometry,
+            solstice::PipelineSettings {
+                depth_state: None,
+                ..solstice::PipelineSettings::default()
+            },
+        )
+    }
 }
 
-impl Drop for Graphics2DLock<'_> {
+impl Drop for Graphics2DLock<'_, '_> {
     fn drop(&mut self) {
         self.flush();
     }
@@ -378,7 +429,7 @@ impl Graphics2D {
         })
     }
 
-    pub fn start<'a>(&'a mut self, ctx: &'a mut Context) -> Graphics2DLock<'a> {
+    pub fn start<'a>(&'a mut self, ctx: &'a mut Context) -> Graphics2DLock<'a, '_> {
         Graphics2DLock {
             ctx,
             inner: self,
@@ -386,6 +437,7 @@ impl Graphics2D {
             index_offset: 0,
             vertex_offset: 0,
             transforms: Default::default(),
+            active_shader: None,
         }
     }
 

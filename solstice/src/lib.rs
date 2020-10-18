@@ -242,6 +242,12 @@ impl From<i32> for TextureUnit {
     }
 }
 
+impl From<usize> for TextureUnit {
+    fn from(v: usize) -> Self {
+        (v as u32).into()
+    }
+}
+
 #[derive(Copy, Clone, Default)]
 pub struct GLVersion {
     major: u32,
@@ -699,7 +705,7 @@ impl Context {
         }
     }
 
-    pub fn use_shader<S: shader::Shader>(&mut self, shader: Option<&S>) {
+    pub fn use_shader<S: shader::Shader + ?Sized>(&mut self, shader: Option<&S>) {
         match shader {
             None => {
                 if self.active_shader.is_some() {
@@ -1314,7 +1320,7 @@ pub trait Renderer {
     fn clear(&mut self, settings: ClearSettings);
     fn draw<S, M>(&mut self, shader: &S, geometry: &Geometry<M>, settings: PipelineSettings)
     where
-        S: shader::Shader,
+        S: shader::Shader + ?Sized,
         M: mesh::Mesh;
 }
 
@@ -1361,7 +1367,7 @@ impl Renderer for Context {
 
     fn draw<S, M>(&mut self, shader: &S, geometry: &Geometry<M>, settings: PipelineSettings)
     where
-        S: shader::Shader,
+        S: shader::Shader + ?Sized,
         M: mesh::Mesh,
     {
         self.use_shader(Some(shader));
@@ -1393,7 +1399,7 @@ impl Renderer for Context {
     }
 }
 
-fn prepare_draw<'a, S: shader::Shader>(
+fn prepare_draw<'a, S: shader::Shader + ?Sized>(
     shader: &S,
     attached_attributes: &'a [mesh::AttachedAttributes],
 ) -> (u32, [Option<mesh::BindingInfo<'a>>; 32]) {
