@@ -9,7 +9,6 @@ mod transforms;
 mod vertex;
 
 pub use shapes::*;
-use solstice::shader::Shader;
 pub use text::Text;
 pub use transforms::*;
 
@@ -40,21 +39,22 @@ pub struct Graphics2DLock<'a, 's> {
 impl<'a, 's> Graphics2DLock<'a, 's> {
     fn flush(&mut self) {
         let mesh = self.inner.mesh.unmap(self.ctx);
-        use shader::CachedShader;
 
-        let shader: &dyn solstice::shader::Shader = match self.active_shader {
-            None => {
-                self.inner.default_shader.activate(self.ctx);
-                &self.inner.default_shader
-            }
-            Some(shader) => shader,
-        };
         let geometry = solstice::Geometry {
             mesh,
             draw_range: 0..self.index_offset,
             draw_mode: solstice::DrawMode::Triangles,
             instance_count: 1,
         };
+
+        let shader = match self.active_shader {
+            None => {
+                shader::CachedShader::activate(&mut self.inner.default_shader, self.ctx);
+                &self.inner.default_shader
+            }
+            Some(shader) => shader,
+        };
+
         solstice::Renderer::draw(
             self.ctx,
             shader,
@@ -64,11 +64,12 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
                 ..solstice::PipelineSettings::default()
             },
         );
+
         self.index_offset = 0;
         self.vertex_offset = 0;
     }
 
-    pub fn set_shader<S: Shader>(&mut self, shader: &'s S) {
+    pub fn set_shader<S: solstice::shader::Shader>(&mut self, shader: &'s S) {
         self.flush();
         self.active_shader.replace(shader);
     }
