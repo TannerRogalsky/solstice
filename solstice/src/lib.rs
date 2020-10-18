@@ -76,7 +76,7 @@ pub enum PixelFormat {
     Unknown,
 
     // "regular" formats
-    R8,
+    LUMINANCE,
     RG8,
     RGB8,
     RGBA8,
@@ -1075,15 +1075,15 @@ impl Context {
         format: PixelFormat,
         data: &mut [u8],
     ) {
-        let (_, format, gl_type) = gl::pixel_format::to_gl(format, &self.version);
+        let gl::TextureFormat { external, ty, .. } = gl::pixel_format::to_gl(format, &self.version);
         unsafe {
             self.ctx.read_pixels(
                 x,
                 y,
                 width,
                 height,
-                format,
-                gl_type,
+                external,
+                ty,
                 glow::PixelPackData::Slice(data),
             )
         }
@@ -1177,7 +1177,7 @@ impl texture::TextureUpdate for Context {
         x_offset: u32,
         y_offset: u32,
     ) {
-        let (_internal, external, gl_type) =
+        let gl::TextureFormat { external, ty, .. } =
             gl::pixel_format::to_gl(texture.get_format(), &self.version);
         let width = texture.width();
         let height = texture.height();
@@ -1192,7 +1192,7 @@ impl texture::TextureUpdate for Context {
                 width as i32,
                 height as i32,
                 external,
-                gl_type,
+                ty,
                 glow::PixelUnpackData::Slice(data),
             );
             if texture.mipmaps() {
@@ -1208,13 +1208,27 @@ impl texture::TextureUpdate for Context {
         texture_type: texture::TextureType,
         data: Option<&[u8]>,
     ) {
-        let (internal, external, gl_type) =
-            gl::pixel_format::to_gl(texture.get_format(), &self.version);
+        let gl::TextureFormat {
+            internal,
+            external,
+            ty,
+            swizzle,
+        } = gl::pixel_format::to_gl(texture.get_format(), &self.version);
         let width = texture.width();
         let height = texture.height();
         let gl_target = gl::texture::to_gl(texture_type);
         self.bind_texture_to_unit(texture_type, texture_key, 0.into());
         unsafe {
+            if let Some(swizzle) = swizzle {
+                self.ctx
+                    .tex_parameter_i32(gl_target, glow::TEXTURE_SWIZZLE_R, swizzle[0]);
+                self.ctx
+                    .tex_parameter_i32(gl_target, glow::TEXTURE_SWIZZLE_G, swizzle[1]);
+                self.ctx
+                    .tex_parameter_i32(gl_target, glow::TEXTURE_SWIZZLE_B, swizzle[2]);
+                self.ctx
+                    .tex_parameter_i32(gl_target, glow::TEXTURE_SWIZZLE_A, swizzle[3]);
+            }
             self.ctx.tex_image_2d(
                 gl_target,
                 0,
@@ -1223,7 +1237,7 @@ impl texture::TextureUpdate for Context {
                 height as i32,
                 0,
                 external,
-                gl_type,
+                ty,
                 data,
             );
             if texture.mipmaps() {
