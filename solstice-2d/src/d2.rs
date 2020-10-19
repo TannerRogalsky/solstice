@@ -39,7 +39,7 @@ pub struct Graphics2DLock<'a, 's> {
     vertex_offset: usize,
     pub transforms: Transforms,
 
-    active_shader: Option<&'s dyn solstice::shader::Shader>,
+    active_shader: Option<&'s mut shader::Shader2D>,
 }
 
 impl<'a, 's> Graphics2DLock<'a, 's> {
@@ -53,29 +53,43 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             instance_count: 1,
         };
 
-        let shader = match self.active_shader {
+        // TODO: There's some DRY to do here if the lifetimes could be figured out
+        match self.active_shader.as_mut() {
             None => {
+                self.inner
+                    .default_shader
+                    .set_width_height(self.inner.width, self.inner.height);
                 self.inner.default_shader.activate(self.ctx);
-                &self.inner.default_shader
+                solstice::Renderer::draw(
+                    self.ctx,
+                    &self.inner.default_shader,
+                    &geometry,
+                    solstice::PipelineSettings {
+                        depth_state: None,
+                        ..solstice::PipelineSettings::default()
+                    },
+                );
             }
-            Some(shader) => shader,
-        };
-
-        solstice::Renderer::draw(
-            self.ctx,
-            shader,
-            &geometry,
-            solstice::PipelineSettings {
-                depth_state: None,
-                ..solstice::PipelineSettings::default()
-            },
-        );
+            Some(shader) => {
+                shader.set_width_height(self.inner.width, self.inner.height);
+                shader.activate(self.ctx);
+                solstice::Renderer::draw(
+                    self.ctx,
+                    *shader,
+                    &geometry,
+                    solstice::PipelineSettings {
+                        depth_state: None,
+                        ..solstice::PipelineSettings::default()
+                    },
+                );
+            }
+        }
 
         self.index_offset = 0;
         self.vertex_offset = 0;
     }
 
-    pub fn set_shader<S: solstice::shader::Shader>(&mut self, shader: &'s S) {
+    pub fn set_shader(&mut self, shader: &'s mut shader::Shader2D) {
         self.flush();
         self.active_shader.replace(shader);
     }

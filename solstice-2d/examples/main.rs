@@ -197,6 +197,14 @@ fn main() {
             if window_id == window.window().id() {
                 match event {
                     WindowEvent::CloseRequested => *cf = ControlFlow::Exit,
+                    WindowEvent::Resized(glutin::dpi::PhysicalSize { width, height }) => {
+                        context.set_viewport(0, 0, width as _, height as _);
+                        d2.set_width_height(width as _, height as _);
+                    }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        let glutin::dpi::PhysicalSize { width, height } = new_inner_size;
+                        d2.set_width_height(*width as _, *height as _);
+                    }
                     WindowEvent::KeyboardInput {
                         input:
                             KeyboardInput {
