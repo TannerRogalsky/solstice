@@ -2,7 +2,7 @@ struct Resources<'a> {
     image: &'a solstice::image::Image,
     deja_vu_sans: solstice_2d::FontId,
     pixel_font: solstice_2d::FontId,
-    custom_shader: &'a mut solstice::shader::DynamicShader,
+    custom_shader: &'a mut solstice_2d::Shader2D,
     time: std::time::Duration,
 }
 
@@ -109,8 +109,8 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
 
     ctx.set_color([1., 1., 1., 1.]);
     ctx.print(deja_vu_sans, "Hello, World!", 0., 0., 128.);
-    ctx.set_color([0.5, 0.1, 1., 1.]);
-    ctx.print(pixel_font, "Test", 0., 128., 50.);
+    ctx.set_color([0.5, 0.1, 1., 0.25]);
+    ctx.print(pixel_font, "Test", 0., 128., 256.);
 
     ctx.set_color([1., 1., 1., 1.]);
     ctx.line(0., 0., 400., 400.);
@@ -184,13 +184,9 @@ fn main() {
     let mut custom_shader = {
         let path = resources.join("custom.glsl");
         let shader_src = std::fs::read_to_string(path).unwrap();
-        let (vert, frag) = solstice::shader::DynamicShader::create_source(&shader_src, &shader_src);
-        let shader = solstice::shader::DynamicShader::new(&mut context, &vert, &frag).unwrap();
-        context.use_shader(Some(&shader));
-        context.set_uniform_by_location(
-            &shader.get_uniform_by_name("uProjection").unwrap().location,
-            &solstice::shader::RawUniformValue::Mat4(ortho(width as _, height as _).into()),
-        );
+        let shader =
+            solstice_2d::Shader2D::with(shader_src.as_str(), &mut context, width as _, height as _)
+                .unwrap();
         shader
     };
 
@@ -235,41 +231,4 @@ fn main() {
         }
         _ => {}
     })
-}
-
-fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
-    let left = 0.;
-    let right = width;
-    let bottom = height;
-    let top = 0.;
-    let near = 0.;
-    let far = 1000.;
-
-    let c0r0 = 2. / (right - left);
-    let c0r1 = 0.;
-    let c0r2 = 0.;
-    let c0r3 = 0.;
-
-    let c1r0 = 0.;
-    let c1r1 = 2. / (top - bottom);
-    let c1r2 = 0.;
-    let c1r3 = 0.;
-
-    let c2r0 = 0.;
-    let c2r1 = 0.;
-    let c2r2 = -2. / (far - near);
-    let c2r3 = 0.;
-
-    let c3r0 = -(right + left) / (right - left);
-    let c3r1 = -(top + bottom) / (top - bottom);
-    let c3r2 = -(far + near) / (far - near);
-    let c3r3 = 1.;
-
-    #[cfg_attr(rustfmt, rustfmt_skip)]
-    [
-        [c0r0, c0r1, c0r2, c0r3],
-        [c1r0, c1r1, c1r2, c1r3],
-        [c2r0, c2r1, c2r2, c2r3],
-        [c3r0, c3r1, c3r2, c3r3],
-    ]
 }

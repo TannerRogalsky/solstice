@@ -7,10 +7,10 @@ mod text;
 mod transforms;
 mod vertex;
 
-use shader::CachedShader;
 use vertex::Point;
 
 pub use glyph_brush::FontId;
+pub use shader::Shader2D;
 pub use shapes::*;
 pub use transforms::*;
 

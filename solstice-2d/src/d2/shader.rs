@@ -11,7 +11,7 @@ pub enum Shader2DError {
 struct TextureCache {
     ty: solstice::texture::TextureType,
     key: solstice::TextureKey,
-    location: UniformLocation,
+    location: Option<UniformLocation>,
 }
 
 #[allow(unused)]
@@ -30,7 +30,17 @@ pub struct Shader2D {
     textures: [TextureCache; 1],
 }
 
-const SHADER_SRC: &str = include_str!("shader.glsl");
+const DEFAULT_VERT: &str = r#"
+vec4 pos(mat4 transform_projection, vec4 vertex_position) {
+    return transform_projection * vertex_position;
+}
+"#;
+
+const DEFAULT_FRAG: &str = r#"
+vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
+    return Texel(texture, texture_coords) * color;
+}
+"#;
 
 fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
     let left = 0.;
@@ -78,10 +88,86 @@ fn get_location(
         .map(|uniform| uniform.location.clone())
 }
 
+pub struct ShaderSource<'a> {
+    vertex: &'a str,
+    fragment: &'a str,
+}
+
+impl<'a> From<&'a str> for ShaderSource<'a> {
+    fn from(src: &'a str) -> Self {
+        Self {
+            vertex: src,
+            fragment: src,
+        }
+    }
+}
+
+impl<'a> From<(&'a str, &'a str)> for ShaderSource<'a> {
+    fn from((vertex, fragment): (&'a str, &'a str)) -> Self {
+        Self { vertex, fragment }
+    }
+}
+
+fn shader_src(src: ShaderSource) -> String {
+    format!(
+        "#define Image sampler2D
+#define ArrayImage sampler2DArray
+#define CubeImage samplerCube
+#define VolumeImage sampler3D
+
+varying vec4 vColor;
+varying vec2 vUV;
+
+#ifdef VERTEX
+attribute vec4 position;
+attribute vec4 color;
+attribute vec2 uv;
+
+uniform mat4 uProjection;
+uniform mat4 uView;
+uniform mat4 uModel;
+
+{vertex}
+
+void main() {{
+    vColor = color;
+    vUV = uv;
+    gl_Position = pos(uProjection * uView * uModel, position);
+}}
+#endif
+
+#ifdef FRAGMENT
+uniform sampler2D tex0;
+uniform vec4 uColor;
+
+{fragment}
+
+void main() {{
+    fragColor = effect(uColor * vColor, tex0, vUV, vUV);
+}}
+#endif",
+        vertex = src.vertex,
+        fragment = src.fragment
+    )
+}
+
 impl Shader2D {
     pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, Shader2DError> {
+        Self::with((DEFAULT_VERT, DEFAULT_FRAG), ctx, width, height)
+    }
+
+    pub fn with<'a, S>(
+        src: S,
+        ctx: &mut Context,
+        width: f32,
+        height: f32,
+    ) -> Result<Self, Shader2DError>
+    where
+        S: Into<ShaderSource<'a>>,
+    {
+        let src = shader_src(src.into());
         let (vertex, fragment) =
-            solstice::shader::DynamicShader::create_source(SHADER_SRC, SHADER_SRC);
+            solstice::shader::DynamicShader::create_source(src.as_str(), src.as_str());
         let shader = DynamicShader::new(ctx, vertex.as_str(), fragment.as_str())
             .map_err(Shader2DError::GraphicsError)?;
 
@@ -89,7 +175,7 @@ impl Shader2D {
         let view_location = get_location(&shader, "uView")?;
         let model_location = get_location(&shader, "uModel")?;
         let color_location = get_location(&shader, "uColor")?;
-        let tex0_location = get_location(&shader, "tex0")?;
+        let tex0_location = get_location(&shader, "tex0").ok();
 
         let projection_cache = ortho(width, height).into();
         #[rustfmt::skip]
@@ -117,10 +203,6 @@ impl Shader2D {
         ctx.set_uniform_by_location(
             &color_location,
             &solstice::shader::RawUniformValue::Vec4(white),
-        );
-        ctx.set_uniform_by_location(
-            &tex0_location,
-            &solstice::shader::RawUniformValue::SignedInt(0),
         );
 
         Ok(Self {
@@ -154,6 +236,22 @@ impl Shader2D {
     pub fn is_bound<T: solstice::texture::Texture>(&self, texture: T) -> bool {
         self.textures[0].key == texture.get_texture_key()
     }
+
+    pub fn is_dirty(&self) -> bool {
+        true
+    }
+
+    pub fn activate(&mut self, ctx: &mut Context) {
+        use solstice::shader::RawUniformValue::{Mat4, SignedInt};
+        ctx.use_shader(Some(&self.inner));
+        for (index, texture) in self.textures.iter().enumerate() {
+            if let Some(location) = &texture.location {
+                ctx.bind_texture_to_unit(texture.ty, texture.key, index.into());
+                ctx.set_uniform_by_location(location, &SignedInt(index as _));
+            }
+        }
+        ctx.set_uniform_by_location(&self.projection_location, &Mat4(self.projection_cache));
+    }
 }
 
 impl solstice::shader::Shader for Shader2D {
@@ -168,25 +266,4 @@ impl solstice::shader::Shader for Shader2D {
     fn uniforms(&self) -> &[Uniform] {
         self.inner.uniforms()
     }
-}
-
-impl CachedShader for Shader2D {
-    fn is_dirty(&self) -> bool {
-        true
-    }
-
-    fn activate(&mut self, ctx: &mut Context) {
-        use solstice::shader::RawUniformValue::{Mat4, SignedInt};
-        ctx.use_shader(Some(&self.inner));
-        for (index, texture) in self.textures.iter().enumerate() {
-            ctx.bind_texture_to_unit(texture.ty, texture.key, index.into());
-            ctx.set_uniform_by_location(&texture.location, &SignedInt(index as _));
-        }
-        ctx.set_uniform_by_location(&self.projection_location, &Mat4(self.projection_cache));
-    }
-}
-
-pub trait CachedShader {
-    fn is_dirty(&self) -> bool;
-    fn activate(&mut self, ctx: &mut Context);
 }

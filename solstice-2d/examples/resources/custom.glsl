@@ -1,23 +1,15 @@
 varying vec2 vPosition;
-varying vec3 vColor;
 
 #ifdef VERTEX
-attribute vec4 position;
-attribute vec3 color;
-
-uniform mat4 uProjection;
-
-void main() {
-    vColor = color;
-    vPosition = position.xy;
-    gl_Position = uProjection * position;
+vec4 pos(mat4 transform_projection, vec4 vertex_position) {
+    vPosition = vertex_position.xy;
+    return transform_projection * vertex_position;
 }
 #endif
 
 #ifdef FRAGMENT
-void main() {
+vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
     vec2 pos = normalize(vPosition);
-    vec3 color = vec3(pos.x, pos.y, 1. - pos.y) * vColor;
-    fragColor = vec4(color, 1.);
+    return vec4(pos.x, pos.y, 1. - pos.y, 1.) * color;
 }
 #endif
