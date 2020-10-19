@@ -174,10 +174,39 @@ const SYNTAX: &str = r#"
 #endif
 
 #if __VERSION__ >= 130
-    #define Texel texture
+    #define texture2D Texel
+    #define texture3D Texel
+    #define textureCube Texel
+    #define texture2DArray Texel
+    #define solstice_texture2D texture
+    #define solstice_texture3D texture
+    #define solstice_textureCube texture
+    #define solstice_texture2DArray texture
 #else
-    #define Texel texture2D
+    #define solstice_texture2D texture2D
+    #define solstice_texture3D texture3D
+    #define solstice_textureCube textureCube
+    #define solstice_texture2DArray texture2DArray
 #endif
+vec4 Texel(sampler2D s, vec2 c) { return solstice_texture2D(s, c); }
+vec4 Texel(samplerCube s, vec3 c) { return solstice_textureCube(s, c); }
+#if __VERSION__ > 100 || defined(GL_OES_texture_3D)
+    vec4 Texel(sampler3D s, vec3 c) { return solstice_texture3D(s, c); }
+#endif
+#if __VERSION__ >= 130 || defined(GL_EXT_texture_array)
+    vec4 Texel(sampler2DArray s, vec3 c) { return solstice_texture2DArray(s, c); }
+#endif
+#ifdef PIXEL
+    vec4 Texel(sampler2D s, vec2 c, float b) { return solstice_texture2D(s, c, b); }
+    vec4 Texel(samplerCube s, vec3 c, float b) { return solstice_textureCube(s, c, b); }
+    #if __VERSION__ > 100 || defined(GL_OES_texture_3D)
+        vec4 Texel(sampler3D s, vec3 c, float b) { return solstice_texture3D(s, c, b); }
+    #endif
+    #if __VERSION__ >= 130 || defined(GL_EXT_texture_array)
+        vec4 Texel(sampler2DArray s, vec3 c, float b) { return solstice_texture2DArray(s, c, b); }
+    #endif
+#endif
+#define texture solstice_texture
 
 #define extern uniform
 #ifdef GL_EXT_texture_array
