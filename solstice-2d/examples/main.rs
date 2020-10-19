@@ -111,6 +111,17 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
     ctx.print(deja_vu_sans, "Hello, World!", 0., 0., 128.);
     ctx.set_color([0.5, 0.1, 1., 1.]);
     ctx.print(pixel_font, "Test", 0., 128., 50.);
+
+    ctx.set_color([1., 1., 1., 1.]);
+    ctx.line(0., 0., 400., 400.);
+    ctx.line(400., 400., 0., 400.);
+    ctx.line(0., 400., 0., 0.);
+
+    ctx.transforms.push();
+    ctx.transforms.current_mut().translation_x = 10.;
+    ctx.set_color([0.5, 0.1, 0.75, 0.5]);
+    ctx.lines(&[(0., 0.), (400., 400.), (0., 400.), (0., 0.)]);
+    ctx.transforms.pop();
 }
 
 fn main() {

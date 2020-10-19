@@ -1,5 +1,4 @@
 use crate::d2::vertex::Vertex2D;
-use lyon_tessellation::path::math::Point;
 use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context};
 
 mod shader;
@@ -9,6 +8,7 @@ mod transforms;
 mod vertex;
 
 use shader::CachedShader;
+use vertex::Point;
 
 pub use glyph_brush::FontId;
 pub use shapes::*;
@@ -24,6 +24,10 @@ pub enum DrawMode {
 pub enum Graphics2DError {
     ShaderError(shader::Shader2DError),
     GraphicsError(solstice::GraphicsError),
+}
+
+fn to_points<'a>(vertices: &'a [Vertex2D]) -> impl Iterator<Item = Point> + 'a {
+    vertices.iter().map(Vertex2D::position).map(Into::into)
 }
 
 #[must_use]
@@ -189,7 +193,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
                 }
                 self.fill_polygon(&vertices, &indices);
             }
-            DrawMode::Stroke => self.stroke_polygon(&vertices[..vertices.len() - 1]),
+            DrawMode::Stroke => self.stroke_polygon(to_points(&vertices[..vertices.len() - 1])),
         }
     }
     pub fn circle(&mut self, draw_mode: DrawMode, circle: Circle) {
@@ -243,24 +247,31 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             }
             self.fill_polygon(&vertices, &indices);
         } else {
-            self.stroke_polygon(&vertices);
+            self.stroke_polygon(to_points(&vertices));
         }
     }
     pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
         self.bind_default_texture();
         let (x1, y1) = self.transforms.current().transform_point(x1, y1);
         let (x2, y2) = self.transforms.current().transform_point(x2, y2);
-        self.stroke_polygon(&[
-            vertex::Vertex2D::new([x1, y1], self.color, [0.5, 0.5]),
-            vertex::Vertex2D::new([x2, y2], self.color, [0.5, 0.5]),
-        ]);
+        self.stroke_polygon([Point::new(x1, y1), Point::new(x2, y2)].iter())
+    }
+    pub fn lines<P: Into<Point>, I: IntoIterator<Item = P>>(&mut self, points: I) {
+        let transform = *self.transforms.current();
+        let points = points.into_iter().map(|p| {
+            let point: Point = p.into();
+            Into::<lyon_tessellation::math::Point>::into(
+                transform.transform_point(point.x, point.y),
+            )
+        });
+        self.stroke_polygon(points);
     }
     pub fn rectangle(&mut self, draw_mode: DrawMode, rectangle: Rectangle) {
         self.bind_default_texture();
         let (vertices, indices) = self.rectangle_geometry(rectangle);
         match draw_mode {
             DrawMode::Fill => self.fill_polygon(&vertices, &indices),
-            DrawMode::Stroke => self.stroke_polygon(&vertices),
+            DrawMode::Stroke => self.stroke_polygon(to_points(&vertices)),
         }
     }
     pub fn image<T: Texture + Copy>(&mut self, rectangle: Rectangle, texture: T) {
@@ -276,15 +287,14 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         self.index_offset += indices.len();
     }
 
-    fn stroke_polygon(&mut self, vertices: &[vertex::Vertex2D]) {
+    fn stroke_polygon<P, I>(&mut self, vertices: I)
+    where
+        P: Into<lyon_tessellation::math::Point>,
+        I: IntoIterator<Item = P>,
+    {
         use lyon_tessellation::*;
         let mut builder = path::Builder::new();
-        builder.polygon(
-            &vertices
-                .iter()
-                .map(|v| v.position.into())
-                .collect::<Vec<_>>(),
-        );
+        builder.polygon(&vertices.into_iter().map(Into::into).collect::<Box<[_]>>());
         let path = builder.build();
 
         struct WithColor([f32; 4]);
@@ -292,7 +302,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         impl StrokeVertexConstructor<vertex::Vertex2D> for WithColor {
             fn new_vertex(
                 &mut self,
-                point: Point,
+                point: lyon_tessellation::math::Point,
                 attributes: StrokeAttributes<'_, '_>,
             ) -> Vertex2D {
                 vertex::Vertex2D {
