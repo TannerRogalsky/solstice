@@ -53,37 +53,21 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             instance_count: 1,
         };
 
-        // TODO: There's some DRY to do here if the lifetimes could be figured out
-        match self.active_shader.as_mut() {
-            None => {
-                self.inner
-                    .default_shader
-                    .set_width_height(self.inner.width, self.inner.height);
-                self.inner.default_shader.activate(self.ctx);
-                solstice::Renderer::draw(
-                    self.ctx,
-                    &self.inner.default_shader,
-                    &geometry,
-                    solstice::PipelineSettings {
-                        depth_state: None,
-                        ..solstice::PipelineSettings::default()
-                    },
-                );
-            }
-            Some(shader) => {
-                shader.set_width_height(self.inner.width, self.inner.height);
-                shader.activate(self.ctx);
-                solstice::Renderer::draw(
-                    self.ctx,
-                    *shader,
-                    &geometry,
-                    solstice::PipelineSettings {
-                        depth_state: None,
-                        ..solstice::PipelineSettings::default()
-                    },
-                );
-            }
-        }
+        let shader = match self.active_shader.as_mut() {
+            None => &mut self.inner.default_shader,
+            Some(shader) => *shader,
+        };
+        shader.set_width_height(self.inner.width, self.inner.height);
+        shader.activate(self.ctx);
+        solstice::Renderer::draw(
+            self.ctx,
+            shader,
+            &geometry,
+            solstice::PipelineSettings {
+                depth_state: None,
+                ..solstice::PipelineSettings::default()
+            },
+        );
 
         self.index_offset = 0;
         self.vertex_offset = 0;
