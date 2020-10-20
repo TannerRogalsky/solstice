@@ -353,6 +353,14 @@ where
         Ok(Self { inner, vbo, ibo })
     }
 
+    pub fn vertex_capacity(&self) -> usize {
+        self.vbo.memory_map.len() / std::mem::size_of::<V>()
+    }
+
+    pub fn index_capacity(&self) -> usize {
+        self.ibo.memory_map.len() / std::mem::size_of::<I>()
+    }
+
     pub fn set_draw_range(&mut self, draw_range: Option<std::ops::Range<usize>>) {
         self.inner.set_draw_range(draw_range)
     }
