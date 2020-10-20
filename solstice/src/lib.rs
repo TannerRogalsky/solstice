@@ -90,6 +90,7 @@ pub enum PixelFormat {
     R32F,
     RG32F,
     RGBA32F,
+    Alpha,
 
     // depth/stencil formats
     Stencil8,

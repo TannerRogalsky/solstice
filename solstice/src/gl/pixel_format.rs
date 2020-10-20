@@ -4,7 +4,7 @@ use crate::PixelFormat;
 pub fn size(format: PixelFormat) -> usize {
     match format {
         PixelFormat::Unknown => 0,
-        PixelFormat::LUMINANCE | PixelFormat::Stencil8 => 1,
+        PixelFormat::LUMINANCE | PixelFormat::Stencil8 | PixelFormat::Alpha => 1,
         PixelFormat::RG8 | PixelFormat::R16 | PixelFormat::R16F | PixelFormat::Depth16 => 2,
         PixelFormat::RGB8 => 3,
         PixelFormat::RGBA8
@@ -26,7 +26,11 @@ pub fn size(format: PixelFormat) -> usize {
 #[allow(unused)]
 pub fn color_components(format: PixelFormat) -> usize {
     match format {
-        PixelFormat::LUMINANCE | PixelFormat::R16 | PixelFormat::R16F | PixelFormat::R32F => 1,
+        PixelFormat::LUMINANCE
+        | PixelFormat::R16
+        | PixelFormat::R16F
+        | PixelFormat::R32F
+        | PixelFormat::Alpha => 1,
         PixelFormat::RG8 | PixelFormat::RG16 | PixelFormat::RG16F | PixelFormat::RG32F => 2,
         PixelFormat::RGB8 => 3,
         PixelFormat::RGBA8
@@ -64,6 +68,12 @@ pub fn to_gl(format: PixelFormat, version: &crate::GLVersion) -> super::TextureF
                 }
             }
         }
+        PixelFormat::Alpha => TF {
+            internal: glow::ALPHA,
+            external: glow::ALPHA,
+            ty: glow::UNSIGNED_BYTE,
+            swizzle: None,
+        },
         PixelFormat::RG8 => (glow::RG8, glow::RG, glow::UNSIGNED_BYTE).into(),
         PixelFormat::RGB8 => (glow::RGB8, glow::RGB, glow::UNSIGNED_BYTE).into(),
         PixelFormat::RGBA8 => (glow::RGBA8, glow::RGBA, glow::UNSIGNED_BYTE).into(),
