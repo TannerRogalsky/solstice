@@ -26,6 +26,18 @@ pub enum Graphics2DError {
     GraphicsError(solstice::GraphicsError),
 }
 
+impl From<solstice::GraphicsError> for Graphics2DError {
+    fn from(err: solstice::GraphicsError) -> Self {
+        Graphics2DError::GraphicsError(err)
+    }
+}
+
+impl From<shader::Shader2DError> for Graphics2DError {
+    fn from(err: shader::Shader2DError) -> Self {
+        Graphics2DError::ShaderError(err)
+    }
+}
+
 fn to_points<'a>(vertices: &'a [Vertex2D]) -> impl Iterator<Item = Point> + 'a {
     vertices.iter().map(Vertex2D::position).map(Into::into)
 }
@@ -39,7 +51,7 @@ pub struct Graphics2DLock<'a, 's> {
     vertex_offset: usize,
     pub transforms: Transforms,
 
-    active_shader: Option<&'s mut shader::Shader2D>,
+    active_shader: Option<&'s mut Shader2D>,
 }
 
 impl<'a, 's> Graphics2DLock<'a, 's> {
@@ -73,7 +85,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         self.vertex_offset = 0;
     }
 
-    pub fn set_shader(&mut self, shader: &'s mut shader::Shader2D) {
+    pub fn set_shader(&mut self, shader: &'s mut Shader2D) {
         self.flush();
         self.active_shader.replace(shader);
     }
@@ -401,13 +413,13 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             .with_color(self.color)
             .with_font_id(font)
             .with_scale(scale);
-        let text_workspace = &mut self.inner.text_workspace;
-        text_workspace.set_text(text, bounds, self.ctx);
+        self.inner.text_workspace.set_text(text, bounds, self.ctx);
 
-        let shader = &mut self.inner.default_shader;
-        shader.bind_texture(text_workspace.texture());
+        let shader = &mut self.inner.text_shader;
+        shader.set_width_height(self.inner.width, self.inner.height);
+        shader.bind_texture(self.inner.text_workspace.texture());
         shader.activate(self.ctx);
-        let geometry = text_workspace.geometry(self.ctx);
+        let geometry = self.inner.text_workspace.geometry(self.ctx);
         solstice::Renderer::draw(
             self.ctx,
             shader,
@@ -428,26 +440,28 @@ impl Drop for Graphics2DLock<'_, '_> {
 
 pub struct Graphics2D {
     mesh: MappedIndexedMesh<vertex::Vertex2D, u32>,
-    default_shader: shader::Shader2D,
+    default_shader: Shader2D,
     default_texture: solstice::image::Image,
     text_workspace: text::Text,
+    text_shader: Shader2D,
     width: f32,
     height: f32,
 }
 
 impl Graphics2D {
     pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, Graphics2DError> {
-        let mesh =
-            MappedIndexedMesh::new(ctx, 10000, 10000).map_err(Graphics2DError::GraphicsError)?;
-        let default_shader =
-            shader::Shader2D::new(ctx, width, height).map_err(Graphics2DError::ShaderError)?;
+        let mesh = MappedIndexedMesh::new(ctx, 10000, 10000)?;
+        let default_shader = Shader2D::new(ctx, width, height)?;
         let default_texture = super::create_default_texture(ctx);
-        let text_workspace = text::Text::new(ctx).map_err(Graphics2DError::GraphicsError)?;
+        let text_workspace = text::Text::new(ctx)?;
+        let text_shader =
+            super::Shader2D::with((text::DEFAULT_VERT, text::DEFAULT_FRAG), ctx, 0., 0.)?;
         Ok(Self {
             mesh,
             default_shader,
             default_texture,
             text_workspace,
+            text_shader,
             width,
             height,
         })

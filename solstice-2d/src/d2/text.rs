@@ -12,8 +12,22 @@ pub struct Text {
     glyph_brush: glyph_brush::GlyphBrush<Quad<super::Vertex2D>, glyph_brush::Extra, FontVec>,
 }
 
+pub const DEFAULT_VERT: &str = r#"
+vec4 pos(mat4 transform_projection, vec4 vertex_position) {
+    return transform_projection * vertex_position;
+}
+"#;
+
+pub const DEFAULT_FRAG: &str = r#"
+vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
+    float a = Texel(texture, texture_coords).a;
+    color.a *= a;
+    return color;
+}
+"#;
+
 impl Text {
-    pub fn new(ctx: &mut Context) -> Result<Self, solstice::GraphicsError> {
+    pub fn new(ctx: &mut Context) -> Result<Self, super::Graphics2DError> {
         let glyph_brush = glyph_brush::GlyphBrushBuilder::using_fonts(vec![]).build();
 
         let font_texture = {
@@ -22,7 +36,7 @@ impl Text {
             Image::new(
                 ctx,
                 TextureType::Tex2D,
-                solstice::PixelFormat::LUMINANCE,
+                solstice::PixelFormat::Alpha,
                 width,
                 height,
                 Settings::default(),
@@ -80,6 +94,7 @@ impl Text {
             quad_batch,
             font_texture,
             glyph_brush,
+            ..
         } = self;
 
         let to_vertex = |glyph_vertex: glyph_brush::GlyphVertex| {

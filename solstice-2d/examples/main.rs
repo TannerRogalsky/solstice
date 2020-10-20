@@ -108,9 +108,9 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
     ctx.transforms.pop();
 
     ctx.set_color([1., 1., 1., 1.]);
-    ctx.print(deja_vu_sans, "Hello, World!", 0., 0., 128.);
+    ctx.print(deja_vu_sans, "Hello, World!", 0., 128., 128.);
     ctx.set_color([0.5, 0.1, 1., 0.25]);
-    ctx.print(pixel_font, "Test", 0., 128., 256.);
+    ctx.print(pixel_font, "Test", 128., 128., 256.);
 
     ctx.set_color([1., 1., 1., 1.]);
     ctx.line(0., 0., 400., 400.);
