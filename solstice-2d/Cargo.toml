@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-solstice = { version = "^0.1.3-alpha.0", features = ["derive"], path = "../solstice" }
+solstice = { version = "0.1", features = ["derive"] }
 mint = "0.5"
 
 glyph_brush = "0.7"
