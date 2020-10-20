@@ -32,7 +32,6 @@ impl Text {
 
         let font_texture = {
             let (width, height) = glyph_brush.texture_dimensions();
-            println!("Initial texture size: {}, {}", width, height);
             Image::new(
                 ctx,
                 TextureType::Tex2D,
@@ -190,7 +189,6 @@ impl Text {
                 },
                 Err(error) => match error {
                     BrushError::TextureTooSmall { suggested: (w, h) } => {
-                        println!("Resize texture to {}, {}", w, h);
                         let mut info = font_texture.get_texture_info();
                         info.set_width(w);
                         info.set_height(h);
