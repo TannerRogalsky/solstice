@@ -291,10 +291,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
     }
 
     fn fill_polygon(&mut self, vertices: &[vertex::Vertex2D], indices: &[u32]) {
-        self.inner.mesh.set_vertices(vertices, self.vertex_offset);
-        self.inner.mesh.set_indices(indices, self.index_offset);
-        self.vertex_offset += vertices.len();
-        self.index_offset += indices.len();
+        self.buffer_geometry(vertices, indices)
     }
 
     fn stroke_polygon<P, I>(&mut self, vertices: I)
@@ -341,13 +338,32 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             .map(|i| self.vertex_offset as u32 + *i)
             .collect::<Vec<_>>();
 
-        self.inner
-            .mesh
-            .set_vertices(&buffers.vertices, self.vertex_offset);
-        self.inner.mesh.set_indices(&indices, self.index_offset);
-        self.vertex_offset += buffers.vertices.len();
-        self.index_offset += buffers.indices.len();
+        self.buffer_geometry(&buffers.vertices, &indices);
     }
+
+    fn buffer_geometry(&mut self, vertices: &[Vertex2D], indices: &[u32]) {
+        if self.vertex_offset + vertices.len() > self.inner.mesh.vertex_capacity()
+            || self.index_offset + indices.len() > self.inner.mesh.index_capacity()
+        {
+            // because we're flushing, all the index offsets are going to be wrong
+            // we could avoid this if we knew before that we were going overflow the mesh
+            // this is mostly straightforward except for the stroke tesselation so
+            // TODO: when lyon is removed, figure out sizes and do the overflow check earlier
+            let indices = indices
+                .iter()
+                .map(|i| *i - self.vertex_offset as u32)
+                .collect::<Vec<_>>();
+            self.flush();
+            self.inner.mesh.set_vertices(vertices, self.vertex_offset);
+            self.inner.mesh.set_indices(&indices, self.index_offset);
+        } else {
+            self.inner.mesh.set_vertices(vertices, self.vertex_offset);
+            self.inner.mesh.set_indices(indices, self.index_offset);
+        }
+        self.vertex_offset += vertices.len();
+        self.index_offset += indices.len();
+    }
+
     fn rectangle_geometry(&self, rectangle: Rectangle) -> ([Vertex2D; 4], [u32; 6]) {
         let offset = self.vertex_offset as u32;
         let color = self.color;
@@ -487,5 +503,9 @@ impl Graphics2D {
         self.width = width;
         self.height = height;
         self.default_shader.set_width_height(width, height)
+    }
+
+    pub fn dimensions(&self) -> (f32, f32) {
+        (self.width, self.height)
     }
 }
