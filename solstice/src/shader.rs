@@ -137,12 +137,12 @@ impl DynamicShader {
 
     pub fn create_source(vertex: &str, fragment: &str) -> (String, String) {
         let vertex = format!(
-            "{}\n{}\n{}\n{}\n{}",
-            GLSL_VERSION, SYNTAX, VERTEX_HEADER, LINE_PRAGMA, vertex
+            "{}\n{}\n{}\n{}\n{}\n{}",
+            GLSL_VERSION, SYNTAX, VERTEX_HEADER, FUNCTIONS, LINE_PRAGMA, vertex
         );
         let fragment = format!(
-            "{}\n{}\n{}\n{}\n{}",
-            GLSL_VERSION, SYNTAX, FRAG_HEADER, LINE_PRAGMA, fragment
+            "{}\n{}\n{}\n{}\n{}\n{}",
+            GLSL_VERSION, SYNTAX, FRAG_HEADER, FUNCTIONS, LINE_PRAGMA, fragment
         );
         (vertex, fragment)
     }
@@ -181,6 +181,38 @@ const SYNTAX: &str = r#"
     #define highp
 #endif
 
+#if defined(VERTEX) || __VERSION__ > 100 || defined(GL_FRAGMENT_PRECISION_HIGH)
+	#define SOLSTICE_HIGHP_OR_MEDIUMP highp
+#else
+	#define SOLSTICE_HIGHP_OR_MEDIUMP mediump
+#endif
+
+#define extern uniform
+#ifdef GL_EXT_texture_array
+    #extension GL_EXT_texture_array : enable
+#endif
+#ifdef GL_OES_texture_3D
+    #extension GL_OES_texture_3D : enable
+#endif
+#ifdef GL_OES_standard_derivatives
+    #extension GL_OES_standard_derivatives : enable
+#endif"#;
+
+const FUNCTIONS: &str = r#"
+#ifdef GL_ES
+	#if __VERSION__ >= 300 || defined(GL_EXT_texture_array)
+		precision lowp sampler2DArray;
+	#endif
+	#if __VERSION__ >= 300 || defined(GL_OES_texture_3D)
+		precision lowp sampler3D;
+	#endif
+	#if __VERSION__ >= 300
+		precision lowp sampler2DShadow;
+		precision lowp samplerCubeShadow;
+		precision lowp sampler2DArrayShadow;
+	#endif
+#endif
+
 #if __VERSION__ >= 130
     #define texture2D Texel
     #define texture3D Texel
@@ -214,18 +246,7 @@ vec4 Texel(samplerCube s, vec3 c) { return solstice_textureCube(s, c); }
         vec4 Texel(sampler2DArray s, vec3 c, float b) { return solstice_texture2DArray(s, c, b); }
     #endif
 #endif
-#define texture solstice_texture
-
-#define extern uniform
-#ifdef GL_EXT_texture_array
-    #extension GL_EXT_texture_array : enable
-#endif
-#ifdef GL_OES_texture_3D
-    #extension GL_OES_texture_3D : enable
-#endif
-#ifdef GL_OES_standard_derivatives
-    #extension GL_OES_standard_derivatives : enable
-#endif"#;
+#define texture solstice_texture"#;
 
 const VERTEX_HEADER: &str = r#"
 #define VERTEX
