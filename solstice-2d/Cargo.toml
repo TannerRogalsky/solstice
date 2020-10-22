@@ -10,7 +10,7 @@ description = "Easy, cross-platform 2D graphics."
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-solstice = { version = "0.1", features = ["derive"] }
+solstice = { version = "^0.1-alpha.0", features = ["derive"] }
 mint = "0.5"
 
 glyph_brush = "0.7"
