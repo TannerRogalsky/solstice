@@ -81,6 +81,14 @@ pub enum ShaderError {
     ResourceCreationError,
 }
 
+impl std::fmt::Display for ShaderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for ShaderError {}
+
 #[derive(Clone)]
 pub struct DynamicShader {
     inner: super::ShaderKey,

@@ -26,6 +26,14 @@ pub enum Graphics2DError {
     GraphicsError(solstice::GraphicsError),
 }
 
+impl std::fmt::Display for Graphics2DError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for Graphics2DError {}
+
 impl From<solstice::GraphicsError> for Graphics2DError {
     fn from(err: solstice::GraphicsError) -> Self {
         Graphics2DError::GraphicsError(err)

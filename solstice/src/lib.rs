@@ -30,6 +30,14 @@ pub enum GraphicsError {
     FramebufferError,
 }
 
+impl std::fmt::Display for GraphicsError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for GraphicsError {}
+
 type GLContext = glow::Context;
 
 type GLBuffer = <GLContext as HasContext>::Buffer;
