@@ -30,7 +30,7 @@ fn draw(mut ctx: solstice_2d::Graphics2DLock, width: f32, height: f32, time: std
 
         let color = to_rgba(ratio * TAU + t, 1.0, 0.5);
         ctx.set_color(color);
-        ctx.circle(
+        ctx.draw(
             DrawMode::Fill,
             Circle {
                 x: ox + dx,

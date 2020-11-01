@@ -25,10 +25,14 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
         segments: 6,
     };
     ctx.set_color([1., 0., 0., 1.]);
-    ctx.circle(DrawMode::Fill, circle);
-
+    ctx.draw(DrawMode::Fill, circle);
     ctx.set_color([0., 1., 0., 1.]);
-    ctx.circle(DrawMode::Stroke, circle);
+    ctx.draw(DrawMode::Stroke, circle);
+
+    ctx.set_color([1., 1., 1., 1.]);
+    ctx.draw(DrawMode::Fill, &[(200., 0.), (100., 100.), (0., 100.)]);
+    ctx.set_color([1., 0., 1., 1.]);
+    ctx.draw(DrawMode::Stroke, [(200., 0.), (100., 100.), (0., 100.)]);
 
     let circle = Circle {
         x: 500.,
@@ -37,7 +41,7 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
         segments: 80,
     };
     ctx.set_color([1., 1., 1., 1.]);
-    ctx.circle(DrawMode::Fill, circle);
+    ctx.draw(DrawMode::Fill, circle);
 
     let image_rect = Rectangle {
         x: 100.,
@@ -64,9 +68,9 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
         width: 100.,
         height: 100.,
     };
-    ctx.rectangle(DrawMode::Fill, rectangle);
+    ctx.draw(DrawMode::Fill, rectangle);
     ctx.set_color([1., 0., 0., 1.]);
-    ctx.rectangle(DrawMode::Stroke, rectangle);
+    ctx.draw(DrawMode::Stroke, rectangle);
     ctx.remove_active_shader();
     ctx.transforms.pop();
 
@@ -81,9 +85,9 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
         segments: 100,
     };
     ctx.set_color([1., 1., 1., 1.]);
-    ctx.arc(DrawMode::Fill, arc);
+    ctx.draw(DrawMode::Fill, arc);
     ctx.set_color([1., 0., 1., 1.]);
-    ctx.arc(DrawMode::Stroke, arc);
+    ctx.draw(DrawMode::Stroke, arc);
 
     let arc = Arc {
         arc_type: ArcType::Closed,
@@ -91,9 +95,9 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
         ..arc
     };
     ctx.set_color([1., 1., 1., 1.]);
-    ctx.arc(DrawMode::Fill, arc);
+    ctx.draw(DrawMode::Fill, arc);
     ctx.set_color([1., 0., 1., 1.]);
-    ctx.arc(DrawMode::Stroke, arc);
+    ctx.draw(DrawMode::Stroke, arc);
 
     let arc = Arc {
         arc_type: ArcType::Open,
@@ -101,9 +105,9 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
         ..arc
     };
     ctx.set_color([1., 1., 1., 1.]);
-    ctx.arc(DrawMode::Fill, arc);
+    ctx.draw(DrawMode::Fill, arc);
     ctx.set_color([1., 0., 1., 1.]);
-    ctx.arc(DrawMode::Stroke, arc);
+    ctx.draw(DrawMode::Stroke, arc);
 
     ctx.transforms.pop();
 
@@ -122,6 +126,28 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
     ctx.set_color([0.5, 0.1, 0.75, 0.5]);
     ctx.lines(&[(0., 0.), (400., 400.), (0., 400.), (0., 0.)]);
     ctx.transforms.pop();
+
+    let radius = 50.;
+    for i in 3..12 {
+        let x = (i - 2) as f32 * radius * 2.5;
+        let y = 400.;
+        let p = SimpleConvexPolygon {
+            x: 0.,
+            y: 0.,
+            vertex_count: i as _,
+            radius_x: radius,
+            radius_y: radius,
+        };
+        ctx.transforms.push();
+        *ctx.transforms.current_mut() *= Transform::translation(x, y);
+        *ctx.transforms.current_mut() *= Transform::rotation(Rad(t * std::f32::consts::PI * 2.));
+        ctx.set_color([1., 1., 1., 1.]);
+        ctx.draw(DrawMode::Fill, p);
+        ctx.set_color([0.1, 0.3, 0.9, 0.7]);
+        ctx.draw(DrawMode::Stroke, p);
+        ctx.line(0., 0., radius, 0.);
+        ctx.transforms.pop();
+    }
 }
 
 fn main() {

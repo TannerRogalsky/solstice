@@ -32,6 +32,39 @@ impl Vertex2D {
     }
 }
 
+impl From<(f32, f32)> for Vertex2D {
+    fn from((x, y): (f32, f32)) -> Self {
+        Self {
+            position: [x, y],
+            ..Default::default()
+        }
+    }
+}
+
+impl From<(f64, f64)> for Vertex2D {
+    fn from((x, y): (f64, f64)) -> Self {
+        Self {
+            position: [x as _, y as _],
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Point> for Vertex2D {
+    fn from(p: Point) -> Self {
+        Self {
+            position: [p.x, p.y],
+            ..Default::default()
+        }
+    }
+}
+
+impl Into<lyon_tessellation::math::Point> for Vertex2D {
+    fn into(self) -> lyon_tessellation::math::Point {
+        self.position.into()
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Point {
     pub x: f32,
