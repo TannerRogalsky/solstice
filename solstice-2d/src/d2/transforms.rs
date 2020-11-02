@@ -149,8 +149,9 @@ impl Transforms {
         self.stack.last_mut().unwrap_or(&mut self.base)
     }
 
-    pub fn push(&mut self) {
-        self.stack.push(*self.current())
+    pub fn push(&mut self) -> &mut Transform {
+        self.stack.push(*self.current());
+        self.current_mut()
     }
 
     pub fn pop(&mut self) -> Option<Transform> {

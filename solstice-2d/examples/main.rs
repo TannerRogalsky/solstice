@@ -121,11 +121,13 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
     ctx.line(400., 400., 0., 400.);
     ctx.line(0., 400., 0., 0.);
 
-    ctx.transforms.push();
-    ctx.transforms.current_mut().translation_x = 10.;
-    ctx.set_color([0.5, 0.1, 0.75, 0.5]);
-    ctx.lines(&[(0., 0.), (400., 400.), (0., 400.), (0., 0.)]);
-    ctx.transforms.pop();
+    {
+        let t = ctx.transforms.push();
+        t.translation_x = 10.;
+        ctx.set_color([0.5, 0.1, 0.75, 0.5]);
+        ctx.lines(&[(0., 0.), (400., 400.), (0., 400.), (0., 0.)]);
+        ctx.transforms.pop();
+    }
 
     let radius = 50.;
     for i in 3..12 {
@@ -138,9 +140,9 @@ fn draw<'b, 'c: 'b>(mut ctx: solstice_2d::Graphics2DLock<'_, 'b>, resources: Res
             radius_x: radius,
             radius_y: radius,
         };
-        ctx.transforms.push();
-        *ctx.transforms.current_mut() *= Transform::translation(x, y);
-        *ctx.transforms.current_mut() *= Transform::rotation(Rad(t * std::f32::consts::PI * 2.));
+        let tx = ctx.transforms.push();
+        *tx *= Transform::translation(x, y);
+        *tx *= Transform::rotation(Rad(t * std::f32::consts::PI * 2.));
         ctx.set_color([1., 1., 1., 1.]);
         ctx.draw(DrawMode::Fill, p);
         ctx.set_color([0.1, 0.3, 0.9, 0.7]);
