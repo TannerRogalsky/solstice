@@ -1353,6 +1353,7 @@ impl Renderer for Context {
             color,
             depth,
             stencil,
+            target,
         } = settings;
         let mut clear_bits = 0;
 
@@ -1383,6 +1384,10 @@ impl Renderer for Context {
             clear_bits |= glow::STENCIL_BUFFER_BIT;
         }
 
+        self.bind_framebuffer(
+            canvas::Target::All,
+            target.map(canvas::Canvas::get_framebuffer_key),
+        );
         unsafe {
             self.ctx.clear(clear_bits);
         }
@@ -1400,6 +1405,13 @@ impl Renderer for Context {
         } else {
             self.disable(Feature::DepthTest(DepthFunction::Never));
         }
+
+        self.bind_framebuffer(
+            canvas::Target::All,
+            settings
+                .framebuffer
+                .map(canvas::Canvas::get_framebuffer_key),
+        );
 
         let Geometry {
             mesh,
@@ -1534,19 +1546,21 @@ impl Into<Color<f32>> for Color<ClampedF32> {
     }
 }
 
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct ClearSettings {
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct ClearSettings<'a> {
     pub color: Option<Color<ClampedF32>>,
     pub depth: Option<ClampedF32>,
     pub stencil: Option<i32>, // TODO: does signed make sense here?
+    pub target: Option<&'a canvas::Canvas>,
 }
 
-impl Default for ClearSettings {
+impl Default for ClearSettings<'_> {
     fn default() -> Self {
         Self {
             color: Some(Color::default()),
             depth: Some(ClampedF32(1.)),
             stencil: Some(0),
+            target: None,
         }
     }
 }

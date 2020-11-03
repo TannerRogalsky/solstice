@@ -53,6 +53,7 @@ pub enum FilterMode {
     Nearest,
 }
 
+// TODO: anisotrophy should be a non-NAN f32 so that this can impl Eq
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Filter {
