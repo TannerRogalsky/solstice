@@ -42,14 +42,7 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) 
 }
 "#;
 
-fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
-    let left = 0.;
-    let right = width;
-    let bottom = height;
-    let top = 0.;
-    let near = 0.;
-    let far = 1000.;
-
+fn ortho(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> [[f32; 4]; 4] {
     let c0r0 = 2. / (right - left);
     let c0r1 = 0.;
     let c0r2 = 0.;
@@ -76,6 +69,10 @@ fn ortho(width: f32, height: f32) -> [[f32; 4]; 4] {
         [c2r0, c2r1, c2r2, c2r3],
         [c3r0, c3r1, c3r2, c3r3],
     ]
+}
+
+fn ortho_simple(width: f32, height: f32) -> [[f32; 4]; 4] {
+    ortho(0., width, height, 0., 0., 1000.)
 }
 
 fn get_location(
@@ -177,7 +174,7 @@ impl Shader2D {
         let color_location = get_location(&shader, "uColor")?;
         let tex0_location = get_location(&shader, "tex0").ok();
 
-        let projection_cache = ortho(width, height).into();
+        let projection_cache = ortho_simple(width, height).into();
         #[rustfmt::skip]
         let identity: mint::ColumnMatrix4<f32> = [
             1., 0., 0., 0.,
@@ -223,9 +220,13 @@ impl Shader2D {
         })
     }
 
-    pub fn set_width_height(&mut self, width: f32, height: f32) {
-        let projection_cache = ortho(width, height).into();
-        self.projection_cache = projection_cache;
+    pub fn set_width_height(&mut self, width: f32, height: f32, invert_y: bool) {
+        let projection_cache = if invert_y {
+            ortho(0., width, 0., height, 0., 1000.)
+        } else {
+            ortho(0., width, height, 0., 0., 1000.)
+        };
+        self.projection_cache = projection_cache.into();
     }
 
     pub fn bind_texture<T: solstice::texture::Texture>(&mut self, texture: T) {

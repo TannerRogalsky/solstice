@@ -1,5 +1,6 @@
 use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context};
 
+mod canvas;
 mod shader;
 mod shapes;
 mod text;
@@ -8,7 +9,8 @@ mod vertex;
 
 use vertex::{Point, Vertex2D};
 
-pub use glyph_brush::FontId;
+pub use canvas::Canvas;
+pub use glyph_brush::{ab_glyph::FontVec, FontId};
 pub use shader::Shader2D;
 pub use shapes::*;
 pub use transforms::*;
@@ -55,6 +57,7 @@ pub struct Graphics2DLock<'a, 's> {
     pub transforms: Transforms,
 
     active_shader: Option<&'s mut Shader2D>,
+    active_canvas: Option<&'s Canvas>,
 }
 
 impl<'a, 's> Graphics2DLock<'a, 's> {
@@ -72,7 +75,8 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             None => &mut self.inner.default_shader,
             Some(shader) => *shader,
         };
-        shader.set_width_height(self.inner.width, self.inner.height);
+        let invert_y = self.active_canvas.is_some();
+        shader.set_width_height(self.inner.width, self.inner.height, invert_y);
         shader.activate(self.ctx);
         solstice::Renderer::draw(
             self.ctx,
@@ -80,12 +84,32 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             &geometry,
             solstice::PipelineSettings {
                 depth_state: None,
+                framebuffer: self.active_canvas.map(|c| &c.inner),
                 ..solstice::PipelineSettings::default()
             },
         );
 
         self.index_offset = 0;
         self.vertex_offset = 0;
+    }
+
+    pub fn clear<C: Into<[f32; 4]>>(&mut self, color: C) {
+        let [red, green, blue, alpha] = color.into();
+        let color = solstice::Color {
+            red,
+            blue,
+            green,
+            alpha,
+        };
+        solstice::Renderer::clear(
+            self.ctx,
+            solstice::ClearSettings {
+                color: Some(color.into()),
+                depth: None,
+                stencil: None,
+                target: self.active_canvas.map(|c| &c.inner),
+            },
+        )
     }
 
     pub fn set_shader(&mut self, shader: &'s mut Shader2D) {
@@ -96,6 +120,16 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
     pub fn remove_active_shader(&mut self) {
         self.flush();
         self.active_shader.take();
+    }
+
+    pub fn set_canvas(&mut self, canvas: &'s Canvas) {
+        self.flush();
+        self.active_canvas.replace(canvas);
+    }
+
+    pub fn unset_canvas(&mut self) {
+        self.flush();
+        self.active_canvas.take();
     }
 
     fn bind_default_texture(&mut self) {
@@ -270,8 +304,9 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             .with_scale(scale);
         self.inner.text_workspace.set_text(text, bounds, self.ctx);
 
+        let invert_y = self.active_canvas.is_some();
         let shader = &mut self.inner.text_shader;
-        shader.set_width_height(self.inner.width, self.inner.height);
+        shader.set_width_height(self.inner.width, self.inner.height, invert_y);
         shader.bind_texture(self.inner.text_workspace.texture());
         shader.activate(self.ctx);
         let geometry = self.inner.text_workspace.geometry(self.ctx);
@@ -331,6 +366,7 @@ impl Graphics2D {
             vertex_offset: 0,
             transforms: Default::default(),
             active_shader: None,
+            active_canvas: None,
         }
     }
 
@@ -341,7 +377,6 @@ impl Graphics2D {
     pub fn set_width_height(&mut self, width: f32, height: f32) {
         self.width = width;
         self.height = height;
-        self.default_shader.set_width_height(width, height)
     }
 
     pub fn dimensions(&self) -> (f32, f32) {
