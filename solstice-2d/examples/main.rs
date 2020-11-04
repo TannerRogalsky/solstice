@@ -53,14 +53,11 @@ impl Example for Main {
                 &mut ctx.ctx,
                 solstice_2d::PerlinTextureSettings {
                     rng: &mut rng,
-                    width: 256,
-                    height: 256,
-                    period: 32,
-                    levels: 1,
+                    width: 512,
+                    height: 512,
+                    period: 256,
+                    levels: 4,
                     attenuation: 0.4,
-                    absolute: false,
-                    color: false,
-                    alpha: false,
                 },
             )?
         };

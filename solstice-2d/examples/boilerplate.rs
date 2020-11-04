@@ -5,6 +5,7 @@ pub struct ExampleContext {
 }
 
 impl ExampleContext {
+    #[allow(unused)]
     pub fn dimensions(&self) -> (f32, f32) {
         let glutin::dpi::PhysicalSize { width, height } = self.window.window().inner_size();
         (width as f32, height as f32)

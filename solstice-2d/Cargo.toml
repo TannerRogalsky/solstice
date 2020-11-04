@@ -13,6 +13,7 @@ description = "Easy, cross-platform 2D graphics."
 solstice = { version = "^0.1-alpha.0", features = ["derive"] }
 mint = "0.5"
 arrayvec = "0.5"
+rand = "0.7"
 
 glyph_brush = "0.7"
 lyon_tessellation = "0.16"
