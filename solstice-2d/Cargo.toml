@@ -19,6 +19,7 @@ lyon_tessellation = "0.16"
 
 [dev-dependencies]
 approx = "0.4"
+eyre = "0.6"
 
 glutin = "0.24"
 
