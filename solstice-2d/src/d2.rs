@@ -132,19 +132,31 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         self.active_canvas.take();
     }
 
+    fn shader(&self) -> &Shader2D {
+        self.active_shader
+            .as_deref()
+            .unwrap_or(&self.inner.default_shader)
+    }
+
     fn bind_default_texture(&mut self) {
         let texture = &self.inner.default_texture;
-        if !self.inner.default_shader.is_bound(texture) {
+        if !self.shader().is_bound(texture) {
             self.flush();
             let texture = &self.inner.default_texture;
-            self.inner.default_shader.bind_texture(texture);
+            match &mut self.active_shader {
+                Some(shader) => shader.bind_texture(texture),
+                None => self.inner.default_shader.bind_texture(texture),
+            }
         }
     }
 
     fn bind_texture<T: Texture + Copy>(&mut self, texture: T) {
-        if !self.inner.default_shader.is_bound(texture) {
+        if !self.shader().is_bound(texture) {
             self.flush();
-            self.inner.default_shader.bind_texture(texture);
+            match &mut self.active_shader {
+                Some(shader) => shader.bind_texture(texture),
+                None => self.inner.default_shader.bind_texture(texture),
+            }
         }
     }
 
@@ -168,32 +180,122 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         });
         self.stroke_polygon(points);
     }
-    pub fn image<T: Texture + Copy>(&mut self, rectangle: Rectangle, texture: T) {
+
+    pub fn image<G, T>(&mut self, geometry: G, texture: T)
+    where
+        G: Geometry,
+        T: Texture + Copy,
+    {
         self.bind_texture(texture);
-        self.inner_draw(DrawMode::Fill, rectangle);
+        self.inner_draw(
+            DrawMode::Fill,
+            geometry,
+            *self.transforms.current(),
+            self.color,
+        );
+    }
+
+    pub fn image_with_transform<G, T>(&mut self, geometry: G, texture: T, transform: Transform)
+    where
+        G: Geometry,
+        T: Texture + Copy,
+    {
+        self.bind_texture(texture);
+        self.inner_draw(DrawMode::Fill, geometry, transform, self.color)
+    }
+
+    pub fn image_with_color<G, T, C>(&mut self, geometry: G, texture: T, color: C)
+    where
+        G: Geometry,
+        T: Texture + Copy,
+        C: Into<[f32; 4]>,
+    {
+        self.bind_texture(texture);
+        self.inner_draw(
+            DrawMode::Fill,
+            geometry,
+            *self.transforms.current(),
+            color.into(),
+        );
+    }
+
+    pub fn image_with_transform_and_color<G, T, C>(
+        &mut self,
+        geometry: G,
+        texture: T,
+        transform: Transform,
+        color: C,
+    ) where
+        G: Geometry,
+        T: Texture + Copy,
+        C: Into<[f32; 4]>,
+    {
+        self.bind_texture(texture);
+        self.inner_draw(DrawMode::Fill, geometry, transform, color.into());
     }
 
     pub fn draw<G: Geometry>(&mut self, draw_mode: DrawMode, geometry: G) {
         self.bind_default_texture();
-        self.inner_draw(draw_mode, geometry);
+        self.inner_draw(draw_mode, geometry, *self.transforms.current(), self.color);
     }
 
-    fn inner_draw<G: Geometry>(&mut self, draw_mode: DrawMode, geometry: G) {
-        let transform = {
-            let transform = *self.transforms.current();
-            let color = self.color;
-            move |v: Vertex2D| {
-                let (x, y) = transform.transform_point(v.position[0], v.position[1]);
-                Vertex2D {
-                    position: [x, y],
-                    color,
-                    ..v
-                }
+    pub fn draw_with_transform<G>(&mut self, draw_mode: DrawMode, geometry: G, transform: Transform)
+    where
+        G: Geometry,
+    {
+        self.bind_default_texture();
+        self.inner_draw(draw_mode, geometry, transform, self.color)
+    }
+
+    pub fn draw_with_color<G, C>(&mut self, draw_mode: DrawMode, geometry: G, color: C)
+    where
+        G: Geometry,
+        C: Into<[f32; 4]>,
+    {
+        self.bind_default_texture();
+        self.inner_draw(
+            draw_mode,
+            geometry,
+            *self.transforms.current(),
+            color.into(),
+        );
+    }
+
+    pub fn draw_with_transform_and_color<G, C>(
+        &mut self,
+        draw_mode: DrawMode,
+        geometry: G,
+        transform: Transform,
+        color: C,
+    ) where
+        G: Geometry,
+        C: Into<[f32; 4]>,
+    {
+        self.bind_default_texture();
+        self.inner_draw(draw_mode, geometry, transform, color.into());
+    }
+
+    fn inner_draw<G: Geometry>(
+        &mut self,
+        draw_mode: DrawMode,
+        geometry: G,
+        transform: Transform,
+        color: [f32; 4],
+    ) {
+        let transform_vertex = move |v: Vertex2D| {
+            let (x, y) = transform.transform_point(v.position[0], v.position[1]);
+            Vertex2D {
+                position: [x, y],
+                color,
+                ..v
             }
         };
         match draw_mode {
             DrawMode::Fill => {
-                let vertices = geometry.vertices().map(transform).collect::<Box<_>>();
+                let vertices = geometry
+                    .vertices()
+                    .map(transform_vertex)
+                    .collect::<Box<_>>();
                 let indices = geometry
                     .indices()
                     .map(|i| self.vertex_offset as u32 + i)
@@ -203,7 +305,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             DrawMode::Stroke => self.stroke_polygon(
                 geometry
                     .vertices()
-                    .map(transform)
+                    .map(transform_vertex)
                     .map(Into::<lyon_tessellation::math::Point>::into),
             ),
         }
@@ -341,11 +443,10 @@ pub struct Graphics2D {
 impl Graphics2D {
     pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, Graphics2DError> {
         let mesh = MappedIndexedMesh::new(ctx, 10000, 10000)?;
-        let default_shader = Shader2D::new(ctx, width, height)?;
-        let default_texture = super::create_default_texture(ctx);
+        let default_shader = Shader2D::new(ctx)?;
+        let default_texture = super::create_default_texture(ctx)?;
         let text_workspace = text::Text::new(ctx)?;
-        let text_shader =
-            super::Shader2D::with((text::DEFAULT_VERT, text::DEFAULT_FRAG), ctx, 0., 0.)?;
+        let text_shader = super::Shader2D::with((text::DEFAULT_VERT, text::DEFAULT_FRAG), ctx)?;
         Ok(Self {
             mesh,
             default_shader,

@@ -7,6 +7,14 @@ pub enum Shader2DError {
     UniformNotFound(String),
 }
 
+impl std::fmt::Display for Shader2DError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for Shader2DError {}
+
 #[derive(Eq, PartialEq)]
 struct TextureCache {
     ty: solstice::texture::TextureType,
@@ -69,10 +77,6 @@ fn ortho(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> [
         [c2r0, c2r1, c2r2, c2r3],
         [c3r0, c3r1, c3r2, c3r3],
     ]
-}
-
-fn ortho_simple(width: f32, height: f32) -> [[f32; 4]; 4] {
-    ortho(0., width, height, 0., 0., 1000.)
 }
 
 fn get_location(
@@ -149,16 +153,11 @@ void main() {{
 }
 
 impl Shader2D {
-    pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, Shader2DError> {
-        Self::with((DEFAULT_VERT, DEFAULT_FRAG), ctx, width, height)
+    pub fn new(ctx: &mut Context) -> Result<Self, Shader2DError> {
+        Self::with((DEFAULT_VERT, DEFAULT_FRAG), ctx)
     }
 
-    pub fn with<'a, S>(
-        src: S,
-        ctx: &mut Context,
-        width: f32,
-        height: f32,
-    ) -> Result<Self, Shader2DError>
+    pub fn with<'a, S>(src: S, ctx: &mut Context) -> Result<Self, Shader2DError>
     where
         S: Into<ShaderSource<'a>>,
     {
@@ -174,7 +173,6 @@ impl Shader2D {
         let color_location = get_location(&shader, "uColor")?;
         let tex0_location = get_location(&shader, "tex0").ok();
 
-        let projection_cache = ortho_simple(width, height).into();
         #[rustfmt::skip]
         let identity: mint::ColumnMatrix4<f32> = [
             1., 0., 0., 0.,
@@ -183,6 +181,7 @@ impl Shader2D {
             0., 0., 0., 1.,
         ].into();
         let white: mint::Vector4<f32> = [1., 1., 1., 1.].into();
+        let projection_cache = identity;
 
         ctx.use_shader(Some(&shader));
         ctx.set_uniform_by_location(
