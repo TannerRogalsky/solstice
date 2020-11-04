@@ -22,6 +22,8 @@ struct TextureCache {
     location: Option<UniformLocation>,
 }
 
+const MAX_TEXTURE_UNITS: usize = 8;
+
 #[allow(unused)]
 pub struct Shader2D {
     inner: solstice::shader::DynamicShader,
@@ -35,7 +37,9 @@ pub struct Shader2D {
     color_location: UniformLocation,
     color_cache: mint::Vector4<f32>,
 
-    textures: [TextureCache; 1],
+    textures: [TextureCache; MAX_TEXTURE_UNITS],
+
+    other_uniforms: std::collections::HashMap<String, solstice::shader::RawUniformValue>,
 }
 
 const DEFAULT_VERT: &str = r#"
@@ -171,7 +175,24 @@ impl Shader2D {
         let view_location = get_location(&shader, "uView")?;
         let model_location = get_location(&shader, "uModel")?;
         let color_location = get_location(&shader, "uColor")?;
-        let tex0_location = get_location(&shader, "tex0").ok();
+        let mut textures = (0..MAX_TEXTURE_UNITS).map(|i| {
+            let location = get_location(&shader, ("tex".to_owned() + &i.to_string()).as_str()).ok();
+            TextureCache {
+                ty: solstice::texture::TextureType::Tex2D,
+                key: Default::default(),
+                location,
+            }
+        });
+        let textures = [
+            textures.next().unwrap(),
+            textures.next().unwrap(),
+            textures.next().unwrap(),
+            textures.next().unwrap(),
+            textures.next().unwrap(),
+            textures.next().unwrap(),
+            textures.next().unwrap(),
+            textures.next().unwrap(),
+        ];
 
         #[rustfmt::skip]
         let identity: mint::ColumnMatrix4<f32> = [
@@ -211,11 +232,8 @@ impl Shader2D {
             model_cache: identity,
             color_location,
             color_cache: white,
-            textures: [TextureCache {
-                ty: solstice::texture::TextureType::Tex2D,
-                key: Default::default(),
-                location: tex0_location,
-            }],
+            textures,
+            other_uniforms: Default::default(),
         })
     }
 
@@ -233,12 +251,34 @@ impl Shader2D {
         self.textures[0].ty = texture.get_texture_type();
     }
 
+    pub fn bind_texture_at_location<T: solstice::texture::Texture>(
+        &mut self,
+        texture: T,
+        location: usize,
+    ) {
+        let cache = &mut self.textures[location];
+        cache.key = texture.get_texture_key();
+        cache.ty = texture.get_texture_type();
+    }
+
     pub fn is_bound<T: solstice::texture::Texture>(&self, texture: T) -> bool {
         self.textures[0].key == texture.get_texture_key()
     }
 
     pub fn is_dirty(&self) -> bool {
         true
+    }
+
+    pub fn send_uniform<S, V>(&mut self, name: S, value: V)
+    where
+        S: AsRef<str>,
+        V: std::convert::TryInto<solstice::shader::RawUniformValue>,
+    {
+        if let Some(uniform) = self.inner.get_uniform_by_name(name.as_ref()) {
+            if let Some(data) = value.try_into().ok() {
+                self.other_uniforms.insert(uniform.name.clone(), data);
+            }
+        }
     }
 
     pub fn activate(&mut self, ctx: &mut Context) {
@@ -248,6 +288,12 @@ impl Shader2D {
             if let Some(location) = &texture.location {
                 ctx.bind_texture_to_unit(texture.ty, texture.key, index.into());
                 ctx.set_uniform_by_location(location, &SignedInt(index as _));
+            }
+        }
+        for (name, data) in self.other_uniforms.iter() {
+            let uniform = self.inner.get_uniform_by_name(name.as_str());
+            if let Some(uniform) = uniform {
+                ctx.set_uniform_by_location(&uniform.location, data);
             }
         }
         ctx.set_uniform_by_location(&self.projection_location, &Mat4(self.projection_cache));
