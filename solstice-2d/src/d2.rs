@@ -75,8 +75,19 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             None => &mut self.inner.default_shader,
             Some(shader) => *shader,
         };
-        let invert_y = self.active_canvas.is_some();
-        shader.set_width_height(self.inner.width, self.inner.height, invert_y);
+
+        match self.active_canvas {
+            None => {
+                self.ctx.set_viewport(0, 0, self.inner.width as _, self.inner.height as _);
+                shader.set_width_height(self.inner.width, self.inner.height, false);
+            },
+            Some(canvas) => {
+                let (width, height) = canvas.dimensions();
+                self.ctx.set_viewport(0, 0, width as _, height as _);
+                shader.set_width_height(width, height, true);
+            },
+        }
+
         shader.activate(self.ctx);
         solstice::Renderer::draw(
             self.ctx,

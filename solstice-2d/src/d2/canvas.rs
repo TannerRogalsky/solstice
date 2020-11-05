@@ -21,6 +21,10 @@ impl Canvas {
         )?;
         Ok(Self { inner })
     }
+    pub fn dimensions(&self) -> (f32, f32) {
+        let info = solstice::texture::Texture::get_texture_info(&self.inner);
+        (info.width() as _, info.height() as _)
+    }
 }
 
 impl solstice::texture::Texture for &Canvas {
