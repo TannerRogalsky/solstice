@@ -78,14 +78,15 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
 
         match self.active_canvas {
             None => {
-                self.ctx.set_viewport(0, 0, self.inner.width as _, self.inner.height as _);
+                self.ctx
+                    .set_viewport(0, 0, self.inner.width as _, self.inner.height as _);
                 shader.set_width_height(self.inner.width, self.inner.height, false);
-            },
+            }
             Some(canvas) => {
                 let (width, height) = canvas.dimensions();
                 self.ctx.set_viewport(0, 0, width as _, height as _);
                 shader.set_width_height(width, height, true);
-            },
+            }
         }
 
         shader.activate(self.ctx);
@@ -179,7 +180,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         self.bind_default_texture();
         let (x1, y1) = self.transforms.current().transform_point(x1, y1);
         let (x2, y2) = self.transforms.current().transform_point(x2, y2);
-        self.stroke_polygon([Point::new(x1, y1), Point::new(x2, y2)].iter())
+        self.stroke_polygon([Point::new(x1, y1), Point::new(x2, y2)].iter(), self.color)
     }
     pub fn lines<P: Into<Point>, I: IntoIterator<Item = P>>(&mut self, points: I) {
         let transform = *self.transforms.current();
@@ -189,7 +190,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
                 transform.transform_point(point.x, point.y),
             )
         });
-        self.stroke_polygon(points);
+        self.stroke_polygon(points, self.color);
     }
 
     pub fn image<G, T>(&mut self, geometry: G, texture: T)
@@ -318,6 +319,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
                     .vertices()
                     .map(transform_vertex)
                     .map(Into::<lyon_tessellation::math::Point>::into),
+                color,
             ),
         }
     }
@@ -326,7 +328,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         self.buffer_geometry(vertices, indices)
     }
 
-    fn stroke_polygon<P, I>(&mut self, vertices: I)
+    fn stroke_polygon<P, I>(&mut self, vertices: I, color: [f32; 4])
     where
         P: Into<lyon_tessellation::math::Point>,
         I: IntoIterator<Item = P>,
@@ -359,7 +361,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
                 .tessellate(
                     &path,
                     &StrokeOptions::default().with_line_width(5.),
-                    &mut BuffersBuilder::new(&mut buffers, WithColor(self.color)),
+                    &mut BuffersBuilder::new(&mut buffers, WithColor(color)),
                 )
                 .unwrap();
         }
