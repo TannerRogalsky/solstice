@@ -98,6 +98,15 @@ pub struct ShaderSource<'a> {
     fragment: &'a str,
 }
 
+impl<'a> From<&'a String> for ShaderSource<'a> {
+    fn from(src: &'a String) -> Self {
+        Self {
+            vertex: src.as_str(),
+            fragment: src.as_str()
+        }
+    }
+}
+
 impl<'a> From<&'a str> for ShaderSource<'a> {
     fn from(src: &'a str) -> Self {
         Self {
