@@ -209,6 +209,17 @@ pub struct Rectangle {
     pub height: f32,
 }
 
+impl Rectangle {
+    pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+}
+
 impl Geometry for Rectangle {
     type Vertices = std::vec::IntoIter<Vertex2D>;
     type Indices = std::iter::Copied<std::slice::Iter<'static, u32>>;
