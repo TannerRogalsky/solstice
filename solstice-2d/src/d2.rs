@@ -7,13 +7,12 @@ mod text;
 mod transforms;
 mod vertex;
 
-use vertex::{Point, Vertex2D};
-
 pub use canvas::Canvas;
 pub use glyph_brush::{ab_glyph::FontVec, FontId};
 pub use shader::Shader2D;
 pub use shapes::*;
 pub use transforms::*;
+pub use vertex::{Point, Vertex2D};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum DrawMode {
