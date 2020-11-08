@@ -102,7 +102,7 @@ impl<'a> From<&'a String> for ShaderSource<'a> {
     fn from(src: &'a String) -> Self {
         Self {
             vertex: src.as_str(),
-            fragment: src.as_str()
+            fragment: src.as_str(),
         }
     }
 }
