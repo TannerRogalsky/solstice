@@ -76,14 +76,14 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
             Some(shader) => *shader,
         };
 
+        let viewport = self.ctx.viewport();
         match self.active_canvas {
             None => {
-                self.ctx
-                    .set_viewport(0, 0, self.inner.width as _, self.inner.height as _);
                 shader.set_width_height(self.inner.width, self.inner.height, false);
             }
             Some(canvas) => {
                 let (width, height) = canvas.dimensions();
+                // TODO: this sort of thing might be better handled with a whole state stack push/pop
                 self.ctx.set_viewport(0, 0, width as _, height as _);
                 shader.set_width_height(width, height, true);
             }
@@ -100,6 +100,16 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
                 ..solstice::PipelineSettings::default()
             },
         );
+
+        // rollback the viewport change
+        if self.active_canvas.is_some() {
+            self.ctx.set_viewport(
+                viewport.x(),
+                viewport.y(),
+                viewport.width(),
+                viewport.height(),
+            );
+        }
 
         self.index_offset = 0;
         self.vertex_offset = 0;
