@@ -256,6 +256,51 @@ impl Geometry for Rectangle {
 }
 
 #[derive(Copy, Clone, Default, Debug)]
+pub struct RegularPolygon {
+    pub x: f32,
+    pub y: f32,
+    pub vertex_count: u32,
+    pub radius: f32,
+}
+
+impl RegularPolygon {
+    pub fn new(x: f32, y: f32, vertex_count: u32, radius: f32) -> Self {
+        Self {
+            x,
+            y,
+            vertex_count,
+            radius,
+        }
+    }
+}
+
+impl SimpleConvexGeometry for RegularPolygon {
+    type Vertices = std::iter::Map<std::ops::Range<u32>, Box<dyn Fn(u32) -> Vertex2D>>;
+
+    fn vertices(&self) -> Self::Vertices {
+        const TWO_PI: f32 = std::f32::consts::PI * 2.;
+        let RegularPolygon {
+            x,
+            y,
+            vertex_count,
+            radius,
+        } = *self;
+        let angle_shift = TWO_PI / vertex_count as f32;
+
+        // an allocation is a small price to pay for my sanity
+        (0..vertex_count).map(Box::new(move |i| {
+            let phi = angle_shift * i as f32;
+            let (x, y) = (x + radius * phi.cos(), y + radius * phi.sin());
+            Vertex2D::new([x, y], [1., 1., 1., 1.], [0.5, 0.5])
+        }))
+    }
+
+    fn vertex_count(&self) -> usize {
+        self.vertex_count as _
+    }
+}
+
+#[derive(Copy, Clone, Default, Debug)]
 pub struct SimpleConvexPolygon {
     pub x: f32,
     pub y: f32,
