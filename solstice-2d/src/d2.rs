@@ -14,7 +14,7 @@ pub use shapes::*;
 pub use transforms::*;
 pub use vertex::{Point, Vertex2D};
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DrawMode {
     Fill,
     Stroke,
