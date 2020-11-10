@@ -99,7 +99,7 @@ impl Example for Main {
         ctx.clear([0., 0., 0., 1.]);
 
         let image = &self.image;
-        let custom_shader = &mut self.custom_shader;
+        let custom_shader = self.custom_shader.clone();
         let deja_vu_sans = self.deja_vu_sans;
         let pixel_font = self.pixel_font;
 

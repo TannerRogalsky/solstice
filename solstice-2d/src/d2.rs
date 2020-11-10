@@ -55,7 +55,7 @@ pub struct Graphics2DLock<'a, 's> {
     vertex_offset: usize,
     pub transforms: Transforms,
 
-    active_shader: Option<&'s mut Shader2D>,
+    active_shader: Option<Shader2D>,
     active_canvas: Option<&'s Canvas>,
 }
 
@@ -72,7 +72,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
 
         let shader = match self.active_shader.as_mut() {
             None => &mut self.inner.default_shader,
-            Some(shader) => *shader,
+            Some(shader) => shader,
         };
 
         let viewport = self.ctx.viewport();
@@ -133,14 +133,14 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         )
     }
 
-    pub fn set_shader(&mut self, shader: &'s mut Shader2D) {
+    pub fn set_shader(&mut self, shader: Shader2D) -> Option<Shader2D> {
         self.flush();
-        self.active_shader.replace(shader);
+        self.active_shader.replace(shader)
     }
 
-    pub fn remove_active_shader(&mut self) {
+    pub fn remove_active_shader(&mut self) -> Option<Shader2D> {
         self.flush();
-        self.active_shader.take();
+        self.active_shader.take()
     }
 
     pub fn set_canvas(&mut self, canvas: &'s Canvas) {
@@ -155,7 +155,7 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
 
     fn shader(&self) -> &Shader2D {
         self.active_shader
-            .as_deref()
+            .as_ref()
             .unwrap_or(&self.inner.default_shader)
     }
 
