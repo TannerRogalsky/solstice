@@ -15,7 +15,7 @@ impl std::fmt::Display for Shader2DError {
 
 impl std::error::Error for Shader2DError {}
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 struct TextureCache {
     ty: solstice::texture::TextureType,
     key: solstice::TextureKey,
@@ -25,6 +25,7 @@ struct TextureCache {
 const MAX_TEXTURE_UNITS: usize = 8;
 
 #[allow(unused)]
+#[derive(Debug, Clone)]
 pub struct Shader2D {
     inner: solstice::shader::DynamicShader,
 

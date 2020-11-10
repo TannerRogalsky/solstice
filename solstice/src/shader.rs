@@ -89,7 +89,7 @@ impl std::fmt::Display for ShaderError {
 
 impl std::error::Error for ShaderError {}
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DynamicShader {
     inner: super::ShaderKey,
     attributes: Vec<Attribute>,
