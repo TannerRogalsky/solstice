@@ -301,6 +301,7 @@ fn main() {
         Event::RedrawRequested(window_id) => {
             if window_id == window.window().id() {
                 let mut g = d2.start(&mut context);
+                g.clear([1., 0., 0., 1.]);
                 let rectangle = solstice_2d::Rectangle {
                     x: 0.0,
                     y: 0.0,
@@ -316,6 +317,7 @@ fn main() {
                     height: 400.0,
                 };
                 g.image(rectangle, proto.inner());
+                drop(g);
 
                 window.swap_buffers().unwrap();
             }
