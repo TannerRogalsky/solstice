@@ -1,6 +1,7 @@
 use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context};
 
 mod canvas;
+mod color;
 mod shader;
 mod shapes;
 mod text;
@@ -8,6 +9,7 @@ mod transforms;
 mod vertex;
 
 pub use canvas::Canvas;
+pub use color::*;
 pub use glyph_brush::{ab_glyph::FontVec, FontId};
 pub use shader::Shader2D;
 pub use shapes::*;
@@ -57,6 +59,8 @@ pub struct Graphics2DLock<'a, 's> {
 
     active_shader: Option<Shader2D>,
     active_canvas: Option<&'s Canvas>,
+
+    draw_list: DrawList,
 }
 
 impl<'a, 's> Graphics2DLock<'a, 's> {
@@ -342,46 +346,13 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
         P: Into<lyon_tessellation::math::Point>,
         I: IntoIterator<Item = P>,
     {
-        use lyon_tessellation::*;
-        let mut builder = path::Builder::new();
-        builder.polygon(&vertices.into_iter().map(Into::into).collect::<Box<[_]>>());
-        let path = builder.build();
+        let (vertices, mut indices) = stroke_polygon(vertices, color);
 
-        struct WithColor([f32; 4]);
-
-        impl StrokeVertexConstructor<Vertex2D> for WithColor {
-            fn new_vertex(
-                &mut self,
-                point: lyon_tessellation::math::Point,
-                attributes: StrokeAttributes<'_, '_>,
-            ) -> Vertex2D {
-                Vertex2D {
-                    position: [point.x, point.y],
-                    color: self.0,
-                    uv: attributes.normal().into(),
-                }
-            }
+        for i in indices.iter_mut() {
+            *i += self.vertex_offset as u32
         }
 
-        let mut buffers: VertexBuffers<Vertex2D, u32> = VertexBuffers::new();
-        {
-            let mut tessellator = StrokeTessellator::new();
-            tessellator
-                .tessellate(
-                    &path,
-                    &StrokeOptions::default().with_line_width(5.),
-                    &mut BuffersBuilder::new(&mut buffers, WithColor(color)),
-                )
-                .unwrap();
-        }
-
-        let indices = buffers
-            .indices
-            .iter()
-            .map(|i| self.vertex_offset as u32 + *i)
-            .collect::<Vec<_>>();
-
-        self.buffer_geometry(&buffers.vertices, &indices);
+        self.buffer_geometry(&vertices, &indices);
     }
 
     fn buffer_geometry(&mut self, vertices: &[Vertex2D], indices: &[u32]) {
@@ -448,7 +419,47 @@ impl<'a, 's> Graphics2DLock<'a, 's> {
 
 impl Drop for Graphics2DLock<'_, '_> {
     fn drop(&mut self) {
-        self.flush();
+        self.inner.process(&mut self.draw_list, self.ctx);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DrawState {
+    shader: Option<Shader2D>,
+    target: Option<Canvas>,
+    geometry: Box<dyn AnyGeometry<'static, Vertex2D, u32>>,
+    draw_mode: DrawMode,
+    color: Color,
+}
+
+#[derive(Debug, Clone)]
+pub enum Command {
+    Draw(DrawState),
+    Clear(Color),
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct DrawList {
+    commands: Vec<Command>,
+    color: Color,
+}
+
+pub trait ConcreteGeometry: Geometry + Clone + 'static {}
+impl<T> ConcreteGeometry for T where T: Geometry + Clone + 'static {}
+
+impl DrawList {
+    pub fn draw<G: ConcreteGeometry>(&mut self, draw_mode: DrawMode, geometry: G) {
+        self.commands.push(Command::Draw(DrawState {
+            shader: None,
+            target: None,
+            geometry: Box::new(geometry),
+            draw_mode,
+            color: self.color,
+        }))
+    }
+
+    pub fn clear<C: Into<Color>>(&mut self, color: C) {
+        self.commands.push(Command::Clear(color.into()))
     }
 }
 
@@ -490,6 +501,99 @@ impl Graphics2D {
             transforms: Default::default(),
             active_shader: None,
             active_canvas: None,
+            draw_list: Default::default(),
+        }
+    }
+
+    fn flush(&mut self, ctx: &mut Context, index_offset: usize, draw_state: &mut DrawState) {
+        let mesh = self.mesh.unmap(ctx);
+
+        let geometry = solstice::Geometry {
+            mesh,
+            draw_range: 0..index_offset,
+            draw_mode: solstice::DrawMode::Triangles,
+            instance_count: 1,
+        };
+
+        let shader = match draw_state.shader.as_mut() {
+            None => &mut self.default_shader,
+            Some(shader) => shader,
+        };
+
+        let viewport = ctx.viewport();
+        match draw_state.target.as_ref() {
+            None => {
+                shader.set_width_height(self.width, self.height, false);
+            }
+            Some(canvas) => {
+                let (width, height) = canvas.dimensions();
+                // TODO: this sort of thing might be better handled with a whole state stack push/pop
+                ctx.set_viewport(0, 0, width as _, height as _);
+                shader.set_width_height(width, height, true);
+            }
+        }
+
+        shader.activate(ctx);
+        solstice::Renderer::draw(
+            ctx,
+            shader,
+            &geometry,
+            solstice::PipelineSettings {
+                depth_state: None,
+                framebuffer: draw_state.target.as_ref().map(|c| &c.inner),
+                ..solstice::PipelineSettings::default()
+            },
+        );
+
+        // rollback the viewport change
+        if draw_state.target.is_some() {
+            ctx.set_viewport(
+                viewport.x(),
+                viewport.y(),
+                viewport.width(),
+                viewport.height(),
+            );
+        }
+    }
+
+    pub fn process(&mut self, draw_list: &mut DrawList, ctx: &mut Context) {
+        let mut vertex_offset = 0;
+        let mut index_offset = 0;
+
+        for command in draw_list.commands.drain(..) {
+            match command {
+                Command::Draw(mut draw_state) => {
+                    let geometry = &draw_state.geometry;
+                    let (vertices, mut indices) = match draw_state.draw_mode {
+                        DrawMode::Stroke => {
+                            stroke_polygon(geometry.vertices(), draw_state.color.into())
+                        }
+                        DrawMode::Fill => {
+                            (geometry.vertices().collect(), geometry.indices().collect())
+                        }
+                    };
+
+                    let will_overflow = vertex_offset + vertices.len()
+                        > self.mesh.vertex_capacity()
+                        || index_offset + indices.len() > self.mesh.index_capacity();
+
+                    if will_overflow {
+                        self.flush(ctx, index_offset, &mut draw_state);
+                        vertex_offset = 0;
+                        index_offset = 0;
+                    }
+
+                    for index in indices.iter_mut() {
+                        *index += vertex_offset as u32;
+                    }
+
+                    self.mesh.set_vertices(&vertices, vertex_offset);
+                    self.mesh.set_indices(&indices, index_offset);
+                    vertex_offset += vertices.len();
+                    index_offset += indices.len();
+                }
+                Command::Clear(_) => {}
+            }
         }
     }
 
@@ -507,7 +611,48 @@ impl Graphics2D {
     }
 }
 
-pub trait Geometry {
+fn stroke_polygon<P, I>(vertices: I, color: [f32; 4]) -> (Vec<Vertex2D>, Vec<u32>)
+where
+    P: Into<lyon_tessellation::math::Point>,
+    I: IntoIterator<Item = P>,
+{
+    use lyon_tessellation::*;
+    let mut builder = path::Builder::new();
+    builder.polygon(&vertices.into_iter().map(Into::into).collect::<Box<[_]>>());
+    let path = builder.build();
+
+    struct WithColor([f32; 4]);
+
+    impl StrokeVertexConstructor<Vertex2D> for WithColor {
+        fn new_vertex(
+            &mut self,
+            point: lyon_tessellation::math::Point,
+            attributes: StrokeAttributes<'_, '_>,
+        ) -> Vertex2D {
+            Vertex2D {
+                position: [point.x, point.y],
+                color: self.0,
+                uv: attributes.normal().into(),
+            }
+        }
+    }
+
+    let mut buffers: VertexBuffers<Vertex2D, u32> = VertexBuffers::new();
+    {
+        let mut tessellator = StrokeTessellator::new();
+        tessellator
+            .tessellate(
+                &path,
+                &StrokeOptions::default().with_line_width(5.),
+                &mut BuffersBuilder::new(&mut buffers, WithColor(color)),
+            )
+            .unwrap();
+    }
+
+    (buffers.vertices, buffers.indices)
+}
+
+pub trait Geometry: std::fmt::Debug {
     type Vertices: Iterator<Item = Vertex2D>;
     type Indices: Iterator<Item = u32>;
 
@@ -515,7 +660,7 @@ pub trait Geometry {
     fn indices(&self) -> Self::Indices;
 }
 
-pub trait SimpleConvexGeometry {
+pub trait SimpleConvexGeometry: std::fmt::Debug {
     type Vertices: Iterator<Item = Vertex2D>;
     fn vertices(&self) -> Self::Vertices;
     fn vertex_count(&self) -> usize;
@@ -645,3 +790,28 @@ impl<'a> SimpleConvexGeometry for &'a [(f64, f64)] {
         self.len()
     }
 }
+
+pub trait AnyGeometry<'a, V, I>: dyn_clone::DynClone + std::fmt::Debug
+where
+    V: solstice::vertex::Vertex,
+    I: solstice::mesh::Index,
+{
+    fn vertices(&self) -> Box<dyn Iterator<Item = V> + 'a>;
+    fn indices(&self) -> Box<dyn Iterator<Item = I> + 'a>;
+}
+
+impl<'a, V, I, G> AnyGeometry<'a, Vertex2D, u32> for G
+where
+    V: Iterator<Item = Vertex2D> + 'a,
+    I: Iterator<Item = u32> + 'a,
+    G: Geometry<Vertices = V, Indices = I> + dyn_clone::DynClone + std::fmt::Debug,
+{
+    fn vertices(&self) -> Box<dyn Iterator<Item = Vertex2D> + 'a> {
+        Box::new(Geometry::vertices(self))
+    }
+
+    fn indices(&self) -> Box<dyn Iterator<Item = u32> + 'a> {
+        Box::new(Geometry::indices(self))
+    }
+}
+dyn_clone::clone_trait_object!(AnyGeometry<'_, Vertex2D, u32>);

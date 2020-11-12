@@ -1,11 +1,11 @@
 use super::{Geometry, SimpleConvexGeometry, Vertex2D};
 
 /// An angle, in radians.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
 pub struct Rad(pub f32);
 
 /// An angle, in degrees.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
 pub struct Deg(pub f32);
 
 impl From<Rad> for Deg {
@@ -22,7 +22,7 @@ impl From<Deg> for Rad {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum ArcType {
     Pie,
     Open,
@@ -35,7 +35,7 @@ impl Default for ArcType {
     }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Arc {
     pub arc_type: ArcType,
     pub x: f32,
@@ -133,7 +133,7 @@ impl SimpleConvexGeometry for Arc {
     }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Circle {
     pub x: f32,
     pub y: f32,
