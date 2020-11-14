@@ -147,8 +147,7 @@ impl Example for Main {
             image,
         );
 
-        ctx.transforms.push();
-        ctx.set_shader(custom_shader);
+        ctx.set_shader(Some(custom_shader));
         let rectangle = Rectangle {
             x: 400. + (t * std::f32::consts::PI * 2.).sin() * 300.,
             y: 400. + (t * std::f32::consts::PI * 2.).cos() * 100.,
@@ -158,10 +157,8 @@ impl Example for Main {
         ctx.draw(DrawMode::Fill, rectangle);
         ctx.set_color([1., 0., 0., 1.]);
         ctx.draw(DrawMode::Stroke, rectangle);
-        ctx.remove_active_shader();
-        ctx.transforms.pop();
+        ctx.set_shader(None);
 
-        ctx.transforms.push();
         let arc = Arc {
             arc_type: ArcType::Pie,
             x: 800.,
@@ -196,8 +193,6 @@ impl Example for Main {
         ctx.set_color([1., 0., 1., 1.]);
         ctx.draw(DrawMode::Stroke, arc);
 
-        ctx.transforms.pop();
-
         ctx.set_color([1., 1., 1., 1.]);
         ctx.print(deja_vu_sans, "Hello, World!", 0., 128., 128.);
         ctx.set_color([0.5, 0.1, 1., 0.25]);
@@ -209,11 +204,11 @@ impl Example for Main {
         ctx.line(0., 400., 0., 0.);
 
         {
-            let t = ctx.transforms.push();
-            t.translation_x = 10.;
+            let t = Transform::translation(10., 0.);
+            ctx.set_transform(t);
             ctx.set_color([0.5, 0.1, 0.75, 0.5]);
             ctx.lines(&[(0., 0.), (400., 400.), (0., 400.), (0., 0.)]);
-            ctx.transforms.pop();
+            ctx.set_transform(Transform::default());
         }
 
         let radius = 50.;
@@ -227,15 +222,16 @@ impl Example for Main {
                 radius_x: radius,
                 radius_y: radius,
             };
-            let tx = ctx.transforms.push();
-            *tx *= Transform::translation(x, y);
-            *tx *= Transform::rotation(Rad(t * std::f32::consts::PI * 2.));
+            let mut tx = Transform::default();
+            tx *= Transform::translation(x, y);
+            tx *= Transform::rotation(Rad(t * std::f32::consts::PI * 2.));
+            ctx.set_transform(tx);
             ctx.set_color([1., 1., 1., 1.]);
             ctx.draw(DrawMode::Fill, p);
             ctx.set_color([0.1, 0.3, 0.9, 0.7]);
             ctx.draw(DrawMode::Stroke, p);
             ctx.line(0., 0., radius, 0.);
-            ctx.transforms.pop();
+            ctx.set_transform(Default::default());
         }
 
         let rectangle = Rectangle {
@@ -247,11 +243,11 @@ impl Example for Main {
         ctx.set_color([1., 1., 1., 1.]);
         for y in 0..3 {
             for x in 0..3 {
-                let tx = ctx.transforms.push();
-                *tx *=
-                    Transform::translation(rectangle.width * x as f32, rectangle.height * y as f32);
-                ctx.image(rectangle, &self.tiling_noise);
-                ctx.transforms.pop();
+                ctx.image_with_transform(
+                    rectangle,
+                    &self.tiling_noise,
+                    Transform::translation(rectangle.width * x as f32, rectangle.height * y as f32),
+                );
             }
         }
         let rectangle = Rectangle {
@@ -262,11 +258,9 @@ impl Example for Main {
         };
         for y in 0..3 {
             for x in 0..3 {
-                let tx = ctx.transforms.push();
-                *tx *=
+                let tx =
                     Transform::translation(rectangle.width * x as f32, rectangle.height * y as f32);
-                ctx.image(rectangle, &self.gen_noise);
-                ctx.transforms.pop();
+                ctx.image_with_transform(rectangle, &self.gen_noise, tx);
             }
         }
     }

@@ -49,371 +49,23 @@ impl From<shader::Shader2DError> for Graphics2DError {
 }
 
 #[must_use]
-pub struct Graphics2DLock<'a, 's> {
+pub struct Graphics2DLock<'a, 'b> {
     ctx: &'a mut Context,
-    inner: &'a mut Graphics2D,
-    color: [f32; 4],
-    index_offset: usize,
-    vertex_offset: usize,
-    pub transforms: Transforms,
-
-    active_shader: Option<Shader2D>,
-    active_canvas: Option<&'s Canvas>,
-
+    inner: &'b mut Graphics2D,
     draw_list: DrawList,
 }
 
-impl<'a, 's> Graphics2DLock<'a, 's> {
-    fn flush(&mut self) {
-        let mesh = self.inner.mesh.unmap(self.ctx);
+impl std::ops::Deref for Graphics2DLock<'_, '_> {
+    type Target = DrawList;
 
-        let geometry = solstice::Geometry {
-            mesh,
-            draw_range: 0..self.index_offset,
-            draw_mode: solstice::DrawMode::Triangles,
-            instance_count: 1,
-        };
-
-        let shader = match self.active_shader.as_mut() {
-            None => &mut self.inner.default_shader,
-            Some(shader) => shader,
-        };
-
-        let viewport = self.ctx.viewport();
-        match self.active_canvas {
-            None => {
-                shader.set_width_height(self.inner.width, self.inner.height, false);
-            }
-            Some(canvas) => {
-                let (width, height) = canvas.dimensions();
-                // TODO: this sort of thing might be better handled with a whole state stack push/pop
-                self.ctx.set_viewport(0, 0, width as _, height as _);
-                shader.set_width_height(width, height, true);
-            }
-        }
-
-        shader.activate(self.ctx);
-        solstice::Renderer::draw(
-            self.ctx,
-            shader,
-            &geometry,
-            solstice::PipelineSettings {
-                depth_state: None,
-                framebuffer: self.active_canvas.map(|c| &c.inner),
-                ..solstice::PipelineSettings::default()
-            },
-        );
-
-        // rollback the viewport change
-        if self.active_canvas.is_some() {
-            self.ctx.set_viewport(
-                viewport.x(),
-                viewport.y(),
-                viewport.width(),
-                viewport.height(),
-            );
-        }
-
-        self.index_offset = 0;
-        self.vertex_offset = 0;
+    fn deref(&self) -> &Self::Target {
+        &self.draw_list
     }
+}
 
-    pub fn clear<C: Into<[f32; 4]>>(&mut self, color: C) {
-        let [red, green, blue, alpha] = color.into();
-        let color = solstice::Color {
-            red,
-            blue,
-            green,
-            alpha,
-        };
-        solstice::Renderer::clear(
-            self.ctx,
-            solstice::ClearSettings {
-                color: Some(color.into()),
-                depth: None,
-                stencil: None,
-                target: self.active_canvas.map(|c| &c.inner),
-            },
-        )
-    }
-
-    pub fn set_shader(&mut self, shader: Shader2D) -> Option<Shader2D> {
-        self.flush();
-        self.active_shader.replace(shader)
-    }
-
-    pub fn remove_active_shader(&mut self) -> Option<Shader2D> {
-        self.flush();
-        self.active_shader.take()
-    }
-
-    pub fn set_canvas(&mut self, canvas: &'s Canvas) {
-        self.flush();
-        self.active_canvas.replace(canvas);
-    }
-
-    pub fn unset_canvas(&mut self) {
-        self.flush();
-        self.active_canvas.take();
-    }
-
-    fn shader(&self) -> &Shader2D {
-        self.active_shader
-            .as_ref()
-            .unwrap_or(&self.inner.default_shader)
-    }
-
-    fn bind_default_texture(&mut self) {
-        let texture = &self.inner.default_texture;
-        if !self.shader().is_bound(texture) {
-            self.flush();
-            let texture = &self.inner.default_texture;
-            match &mut self.active_shader {
-                Some(shader) => shader.bind_texture(texture),
-                None => self.inner.default_shader.bind_texture(texture),
-            }
-        }
-    }
-
-    fn bind_texture<T: Texture + Copy>(&mut self, texture: T) {
-        if !self.shader().is_bound(texture) {
-            self.flush();
-            match &mut self.active_shader {
-                Some(shader) => shader.bind_texture(texture),
-                None => self.inner.default_shader.bind_texture(texture),
-            }
-        }
-    }
-
-    pub fn set_color<C: Into<[f32; 4]>>(&mut self, color: C) {
-        self.color = color.into();
-    }
-
-    pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
-        self.bind_default_texture();
-        let (x1, y1) = self.transforms.current().transform_point(x1, y1);
-        let (x2, y2) = self.transforms.current().transform_point(x2, y2);
-        self.stroke_polygon([Point::new(x1, y1), Point::new(x2, y2)].iter(), self.color)
-    }
-    pub fn lines<P: Into<Point>, I: IntoIterator<Item = P>>(&mut self, points: I) {
-        let transform = *self.transforms.current();
-        let points = points.into_iter().map(|p| {
-            let point: Point = p.into();
-            Into::<lyon_tessellation::math::Point>::into(
-                transform.transform_point(point.x, point.y),
-            )
-        });
-        self.stroke_polygon(points, self.color);
-    }
-
-    pub fn image<G, T>(&mut self, geometry: G, texture: T)
-    where
-        G: Geometry,
-        T: Texture + Copy,
-    {
-        self.bind_texture(texture);
-        self.inner_draw(
-            DrawMode::Fill,
-            geometry,
-            *self.transforms.current(),
-            self.color,
-        );
-    }
-
-    pub fn image_with_transform<G, T>(&mut self, geometry: G, texture: T, transform: Transform)
-    where
-        G: Geometry,
-        T: Texture + Copy,
-    {
-        self.bind_texture(texture);
-        self.inner_draw(DrawMode::Fill, geometry, transform, self.color)
-    }
-
-    pub fn image_with_color<G, T, C>(&mut self, geometry: G, texture: T, color: C)
-    where
-        G: Geometry,
-        T: Texture + Copy,
-        C: Into<[f32; 4]>,
-    {
-        self.bind_texture(texture);
-        self.inner_draw(
-            DrawMode::Fill,
-            geometry,
-            *self.transforms.current(),
-            color.into(),
-        );
-    }
-
-    pub fn image_with_transform_and_color<G, T, C>(
-        &mut self,
-        geometry: G,
-        texture: T,
-        transform: Transform,
-        color: C,
-    ) where
-        G: Geometry,
-        T: Texture + Copy,
-        C: Into<[f32; 4]>,
-    {
-        self.bind_texture(texture);
-        self.inner_draw(DrawMode::Fill, geometry, transform, color.into());
-    }
-
-    pub fn draw<G: Geometry>(&mut self, draw_mode: DrawMode, geometry: G) {
-        self.bind_default_texture();
-        self.inner_draw(draw_mode, geometry, *self.transforms.current(), self.color);
-    }
-
-    pub fn draw_with_transform<G>(&mut self, draw_mode: DrawMode, geometry: G, transform: Transform)
-    where
-        G: Geometry,
-    {
-        self.bind_default_texture();
-        self.inner_draw(draw_mode, geometry, transform, self.color)
-    }
-
-    pub fn draw_with_color<G, C>(&mut self, draw_mode: DrawMode, geometry: G, color: C)
-    where
-        G: Geometry,
-        C: Into<[f32; 4]>,
-    {
-        self.bind_default_texture();
-        self.inner_draw(
-            draw_mode,
-            geometry,
-            *self.transforms.current(),
-            color.into(),
-        );
-    }
-
-    pub fn draw_with_transform_and_color<G, C>(
-        &mut self,
-        draw_mode: DrawMode,
-        geometry: G,
-        transform: Transform,
-        color: C,
-    ) where
-        G: Geometry,
-        C: Into<[f32; 4]>,
-    {
-        self.bind_default_texture();
-        self.inner_draw(draw_mode, geometry, transform, color.into());
-    }
-
-    fn inner_draw<G: Geometry>(
-        &mut self,
-        draw_mode: DrawMode,
-        geometry: G,
-        transform: Transform,
-        color: [f32; 4],
-    ) {
-        let transform_vertex = move |v: Vertex2D| {
-            let (x, y) = transform.transform_point(v.position[0], v.position[1]);
-            Vertex2D {
-                position: [x, y],
-                color,
-                ..v
-            }
-        };
-        match draw_mode {
-            DrawMode::Fill => {
-                let vertices = geometry
-                    .vertices()
-                    .map(transform_vertex)
-                    .collect::<Box<_>>();
-                let indices = geometry
-                    .indices()
-                    .map(|i| self.vertex_offset as u32 + i)
-                    .collect::<Box<_>>();
-                self.fill_polygon(&vertices, &indices)
-            }
-            DrawMode::Stroke => self.stroke_polygon(
-                geometry
-                    .vertices()
-                    .map(transform_vertex)
-                    .map(Into::<lyon_tessellation::math::Point>::into),
-                color,
-            ),
-        }
-    }
-
-    fn fill_polygon(&mut self, vertices: &[Vertex2D], indices: &[u32]) {
-        self.buffer_geometry(vertices, indices)
-    }
-
-    fn stroke_polygon<P, I>(&mut self, vertices: I, color: [f32; 4])
-    where
-        P: Into<lyon_tessellation::math::Point>,
-        I: IntoIterator<Item = P>,
-    {
-        let (vertices, mut indices) = stroke_polygon(vertices, color);
-
-        for i in indices.iter_mut() {
-            *i += self.vertex_offset as u32
-        }
-
-        self.buffer_geometry(&vertices, &indices);
-    }
-
-    fn buffer_geometry(&mut self, vertices: &[Vertex2D], indices: &[u32]) {
-        if self.vertex_offset + vertices.len() > self.inner.mesh.vertex_capacity()
-            || self.index_offset + indices.len() > self.inner.mesh.index_capacity()
-        {
-            // because we're flushing, all the index offsets are going to be wrong
-            // we could avoid this if we knew before that we were going overflow the mesh
-            // this is mostly straightforward except for the stroke tesselation so
-            // TODO: when lyon is removed, figure out sizes and do the overflow check earlier
-            let indices = indices
-                .iter()
-                .map(|i| *i - self.vertex_offset as u32)
-                .collect::<Vec<_>>();
-            self.flush();
-            self.inner.mesh.set_vertices(vertices, self.vertex_offset);
-            self.inner.mesh.set_indices(&indices, self.index_offset);
-        } else {
-            self.inner.mesh.set_vertices(vertices, self.vertex_offset);
-            self.inner.mesh.set_indices(indices, self.index_offset);
-        }
-        self.vertex_offset += vertices.len();
-        self.index_offset += indices.len();
-    }
-
-    pub fn print<S: AsRef<str>>(
-        &mut self,
-        font: glyph_brush::FontId,
-        text: S,
-        x: f32,
-        y: f32,
-        scale: f32,
-    ) {
-        self.flush();
-        let bounds = Rectangle {
-            x,
-            y,
-            width: self.inner.width - x,
-            height: self.inner.height - y,
-        };
-        let text = glyph_brush::Text::new(text.as_ref())
-            .with_color(self.color)
-            .with_font_id(font)
-            .with_scale(scale);
-        self.inner.text_workspace.set_text(text, bounds, self.ctx);
-
-        let invert_y = self.active_canvas.is_some();
-        let shader = &mut self.inner.text_shader;
-        shader.set_width_height(self.inner.width, self.inner.height, invert_y);
-        shader.bind_texture(self.inner.text_workspace.texture());
-        shader.activate(self.ctx);
-        let geometry = self.inner.text_workspace.geometry(self.ctx);
-        solstice::Renderer::draw(
-            self.ctx,
-            shader,
-            &geometry,
-            solstice::PipelineSettings {
-                depth_state: None,
-                ..solstice::PipelineSettings::default()
-            },
-        );
+impl std::ops::DerefMut for Graphics2DLock<'_, '_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.draw_list
     }
 }
 
@@ -423,18 +75,37 @@ impl Drop for Graphics2DLock<'_, '_> {
     }
 }
 
+#[derive(Eq, PartialEq, Clone, Debug)]
+struct TextureCache {
+    ty: solstice::texture::TextureType,
+    key: solstice::TextureKey,
+}
+
 #[derive(Debug, Clone)]
-pub struct DrawState {
+pub struct DrawCommand {
     shader: Option<Shader2D>,
     target: Option<Canvas>,
+    texture: Option<TextureCache>,
     geometry: Box<dyn AnyGeometry<'static, Vertex2D, u32>>,
     draw_mode: DrawMode,
+    color: Color,
+    transform: Transform,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrintCommand {
+    font: glyph_brush::FontId,
+    text: String,
+    x: f32,
+    y: f32,
+    scale: f32,
     color: Color,
 }
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    Draw(DrawState),
+    Draw(DrawCommand),
+    Print(PrintCommand),
     Clear(Color),
 }
 
@@ -442,25 +113,167 @@ pub enum Command {
 pub struct DrawList {
     commands: Vec<Command>,
     color: Color,
+    transform: Transform,
+    shader: Option<Shader2D>,
+    target: Option<Canvas>,
 }
 
 pub trait ConcreteGeometry: Geometry + Clone + 'static {}
 impl<T> ConcreteGeometry for T where T: Geometry + Clone + 'static {}
 
 impl DrawList {
+    pub fn set_color<C: Into<Color>>(&mut self, color: C) {
+        self.color = color.into();
+    }
+
+    pub fn set_transform(&mut self, transform: Transform) {
+        self.transform = transform;
+    }
+
+    pub fn set_shader(&mut self, shader: Option<Shader2D>) {
+        self.shader = shader;
+    }
+
+    pub fn set_canvas(&mut self, target: Option<Canvas>) {
+        self.target = target;
+    }
+
     pub fn draw<G: ConcreteGeometry>(&mut self, draw_mode: DrawMode, geometry: G) {
-        self.commands.push(Command::Draw(DrawState {
+        self.draw_with_transform_and_color(draw_mode, geometry, self.transform, self.color)
+    }
+
+    pub fn draw_with_transform<G>(&mut self, draw_mode: DrawMode, geometry: G, transform: Transform)
+    where
+        G: ConcreteGeometry,
+    {
+        self.draw_with_transform_and_color(draw_mode, geometry, transform, self.color)
+    }
+
+    pub fn draw_with_color<G, C>(&mut self, draw_mode: DrawMode, geometry: G, color: C)
+    where
+        G: ConcreteGeometry,
+        C: Into<Color>,
+    {
+        self.draw_with_transform_and_color(draw_mode, geometry, self.transform, color)
+    }
+
+    pub fn draw_with_transform_and_color<G, C>(
+        &mut self,
+        draw_mode: DrawMode,
+        geometry: G,
+        transform: Transform,
+        color: C,
+    ) where
+        G: ConcreteGeometry,
+        C: Into<Color>,
+    {
+        self.commands.push(Command::Draw(DrawCommand {
             shader: None,
             target: None,
+            texture: None,
             geometry: Box::new(geometry),
             draw_mode,
+            color: color.into(),
+            transform,
+        }))
+    }
+
+    pub fn image<G, T>(&mut self, geometry: G, texture: T)
+    where
+        G: ConcreteGeometry,
+        T: Texture + Copy,
+    {
+        self.image_with_transform_and_color(geometry, texture, self.transform, self.color)
+    }
+
+    pub fn image_with_transform<G, T>(&mut self, geometry: G, texture: T, transform: Transform)
+    where
+        G: ConcreteGeometry,
+        T: Texture + Copy,
+    {
+        self.image_with_transform_and_color(geometry, texture, transform, self.color)
+    }
+
+    pub fn image_with_color<G, T, C>(&mut self, geometry: G, texture: T, color: C)
+    where
+        G: ConcreteGeometry,
+        T: Texture + Copy,
+        C: Into<Color>,
+    {
+        self.image_with_transform_and_color(geometry, texture, self.transform, color)
+    }
+
+    pub fn image_with_transform_and_color<G, T, C>(
+        &mut self,
+        geometry: G,
+        texture: T,
+        transform: Transform,
+        color: C,
+    ) where
+        G: ConcreteGeometry,
+        T: Texture + Copy,
+        C: Into<Color>,
+    {
+        self.commands.push(Command::Draw(DrawCommand {
+            shader: None,
+            target: None,
+            texture: Some(TextureCache {
+                ty: texture.get_texture_type(),
+                key: texture.get_texture_key(),
+            }),
+            geometry: Box::new(geometry),
+            draw_mode: DrawMode::Fill,
+            color: color.into(),
+            transform,
+        }))
+    }
+
+    pub fn print<S>(&mut self, font: glyph_brush::FontId, text: S, x: f32, y: f32, scale: f32)
+    where
+        S: AsRef<str>,
+    {
+        self.commands.push(Command::Print(PrintCommand {
+            font,
+            text: text.as_ref().to_string(),
+            x,
+            y,
+            scale,
             color: self.color,
+        }))
+    }
+
+    pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
+        self.commands.push(Command::Draw(DrawCommand {
+            shader: None,
+            target: None,
+            texture: None,
+            geometry: Box::new([Point::new(x1, y1), Point::new(x2, y2)]),
+            draw_mode: DrawMode::Stroke,
+            color: self.color,
+            transform: self.transform,
+        }))
+    }
+    pub fn lines<G: SimpleConvexGeometry + Clone + 'static>(&mut self, points: G) {
+        self.commands.push(Command::Draw(DrawCommand {
+            shader: None,
+            target: None,
+            texture: None,
+            geometry: Box::new(points),
+            draw_mode: DrawMode::Stroke,
+            color: self.color,
+            transform: self.transform,
         }))
     }
 
     pub fn clear<C: Into<Color>>(&mut self, color: C) {
         self.commands.push(Command::Clear(color.into()))
     }
+}
+
+#[derive(Default, Debug)]
+struct DrawState {
+    shader: Option<Shader2D>,
+    target: Option<Canvas>,
 }
 
 pub struct Graphics2D {
@@ -495,12 +308,6 @@ impl Graphics2D {
         Graphics2DLock {
             ctx,
             inner: self,
-            color: [1., 1., 1., 1.],
-            index_offset: 0,
-            vertex_offset: 0,
-            transforms: Default::default(),
-            active_shader: None,
-            active_canvas: None,
             draw_list: Default::default(),
         }
     }
@@ -557,26 +364,44 @@ impl Graphics2D {
     }
 
     pub fn process(&mut self, draw_list: &mut DrawList, ctx: &mut Context) {
+        let mut draw_state = DrawState::default();
         let mut vertex_offset = 0;
         let mut index_offset = 0;
 
         for command in draw_list.commands.drain(..) {
             match command {
-                Command::Draw(mut draw_state) => {
-                    let geometry = &draw_state.geometry;
-                    let (vertices, mut indices) = match draw_state.draw_mode {
-                        DrawMode::Stroke => {
-                            stroke_polygon(geometry.vertices(), draw_state.color.into())
-                        }
-                        DrawMode::Fill => {
-                            (geometry.vertices().collect(), geometry.indices().collect())
+                Command::Draw(mut command) => {
+                    let geometry = &command.geometry;
+
+                    // TODO: Can we do this on the GPU with a separate buffer and/or instancing?
+                    let transform = command.transform;
+                    let color = command.color.into();
+                    let transform_vertex = move |v: Vertex2D| {
+                        let (x, y) = transform.transform_point(v.position[0], v.position[1]);
+                        Vertex2D {
+                            position: [x, y],
+                            color,
+                            ..v
                         }
                     };
+
+                    let (vertices, mut indices) = match command.draw_mode {
+                        DrawMode::Stroke => {
+                            let vertices = geometry.vertices().map(transform_vertex);
+                            stroke_polygon(vertices, command.color.into())
+                        }
+                        DrawMode::Fill => (
+                            geometry.vertices().map(transform_vertex).collect(),
+                            geometry.indices().collect(),
+                        ),
+                    };
+
+                    let shader = command.shader.as_mut().unwrap_or(&mut self.default_shader);
+                    shader.bind_texture(&self.default_texture);
 
                     let will_overflow = vertex_offset + vertices.len()
                         > self.mesh.vertex_capacity()
                         || index_offset + indices.len() > self.mesh.index_capacity();
-
                     if will_overflow {
                         self.flush(ctx, index_offset, &mut draw_state);
                         vertex_offset = 0;
@@ -592,9 +417,55 @@ impl Graphics2D {
                     vertex_offset += vertices.len();
                     index_offset += indices.len();
                 }
-                Command::Clear(_) => {}
+                Command::Print(PrintCommand {
+                    font,
+                    text,
+                    x,
+                    y,
+                    scale,
+                    color,
+                }) => {
+                    self.flush(ctx, index_offset, &mut draw_state);
+                    let bounds = Rectangle {
+                        x,
+                        y,
+                        width: self.width - x,
+                        height: self.height - y,
+                    };
+                    let text = glyph_brush::Text::new(text.as_str())
+                        .with_color(color)
+                        .with_font_id(font)
+                        .with_scale(scale);
+                    self.text_workspace.set_text(text, bounds, ctx);
+
+                    let invert_y = draw_state.target.is_some();
+                    let shader = &mut self.text_shader;
+                    shader.set_width_height(self.width, self.height, invert_y);
+                    shader.bind_texture(self.text_workspace.texture());
+                    shader.activate(ctx);
+                    let geometry = self.text_workspace.geometry(ctx);
+                    solstice::Renderer::draw(
+                        ctx,
+                        shader,
+                        &geometry,
+                        solstice::PipelineSettings {
+                            depth_state: None,
+                            ..solstice::PipelineSettings::default()
+                        },
+                    );
+                }
+                Command::Clear(color) => solstice::Renderer::clear(
+                    ctx,
+                    solstice::ClearSettings {
+                        color: Some(color.into()),
+                        depth: None,
+                        stencil: None,
+                        target: None,
+                    },
+                ),
             }
         }
+        self.flush(ctx, index_offset, &mut draw_state);
     }
 
     pub fn add_font(&mut self, font_data: glyph_brush::ab_glyph::FontVec) -> glyph_brush::FontId {

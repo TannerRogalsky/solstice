@@ -12,9 +12,9 @@ impl Example for BlendExample {
         let canvas = solstice_2d::Canvas::new(&mut ctx.ctx, width, height)?;
         {
             let mut d2 = ctx.ctx2d.start(&mut ctx.ctx);
-            d2.set_canvas(&canvas);
+            d2.set_canvas(Some(canvas.clone()));
             d2.clear([1., 0., 0., 1.]);
-            d2.unset_canvas();
+            d2.set_canvas(None);
         }
         Ok(Self { canvas })
     }

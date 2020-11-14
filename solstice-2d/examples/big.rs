@@ -42,14 +42,14 @@ impl Example for Big {
             let dy = phi.sin() * half_height * radius;
 
             let color = to_rgba(ratio * TAU + t, 1.0, 0.5);
-            ctx.set_color(color);
-            ctx.draw(
+            ctx.draw_with_color(
                 DrawMode::Fill,
                 Circle {
                     x: ox + dx,
                     y: oy + dy,
                     ..circle
                 },
+                color,
             );
         }
     }
