@@ -197,7 +197,7 @@ impl DrawList {
     pub fn image<G, T>(&mut self, geometry: G, texture: T)
     where
         G: ConcreteGeometry,
-        T: Texture + Copy,
+        T: Texture,
     {
         self.image_with_transform_and_color(geometry, texture, self.transform, self.color)
     }
@@ -205,7 +205,7 @@ impl DrawList {
     pub fn image_with_transform<G, T>(&mut self, geometry: G, texture: T, transform: Transform)
     where
         G: ConcreteGeometry,
-        T: Texture + Copy,
+        T: Texture,
     {
         self.image_with_transform_and_color(geometry, texture, transform, self.color)
     }
@@ -213,7 +213,7 @@ impl DrawList {
     pub fn image_with_color<G, T, C>(&mut self, geometry: G, texture: T, color: C)
     where
         G: ConcreteGeometry,
-        T: Texture + Copy,
+        T: Texture,
         C: Into<Color>,
     {
         self.image_with_transform_and_color(geometry, texture, self.transform, color)
@@ -227,7 +227,7 @@ impl DrawList {
         color: C,
     ) where
         G: ConcreteGeometry,
-        T: Texture + Copy,
+        T: Texture,
         C: Into<Color>,
     {
         self.commands.push(Command::Draw(DrawCommand {
