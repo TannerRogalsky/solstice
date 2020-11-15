@@ -25,7 +25,7 @@ struct TextureCache {
 const MAX_TEXTURE_UNITS: usize = 8;
 
 #[allow(unused)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Shader2D {
     inner: solstice::shader::DynamicShader,
 

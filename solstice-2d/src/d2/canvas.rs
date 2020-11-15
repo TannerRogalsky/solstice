@@ -1,7 +1,7 @@
 use solstice::texture::{TextureInfo, TextureType};
 use solstice::{canvas as s, TextureKey};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Canvas {
     pub inner: solstice::canvas::Canvas,
 }
