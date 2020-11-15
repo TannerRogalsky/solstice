@@ -29,7 +29,7 @@ impl Default for Settings {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Image {
     texture_key: super::TextureKey,
     texture_info: TextureInfo,
