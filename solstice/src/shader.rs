@@ -21,7 +21,7 @@ pub struct Uniform {
     pub initial_data: RawUniformValue,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub enum RawUniformValue {
     SignedInt(i32),
     //    UnsignedInt(u32),
