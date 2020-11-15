@@ -184,8 +184,8 @@ impl DrawList {
         C: Into<Color>,
     {
         self.commands.push(Command::Draw(DrawCommand {
-            shader: None,
-            target: None,
+            shader: self.shader.clone(),
+            target: self.target.clone(),
             texture: None,
             geometry: Box::new(geometry),
             draw_mode,
@@ -231,8 +231,8 @@ impl DrawList {
         C: Into<Color>,
     {
         self.commands.push(Command::Draw(DrawCommand {
-            shader: None,
-            target: None,
+            shader: self.shader.clone(),
+            target: self.target.clone(),
             texture: Some(TextureCache {
                 ty: texture.get_texture_type(),
                 key: texture.get_texture_key(),
