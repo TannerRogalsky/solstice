@@ -1,4 +1,4 @@
-use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context};
+use solstice::{mesh::MappedIndexedMesh, texture::Texture, Context, TextureKey};
 
 mod canvas;
 mod color;
@@ -13,6 +13,7 @@ pub use color::*;
 pub use glyph_brush::{ab_glyph::FontVec, FontId};
 pub use shader::Shader2D;
 pub use shapes::*;
+use solstice::texture::{TextureInfo, TextureType};
 pub use transforms::*;
 pub use vertex::{Point, Vertex2D};
 
@@ -75,10 +76,25 @@ impl Drop for Graphics2DLock<'_, '_> {
     }
 }
 
-#[derive(Eq, PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 struct TextureCache {
     ty: solstice::texture::TextureType,
     key: solstice::TextureKey,
+    info: solstice::texture::TextureInfo,
+}
+
+impl solstice::texture::Texture for &TextureCache {
+    fn get_texture_key(&self) -> TextureKey {
+        self.key
+    }
+
+    fn get_texture_type(&self) -> TextureType {
+        self.ty
+    }
+
+    fn get_texture_info(&self) -> TextureInfo {
+        self.info
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -106,7 +122,7 @@ pub struct PrintCommand {
 pub enum Command {
     Draw(DrawCommand),
     Print(PrintCommand),
-    Clear(Color),
+    Clear(Color, Option<Canvas>),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -220,6 +236,7 @@ impl DrawList {
             texture: Some(TextureCache {
                 ty: texture.get_texture_type(),
                 key: texture.get_texture_key(),
+                info: texture.get_texture_info(),
             }),
             geometry: Box::new(geometry),
             draw_mode: DrawMode::Fill,
@@ -266,14 +283,16 @@ impl DrawList {
     }
 
     pub fn clear<C: Into<Color>>(&mut self, color: C) {
-        self.commands.push(Command::Clear(color.into()))
+        let command = Command::Clear(color.into(), self.target.clone());
+        self.commands.push(command)
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq)]
 struct DrawState {
     shader: Option<Shader2D>,
     target: Option<Canvas>,
+    texture: Option<TextureCache>,
 }
 
 pub struct Graphics2D {
@@ -370,7 +389,7 @@ impl Graphics2D {
 
         for command in draw_list.commands.drain(..) {
             match command {
-                Command::Draw(mut command) => {
+                Command::Draw(command) => {
                     let geometry = &command.geometry;
 
                     // TODO: Can we do this on the GPU with a separate buffer and/or instancing?
@@ -396,8 +415,28 @@ impl Graphics2D {
                         ),
                     };
 
-                    let shader = command.shader.as_mut().unwrap_or(&mut self.default_shader);
-                    shader.bind_texture(&self.default_texture);
+                    let state = DrawState {
+                        shader: command.shader,
+                        target: command.target,
+                        texture: command.texture,
+                    };
+
+                    if std::cmp::PartialEq::ne(&state, &draw_state) {
+                        self.flush(ctx, index_offset, &mut draw_state);
+                        vertex_offset = 0;
+                        index_offset = 0;
+                    }
+
+                    draw_state = state;
+
+                    let shader = draw_state
+                        .shader
+                        .as_mut()
+                        .unwrap_or(&mut self.default_shader);
+                    match &draw_state.texture {
+                        None => shader.bind_texture(&self.default_texture),
+                        Some(texture) => shader.bind_texture(texture),
+                    }
 
                     let will_overflow = vertex_offset + vertices.len()
                         > self.mesh.vertex_capacity()
@@ -454,13 +493,13 @@ impl Graphics2D {
                         },
                     );
                 }
-                Command::Clear(color) => solstice::Renderer::clear(
+                Command::Clear(color, target) => solstice::Renderer::clear(
                     ctx,
                     solstice::ClearSettings {
                         color: Some(color.into()),
                         depth: None,
                         stencil: None,
-                        target: None,
+                        target: target.as_ref().map(|c| &c.inner),
                     },
                 ),
             }
