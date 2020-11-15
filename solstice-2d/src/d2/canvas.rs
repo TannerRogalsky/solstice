@@ -28,6 +28,20 @@ impl Canvas {
     }
 }
 
+impl solstice::texture::Texture for Canvas {
+    fn get_texture_key(&self) -> TextureKey {
+        self.inner.get_texture_key()
+    }
+
+    fn get_texture_type(&self) -> TextureType {
+        self.inner.get_texture_type()
+    }
+
+    fn get_texture_info(&self) -> TextureInfo {
+        self.inner.get_texture_info()
+    }
+}
+
 impl solstice::texture::Texture for &Canvas {
     fn get_texture_key(&self) -> TextureKey {
         self.inner.get_texture_key()
