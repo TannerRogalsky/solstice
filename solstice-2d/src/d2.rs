@@ -675,6 +675,31 @@ impl<'a> SimpleConvexGeometry for &'a [Vertex2D] {
     }
 }
 
+impl<'a> SimpleConvexGeometry for &'a [Point] {
+    type Vertices =
+    std::iter::Map<std::slice::Iter<'a, Point>, fn(&'a Point) -> Vertex2D>;
+
+    fn vertices(&self) -> Self::Vertices {
+        self.iter().map(|p| (*p).into())
+    }
+
+    fn vertex_count(&self) -> usize {
+        self.len()
+    }
+}
+
+impl<'a> SimpleConvexGeometry for Vec<Point> {
+    type Vertices = std::iter::Map<std::vec::IntoIter<Point>, fn(Point) -> Vertex2D>;
+
+    fn vertices(&self) -> Self::Vertices {
+        self.clone().into_iter().map(Into::into)
+    }
+
+    fn vertex_count(&self) -> usize {
+        self.len()
+    }
+}
+
 impl<'a> SimpleConvexGeometry for &'a [(f32, f32)] {
     type Vertices =
         std::iter::Map<std::slice::Iter<'a, (f32, f32)>, fn(&'a (f32, f32)) -> Vertex2D>;
