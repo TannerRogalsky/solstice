@@ -1,7 +1,8 @@
-pub use solstice;
-
 mod d2;
+pub mod d3;
+
 pub use d2::*;
+pub use solstice;
 
 type ImageResult = Result<solstice::image::Image, solstice::GraphicsError>;
 

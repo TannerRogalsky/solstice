@@ -2,6 +2,7 @@ pub struct ExampleContext {
     pub window: glutin::WindowedContext<glutin::PossiblyCurrent>,
     pub ctx: solstice::Context,
     pub ctx2d: solstice_2d::Graphics2D,
+    pub ctx3d: solstice_2d::d3::Graphics3D,
 }
 
 impl ExampleContext {
@@ -41,11 +42,13 @@ pub trait Example: Sized {
         };
         let mut context = solstice::Context::new(glow_ctx);
         let d2 = solstice_2d::Graphics2D::new(&mut context, width as _, height as _).unwrap();
+        let d3 = solstice_2d::d3::Graphics3D::new(&mut context, width as _, height as _).unwrap();
 
         let mut ctx = ExampleContext {
             window,
             ctx: context,
             ctx2d: d2,
+            ctx3d: d3,
         };
         let mut example = Self::new(&mut ctx).unwrap();
 
