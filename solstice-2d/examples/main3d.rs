@@ -51,15 +51,27 @@ impl Example for Main {
             dl.set_canvas(None);
         }
 
-        let tx = Transform::translation(0., 0., -2.0);
-        let tx = tx
-            * Transform::rotation(
-                Rad(0.),
-                Rad(t * std::f32::consts::PI * 2.),
-                Rad(t * std::f32::consts::PI * 2.),
-            );
-        let box_geometry = Box::default();
-        dl.image_with_transform(box_geometry, &self.canvas, tx);
+        let radius = 1.0;
+        let color = [0.2, 0.4, 0.8, 1.0];
+        let rotation = Transform::rotation(
+            Rad(0.),
+            Rad(t * std::f32::consts::PI * 2.),
+            Rad(t * std::f32::consts::PI * 2.),
+        );
+
+        let polyhedra = vec![
+            Polyhedron::tetrahedron(radius, 0),
+            Polyhedron::octahedron(radius, 0),
+            Polyhedron::icosahedron(radius, 0),
+            Polyhedron::dodecahedron(radius, 0),
+        ];
+
+        let count = polyhedra.len() - 1;
+        for (index, polyhedron) in polyhedra.into_iter().enumerate() {
+            let x = ((index as f32 / count as f32) - 0.5) * 2.0 * radius * 4.0;
+            let tx = Transform::translation(x, 0.0, -4.0) * rotation;
+            dl.draw_with_color_and_transform(polyhedron, color, tx);
+        }
 
         ctx.ctx3d.process(&mut ctx.ctx, &mut dl);
     }

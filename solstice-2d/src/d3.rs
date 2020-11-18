@@ -103,19 +103,31 @@ pub trait Draw<V: solstice::vertex::Vertex, G: Geometry<V> + Clone + 'static> {
     fn draw(&mut self, geometry: G);
     fn draw_with_transform<TX: Into<Transform>>(&mut self, geometry: G, transform: TX);
     fn draw_with_color<C: Into<Color>>(&mut self, geometry: G, color: C);
-    fn draw_with_color_and_transform<TX: Into<Transform>, C: Into<Color>>(
+    fn draw_with_color_and_transform<C: Into<Color>, TX: Into<Transform>>(
         &mut self,
         geometry: G,
         color: C,
         transform: TX,
     );
     fn image<T: Texture>(&mut self, geometry: G, texture: T);
-    fn image_with_transform<T: Texture, TX: Into<Transform>>(
+    fn image_with_color<T, C>(&mut self, geometry: G, texture: T, color: C)
+    where
+        T: Texture,
+        C: Into<Color>;
+    fn image_with_transform<T, TX>(&mut self, geometry: G, texture: T, transform: TX)
+    where
+        T: Texture,
+        TX: Into<Transform>;
+    fn image_with_color_and_transform<T, C, TX>(
         &mut self,
         geometry: G,
         texture: T,
+        color: C,
         transform: TX,
-    );
+    ) where
+        T: Texture,
+        C: Into<Color>,
+        TX: Into<Transform>;
 }
 
 impl<G> Draw<Vertex3D, G> for DrawList
@@ -134,7 +146,7 @@ where
         self.draw_with_color_and_transform(geometry, color, Transform::default())
     }
 
-    fn draw_with_color_and_transform<TX: Into<Transform>, C: Into<Color>>(
+    fn draw_with_color_and_transform<C: Into<Color>, TX: Into<Transform>>(
         &mut self,
         geometry: G,
         color: C,
@@ -150,7 +162,15 @@ where
     }
 
     fn image<T: Texture>(&mut self, geometry: G, texture: T) {
-        self.image_with_transform(geometry, texture, Transform::default())
+        self.image_with_color_and_transform(geometry, texture, self.color, Transform::default())
+    }
+
+    fn image_with_color<T, C>(&mut self, geometry: G, texture: T, color: C)
+    where
+        T: Texture,
+        C: Into<Color>,
+    {
+        self.image_with_color_and_transform(geometry, texture, color, Transform::default())
     }
 
     fn image_with_transform<T, TX>(&mut self, geometry: G, texture: T, transform: TX)
@@ -158,10 +178,24 @@ where
         T: Texture,
         TX: Into<Transform>,
     {
+        self.image_with_color_and_transform(geometry, texture, self.color, transform)
+    }
+
+    fn image_with_color_and_transform<T, C, TX>(
+        &mut self,
+        geometry: G,
+        texture: T,
+        color: C,
+        transform: TX,
+    ) where
+        T: Texture,
+        C: Into<Color>,
+        TX: Into<Transform>,
+    {
         self.commands.push(Command::Draw(DrawState {
             geometry: GeometryVariants::D3(std::boxed::Box::new(geometry)),
             transform: transform.into(),
-            color: self.color,
+            color: color.into(),
             texture: Some(TextureCache {
                 ty: texture.get_texture_type(),
                 key: texture.get_texture_key(),
@@ -188,7 +222,7 @@ where
         self.draw_with_color_and_transform(geometry, color, Transform::default())
     }
 
-    fn draw_with_color_and_transform<TX: Into<Transform>, C: Into<Color>>(
+    fn draw_with_color_and_transform<C: Into<Color>, TX: Into<Transform>>(
         &mut self,
         geometry: G,
         color: C,
@@ -204,7 +238,15 @@ where
     }
 
     fn image<T: Texture>(&mut self, geometry: G, texture: T) {
-        self.image_with_transform(geometry, texture, Transform::default())
+        self.image_with_color_and_transform(geometry, texture, self.color, Transform::default())
+    }
+
+    fn image_with_color<T, C>(&mut self, geometry: G, texture: T, color: C)
+    where
+        T: Texture,
+        C: Into<Color>,
+    {
+        self.image_with_color_and_transform(geometry, texture, color, Transform::default())
     }
 
     fn image_with_transform<T, TX>(&mut self, geometry: G, texture: T, transform: TX)
@@ -212,10 +254,24 @@ where
         T: Texture,
         TX: Into<Transform>,
     {
+        self.image_with_color_and_transform(geometry, texture, self.color, transform)
+    }
+
+    fn image_with_color_and_transform<T, C, TX>(
+        &mut self,
+        geometry: G,
+        texture: T,
+        color: C,
+        transform: TX,
+    ) where
+        T: Texture,
+        C: Into<Color>,
+        TX: Into<Transform>,
+    {
         self.commands.push(Command::Draw(DrawState {
             geometry: GeometryVariants::D2(std::boxed::Box::new(geometry)),
             transform: transform.into(),
-            color: self.color,
+            color: color.into(),
             texture: Some(TextureCache {
                 ty: texture.get_texture_type(),
                 key: texture.get_texture_key(),
