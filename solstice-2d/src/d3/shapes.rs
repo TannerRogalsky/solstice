@@ -41,7 +41,7 @@ impl Default for Box {
     }
 }
 
-impl super::Geometry for Box {
+impl crate::Geometry<super::Vertex3D> for Box {
     type Vertices = std::vec::IntoIter<super::Vertex3D>;
     type Indices = std::vec::IntoIter<u32>;
 

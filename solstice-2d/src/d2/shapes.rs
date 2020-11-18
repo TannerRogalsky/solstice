@@ -220,7 +220,7 @@ impl Rectangle {
     }
 }
 
-impl Geometry for Rectangle {
+impl Geometry<Vertex2D> for Rectangle {
     type Vertices = std::vec::IntoIter<Vertex2D>;
     type Indices = std::iter::Copied<std::slice::Iter<'static, u32>>;
 

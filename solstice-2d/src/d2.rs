@@ -8,6 +8,7 @@ mod text;
 mod transforms;
 mod vertex;
 
+use crate::Geometry;
 pub use canvas::Canvas;
 pub use color::*;
 pub use glyph_brush::{ab_glyph::FontVec, FontId};
@@ -102,7 +103,7 @@ pub struct DrawCommand {
     shader: Option<Shader2D>,
     target: Option<Canvas>,
     texture: Option<TextureCache>,
-    geometry: Box<dyn AnyGeometry<'static, Vertex2D, u32>>,
+    geometry: Box<dyn BoxedGeometry<'static, Vertex2D, u32>>,
     draw_mode: DrawMode,
     color: Color,
     transform: Transform,
@@ -134,8 +135,8 @@ pub struct DrawList {
     target: Option<Canvas>,
 }
 
-pub trait ConcreteGeometry: Geometry + Clone + 'static {}
-impl<T> ConcreteGeometry for T where T: Geometry + Clone + 'static {}
+pub trait ConcreteGeometry: Geometry<Vertex2D> + Clone + 'static {}
+impl<T> ConcreteGeometry for T where T: Geometry<Vertex2D> + Clone + 'static {}
 
 impl DrawList {
     pub fn set_color<C: Into<Color>>(&mut self, color: C) {
@@ -562,21 +563,13 @@ where
     (buffers.vertices, buffers.indices)
 }
 
-pub trait Geometry: std::fmt::Debug {
-    type Vertices: Iterator<Item = Vertex2D>;
-    type Indices: Iterator<Item = u32>;
-
-    fn vertices(&self) -> Self::Vertices;
-    fn indices(&self) -> Self::Indices;
-}
-
 pub trait SimpleConvexGeometry: std::fmt::Debug {
     type Vertices: Iterator<Item = Vertex2D>;
     fn vertices(&self) -> Self::Vertices;
     fn vertex_count(&self) -> usize;
 }
 
-impl<T: SimpleConvexGeometry> Geometry for T {
+impl<T: SimpleConvexGeometry> Geometry<Vertex2D> for T {
     type Vertices = T::Vertices;
     type Indices = std::iter::FlatMap<
         std::ops::Range<u32>,
@@ -725,7 +718,7 @@ impl<'a> SimpleConvexGeometry for &'a [(f64, f64)] {
     }
 }
 
-pub trait AnyGeometry<'a, V, I>: dyn_clone::DynClone + std::fmt::Debug
+pub trait BoxedGeometry<'a, V, I>: dyn_clone::DynClone + std::fmt::Debug
 where
     V: solstice::vertex::Vertex,
     I: solstice::mesh::Index,
@@ -734,11 +727,11 @@ where
     fn indices(&self) -> Box<dyn Iterator<Item = I> + 'a>;
 }
 
-impl<'a, V, I, G> AnyGeometry<'a, Vertex2D, u32> for G
+impl<'a, V, I, G> BoxedGeometry<'a, Vertex2D, u32> for G
 where
     V: Iterator<Item = Vertex2D> + 'a,
     I: Iterator<Item = u32> + 'a,
-    G: Geometry<Vertices = V, Indices = I> + dyn_clone::DynClone + std::fmt::Debug,
+    G: Geometry<Vertex2D, Vertices = V, Indices = I> + dyn_clone::DynClone + std::fmt::Debug,
 {
     fn vertices(&self) -> Box<dyn Iterator<Item = Vertex2D> + 'a> {
         Box::new(Geometry::vertices(self))
@@ -748,4 +741,4 @@ where
         Box::new(Geometry::indices(self))
     }
 }
-dyn_clone::clone_trait_object!(AnyGeometry<'_, Vertex2D, u32>);
+dyn_clone::clone_trait_object!(BoxedGeometry<'_, Vertex2D, u32>);

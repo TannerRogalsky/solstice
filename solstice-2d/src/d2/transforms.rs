@@ -113,8 +113,8 @@ impl Into<mint::ColumnMatrix4<f32>> for Transform {
                 w: 0.,
             },
             y: mint::Vector4 {
-                x: self.scale_y,
-                y: self.skew_x,
+                x: self.skew_x,
+                y: self.scale_y,
                 z: 0.,
                 w: 0.,
             },

@@ -4,6 +4,14 @@ pub mod d3;
 pub use d2::*;
 pub use solstice;
 
+pub trait Geometry<V: solstice::vertex::Vertex>: std::fmt::Debug {
+    type Vertices: Iterator<Item = V>;
+    type Indices: Iterator<Item = u32>;
+
+    fn vertices(&self) -> Self::Vertices;
+    fn indices(&self) -> Self::Indices;
+}
+
 type ImageResult = Result<solstice::image::Image, solstice::GraphicsError>;
 
 pub fn create_default_texture(gl: &mut solstice::Context) -> ImageResult {

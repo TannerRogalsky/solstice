@@ -1,9 +1,9 @@
 #[derive(Copy, Clone, Debug)]
 pub struct Color {
-    red: f32,
-    green: f32,
-    blue: f32,
-    alpha: f32,
+    pub red: f32,
+    pub green: f32,
+    pub blue: f32,
+    pub alpha: f32,
 }
 
 impl Color {
@@ -52,6 +52,17 @@ impl Into<solstice::Color<solstice::ClampedF32>> for Color {
             blue: self.blue.into(),
             green: self.green.into(),
             alpha: self.alpha.into(),
+        }
+    }
+}
+
+impl Into<mint::Vector4<f32>> for Color {
+    fn into(self) -> mint::Vector4<f32> {
+        mint::Vector4 {
+            x: self.red,
+            y: self.green,
+            z: self.blue,
+            w: self.alpha,
         }
     }
 }

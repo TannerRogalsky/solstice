@@ -239,6 +239,10 @@ impl Shader3D {
         self.projection_cache = projection_cache.into();
     }
 
+    pub fn set_color(&mut self, c: crate::Color) {
+        self.color_cache = c.into()
+    }
+
     pub fn bind_texture<T: solstice::texture::Texture>(&mut self, texture: T) {
         self.textures[0].key = texture.get_texture_key();
         self.textures[0].ty = texture.get_texture_type();
@@ -275,7 +279,7 @@ impl Shader3D {
     }
 
     pub fn activate(&mut self, ctx: &mut Context) {
-        use solstice::shader::RawUniformValue::{Mat4, SignedInt};
+        use solstice::shader::RawUniformValue::{Mat4, SignedInt, Vec4};
         ctx.use_shader(Some(&self.inner));
         for (index, texture) in self.textures.iter().enumerate() {
             if let Some(location) = &texture.location {
@@ -288,6 +292,9 @@ impl Shader3D {
             if let Some(uniform) = uniform {
                 ctx.set_uniform_by_location(&uniform.location, data);
             }
+        }
+        if let Some(u) = self.color_location.as_ref() {
+            ctx.set_uniform_by_location(u, &Vec4(self.color_cache));
         }
         ctx.set_uniform_by_location(&self.projection_location, &Mat4(self.projection_cache));
     }

@@ -1,8 +1,16 @@
 use crate::Rad;
 
-#[derive(Debug, Copy, Clone, Default, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Transform {
     pub inner: nalgebra::Matrix4<f32>,
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Self {
+            inner: nalgebra::Matrix4::identity(),
+        }
+    }
 }
 
 impl Transform {
@@ -42,5 +50,12 @@ impl std::ops::Mul for Transform {
 impl std::ops::MulAssign for Transform {
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
+    }
+}
+
+impl From<crate::Transform> for Transform {
+    fn from(t: crate::Transform) -> Self {
+        let t: mint::ColumnMatrix4<f32> = t.into();
+        Self { inner: t.into() }
     }
 }
