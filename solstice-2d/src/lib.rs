@@ -9,6 +9,32 @@ pub use solstice;
 
 use solstice::{image::Image, mesh::MappedIndexedMesh, texture::Texture, Context};
 
+pub struct GraphicsLock<'a> {
+    ctx: &'a mut Context,
+    gfx: &'a mut Graphics,
+    dl: DrawList,
+}
+
+impl std::ops::Deref for GraphicsLock<'_> {
+    type Target = DrawList;
+
+    fn deref(&self) -> &Self::Target {
+        &self.dl
+    }
+}
+
+impl std::ops::DerefMut for GraphicsLock<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.dl
+    }
+}
+
+impl std::ops::Drop for GraphicsLock<'_> {
+    fn drop(&mut self) {
+        self.gfx.process(self.ctx, &mut self.dl)
+    }
+}
+
 pub struct Graphics {
     mesh3d: MappedIndexedMesh<Vertex3D, u32>,
     mesh2d: MappedIndexedMesh<Vertex2D, u32>,
@@ -23,8 +49,7 @@ impl Graphics {
     pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, GraphicsError> {
         let mesh2d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
         let mesh3d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
-        // FIXME: NO UNWRAP
-        let default_shader = Shader::new(ctx).unwrap();
+        let default_shader = Shader::new(ctx)?;
         let default_texture = create_default_texture(ctx)?;
 
         let text_workspace = text::Text::new(ctx)?;
@@ -38,6 +63,14 @@ impl Graphics {
             width,
             height,
         })
+    }
+
+    pub fn lock<'a>(&'a mut self, ctx: &'a mut Context) -> GraphicsLock<'a> {
+        GraphicsLock {
+            ctx,
+            gfx: self,
+            dl: Default::default(),
+        }
     }
 
     pub fn add_font(&mut self, font_data: glyph_brush::ab_glyph::FontVec) -> glyph_brush::FontId {
@@ -60,10 +93,14 @@ impl Graphics {
                         color,
                         texture,
                         target,
+                        mut shader,
                     } = draw_state;
                     match geometry {
                         GeometryVariants::D2(geometry) => {
                             let transform_verts = |mut v: Vertex2D| -> Vertex2D {
+                                let [x, y] = v.position;
+                                let [x, y, _] = transform.transform_point(x, y, 0.);
+                                v.position = [x, y];
                                 v.color = color.into();
                                 v
                             };
@@ -90,25 +127,28 @@ impl Graphics {
                                 draw_mode: solstice::DrawMode::Triangles,
                                 instance_count: 1,
                             };
-                            self.default_shader.set_width_height(
+                            let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
+                            shader.set_width_height(
                                 Projection::Orthographic,
                                 self.width,
                                 self.height,
                                 false,
                             );
-                            self.default_shader.send_uniform(
+                            shader.send_uniform(
                                 "uModel",
-                                solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
+                                solstice::shader::RawUniformValue::Mat4(
+                                    Transform2D::default().into(),
+                                ),
                             );
-                            self.default_shader.set_color(draw_state.color);
+                            shader.set_color(Color::default());
                             match texture.as_ref() {
-                                None => self.default_shader.bind_texture(&self.default_texture),
-                                Some(texture) => self.default_shader.bind_texture(texture),
+                                None => shader.bind_texture(&self.default_texture),
+                                Some(texture) => shader.bind_texture(texture),
                             }
-                            self.default_shader.activate(ctx);
+                            shader.activate(ctx);
                             solstice::Renderer::draw(
                                 ctx,
-                                &self.default_shader,
+                                shader,
                                 &geometry,
                                 solstice::PipelineSettings {
                                     depth_state: None,
@@ -129,25 +169,26 @@ impl Graphics {
                                 draw_mode: solstice::DrawMode::Triangles,
                                 instance_count: 1,
                             };
-                            self.default_shader.set_width_height(
+                            let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
+                            shader.set_width_height(
                                 Projection::Perspective,
                                 self.width,
                                 self.height,
                                 false,
                             );
-                            self.default_shader.send_uniform(
+                            shader.send_uniform(
                                 "uModel",
                                 solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
                             );
-                            self.default_shader.set_color(draw_state.color);
+                            shader.set_color(draw_state.color);
                             match texture.as_ref() {
-                                None => self.default_shader.bind_texture(&self.default_texture),
-                                Some(texture) => self.default_shader.bind_texture(texture),
+                                None => shader.bind_texture(&self.default_texture),
+                                Some(texture) => shader.bind_texture(texture),
                             }
-                            self.default_shader.activate(ctx);
+                            shader.activate(ctx);
                             solstice::Renderer::draw(
                                 ctx,
-                                &self.default_shader,
+                                shader,
                                 &geometry,
                                 solstice::PipelineSettings {
                                     framebuffer: target.as_ref().map(|c| &c.inner),
@@ -316,6 +357,7 @@ pub struct DrawState {
     color: Color,
     texture: Option<TextureCache>,
     target: Option<Canvas>,
+    shader: Option<Shader>,
 }
 
 #[derive(Clone, Debug)]

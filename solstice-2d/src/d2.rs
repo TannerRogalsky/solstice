@@ -45,6 +45,7 @@ where
             color: color.into(),
             texture: None,
             target: self.target.clone(),
+            shader: self.shader.clone(),
         }))
     }
 
@@ -73,6 +74,7 @@ where
             color: color.into(),
             texture: None,
             target: self.target.clone(),
+            shader: self.shader.clone(),
         }))
     }
 
@@ -118,6 +120,7 @@ where
                 info: texture.get_texture_info(),
             }),
             target: self.target.clone(),
+            shader: self.shader.clone(),
         }))
     }
 }

@@ -35,6 +35,12 @@ impl Transform3D {
             inner: nalgebra::Matrix4::new_nonuniform_scaling(&nalgebra::Vector3::new(x, y, z)),
         }
     }
+
+    pub fn transform_point(&self, x: f32, y: f32, z: f32) -> [f32; 3] {
+        let p = nalgebra::Vector4::new(x, y, z, 1.0);
+        let p = self.inner.clone() * p;
+        [p.x, p.y, p.z]
+    }
 }
 
 impl std::ops::Mul for Transform3D {
