@@ -82,6 +82,10 @@ impl Graphics {
         self.height = height;
     }
 
+    pub fn dimensions(&self) -> [f32; 2] {
+        [self.width, self.height]
+    }
+
     pub fn process(&mut self, ctx: &mut Context, draw_list: &mut DrawList) {
         for command in draw_list.commands.drain(..) {
             match command {
