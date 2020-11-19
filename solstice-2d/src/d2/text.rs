@@ -27,7 +27,7 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) 
 "#;
 
 impl Text {
-    pub fn new(ctx: &mut Context) -> Result<Self, super::Graphics2DError> {
+    pub fn new(ctx: &mut Context) -> Result<Self, crate::GraphicsError> {
         let glyph_brush = glyph_brush::GlyphBrushBuilder::using_fonts(vec![]).build();
 
         let font_texture = {

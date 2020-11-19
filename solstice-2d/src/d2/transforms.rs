@@ -1,5 +1,5 @@
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Transform {
+pub struct Transform2D {
     pub translation_x: f32,
     pub translation_y: f32,
     pub scale_x: f32,
@@ -8,7 +8,7 @@ pub struct Transform {
     pub skew_y: f32,
 }
 
-impl Default for Transform {
+impl Default for Transform2D {
     fn default() -> Self {
         Self {
             translation_x: 0.,
@@ -21,7 +21,7 @@ impl Default for Transform {
     }
 }
 
-impl Transform {
+impl Transform2D {
     pub fn rotation<R: Into<super::Rad>>(phi: R) -> Self {
         let phi = phi.into();
         let (sin, cos) = phi.0.sin_cos();
@@ -58,7 +58,7 @@ impl Transform {
     }
 }
 
-impl std::ops::Mul for Transform {
+impl std::ops::Mul for Transform2D {
     type Output = Self;
 
     fn mul(mut self, rhs: Self) -> Self::Output {
@@ -75,13 +75,13 @@ impl std::ops::Mul for Transform {
     }
 }
 
-impl std::ops::MulAssign for Transform {
+impl std::ops::MulAssign for Transform2D {
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl Into<mint::ColumnMatrix3<f32>> for Transform {
+impl Into<mint::ColumnMatrix3<f32>> for Transform2D {
     fn into(self) -> mint::ColumnMatrix3<f32> {
         mint::ColumnMatrix3 {
             x: mint::Vector3 {
@@ -103,7 +103,7 @@ impl Into<mint::ColumnMatrix3<f32>> for Transform {
     }
 }
 
-impl Into<mint::ColumnMatrix4<f32>> for Transform {
+impl Into<mint::ColumnMatrix4<f32>> for Transform2D {
     fn into(self) -> mint::ColumnMatrix4<f32> {
         mint::ColumnMatrix4 {
             x: mint::Vector4 {
@@ -136,25 +136,25 @@ impl Into<mint::ColumnMatrix4<f32>> for Transform {
 
 #[derive(Default)]
 pub struct Transforms {
-    base: Transform,
-    stack: Vec<Transform>,
+    base: Transform2D,
+    stack: Vec<Transform2D>,
 }
 
 impl Transforms {
-    pub fn current(&self) -> &Transform {
+    pub fn current(&self) -> &Transform2D {
         self.stack.last().unwrap_or(&self.base)
     }
 
-    pub fn current_mut(&mut self) -> &mut Transform {
+    pub fn current_mut(&mut self) -> &mut Transform2D {
         self.stack.last_mut().unwrap_or(&mut self.base)
     }
 
-    pub fn push(&mut self) -> &mut Transform {
+    pub fn push(&mut self) -> &mut Transform2D {
         self.stack.push(*self.current());
         self.current_mut()
     }
 
-    pub fn pop(&mut self) -> Option<Transform> {
+    pub fn pop(&mut self) -> Option<Transform2D> {
         self.stack.pop()
     }
 }
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     pub fn transform_point_identity() {
-        let identity = Transform::default();
+        let identity = Transform2D::default();
 
         let (px, py) = (0., 0.);
         assert_eq!(identity.transform_point(px, py), (px, py));
@@ -179,10 +179,10 @@ mod tests {
 
     #[test]
     pub fn transform_point_translation() {
-        let identity = Transform {
+        let identity = Transform2D {
             translation_x: 2.,
             translation_y: 1.5,
-            ..Transform::default()
+            ..Transform2D::default()
         };
 
         let (px, py) = (0., 0.);
@@ -193,7 +193,7 @@ mod tests {
     pub fn transform_point_rotation() {
         use approx::*;
 
-        let transform = Transform::rotation(crate::Deg(90.));
+        let transform = Transform2D::rotation(crate::Deg(90.));
         assert_abs_diff_eq!(transform.scale_x, 0.);
         assert_abs_diff_eq!(transform.scale_y, 0.);
         assert_abs_diff_eq!(transform.skew_x, 1.);
@@ -231,10 +231,10 @@ mod tests {
 
     #[test]
     pub fn transform_point_scale() {
-        let identity = Transform {
+        let identity = Transform2D {
             scale_x: 2.,
             scale_y: 1.5,
-            ..Transform::default()
+            ..Transform2D::default()
         };
 
         let (px, py) = (0., 0.);
@@ -249,12 +249,12 @@ mod tests {
 
     #[test]
     pub fn transform_point() {
-        let identity = Transform {
+        let identity = Transform2D {
             translation_x: 100.,
             translation_y: 200.,
             scale_x: 2.,
             scale_y: 1.5,
-            ..Transform::default()
+            ..Transform2D::default()
         };
 
         let (px, py) = (0., 0.);

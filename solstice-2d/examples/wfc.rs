@@ -228,7 +228,7 @@ fn main() {
         solstice::glow::Context::from_loader_function(|name| window.get_proc_address(name))
     };
     let mut context = solstice::Context::new(glow_ctx);
-    let mut d2 = solstice_2d::Graphics2D::new(&mut context, width as _, height as _).unwrap();
+    let mut d2 = solstice_2d::Graphics::new(&mut context, width as _, height as _).unwrap();
 
     let image_settings = solstice::image::Settings {
         mipmaps: false,
@@ -300,7 +300,8 @@ fn main() {
         }
         Event::RedrawRequested(window_id) => {
             if window_id == window.window().id() {
-                let mut g = d2.start(&mut context);
+                use solstice_2d::*;
+                let mut g = DrawList::default();
                 g.clear([1., 0., 0., 1.]);
                 let rectangle = solstice_2d::Rectangle {
                     x: 0.0,
@@ -317,7 +318,7 @@ fn main() {
                     height: 400.0,
                 };
                 g.image(rectangle, proto.inner());
-                drop(g);
+                d2.process(&mut context, &mut g);
 
                 window.swap_buffers().unwrap();
             }

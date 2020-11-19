@@ -1,11 +1,11 @@
 use crate::Rad;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
-pub struct Transform {
+pub struct Transform3D {
     pub inner: nalgebra::Matrix4<f32>,
 }
 
-impl Default for Transform {
+impl Default for Transform3D {
     fn default() -> Self {
         Self {
             inner: nalgebra::Matrix4::identity(),
@@ -13,7 +13,7 @@ impl Default for Transform {
     }
 }
 
-impl Transform {
+impl Transform3D {
     pub fn translation(x: f32, y: f32, z: f32) -> Self {
         Self {
             inner: nalgebra::Matrix4::new_translation(&nalgebra::Vector3::new(x, y, z)),
@@ -37,8 +37,8 @@ impl Transform {
     }
 }
 
-impl std::ops::Mul for Transform {
-    type Output = Transform;
+impl std::ops::Mul for Transform3D {
+    type Output = Transform3D;
 
     fn mul(self, rhs: Self) -> Self::Output {
         Self {
@@ -47,14 +47,14 @@ impl std::ops::Mul for Transform {
     }
 }
 
-impl std::ops::MulAssign for Transform {
+impl std::ops::MulAssign for Transform3D {
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl From<crate::Transform> for Transform {
-    fn from(t: crate::Transform) -> Self {
+impl From<crate::Transform2D> for Transform3D {
+    fn from(t: crate::Transform2D) -> Self {
         let t: mint::ColumnMatrix4<f32> = t.into();
         Self { inner: t.into() }
     }

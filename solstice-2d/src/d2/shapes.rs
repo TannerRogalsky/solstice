@@ -1,4 +1,7 @@
-use super::{Geometry, SimpleConvexGeometry, Vertex2D};
+use crate::{
+    d2::{SimpleConvexGeometry, Vertex2D},
+    Geometry,
+};
 
 /// An angle, in radians.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]

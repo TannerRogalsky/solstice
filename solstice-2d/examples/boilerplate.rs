@@ -1,8 +1,8 @@
 pub struct ExampleContext {
     pub window: glutin::WindowedContext<glutin::PossiblyCurrent>,
     pub ctx: solstice::Context,
-    pub ctx2d: solstice_2d::Graphics2D,
-    pub ctx3d: solstice_2d::d3::Graphics3D,
+    // pub ctx2d: solstice_2d::Graphics2D,
+    pub gfx: solstice_2d::Graphics,
 }
 
 impl ExampleContext {
@@ -41,14 +41,12 @@ pub trait Example: Sized {
             solstice::glow::Context::from_loader_function(|name| window.get_proc_address(name))
         };
         let mut context = solstice::Context::new(glow_ctx);
-        let d2 = solstice_2d::Graphics2D::new(&mut context, width as _, height as _).unwrap();
-        let d3 = solstice_2d::d3::Graphics3D::new(&mut context, width as _, height as _).unwrap();
+        let gfx = solstice_2d::Graphics::new(&mut context, width as _, height as _).unwrap();
 
         let mut ctx = ExampleContext {
             window,
             ctx: context,
-            ctx2d: d2,
-            ctx3d: d3,
+            gfx,
         };
         let mut example = Self::new(&mut ctx).unwrap();
 
@@ -61,12 +59,12 @@ pub trait Example: Sized {
                         WindowEvent::CloseRequested => *cf = ControlFlow::Exit,
                         WindowEvent::Resized(glutin::dpi::PhysicalSize { width, height }) => {
                             ctx.ctx.set_viewport(0, 0, width as _, height as _);
-                            ctx.ctx2d.set_width_height(width as _, height as _);
+                            ctx.gfx.set_width_height(width as _, height as _);
                         }
                         WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                             let glutin::dpi::PhysicalSize { width, height } = *new_inner_size;
                             ctx.ctx.set_viewport(0, 0, width as _, height as _);
-                            ctx.ctx2d.set_width_height(width as _, height as _);
+                            ctx.gfx.set_width_height(width as _, height as _);
                         }
                         WindowEvent::KeyboardInput {
                             input:

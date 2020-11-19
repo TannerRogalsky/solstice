@@ -11,10 +11,11 @@ impl Example for BlendExample {
         let (width, height) = ctx.dimensions();
         let canvas = solstice_2d::Canvas::new(&mut ctx.ctx, width, height)?;
         {
-            let mut d2 = ctx.ctx2d.start(&mut ctx.ctx);
-            d2.set_canvas(Some(canvas.clone()));
-            d2.clear([1., 0., 0., 1.]);
-            d2.set_canvas(None);
+            let mut dl = solstice_2d::DrawList::default();
+            dl.set_canvas(Some(canvas.clone()));
+            dl.clear([1., 0., 0., 1.]);
+
+            ctx.gfx.process(&mut ctx.ctx, &mut dl);
         }
         Ok(Self { canvas })
     }
@@ -22,7 +23,7 @@ impl Example for BlendExample {
     fn draw(&mut self, ctx: &mut ExampleContext, _time: Duration) {
         use solstice_2d::*;
         let (width, height) = ctx.dimensions();
-        let mut d2 = ctx.ctx2d.start(&mut ctx.ctx);
+        let mut d2 = DrawList::default();
         d2.clear([0., 0., 0., 1.]);
 
         let rectangle = Rectangle {
@@ -32,26 +33,32 @@ impl Example for BlendExample {
             height: 100.,
         };
 
-        let mut draw = |transform, color| {
-            d2.draw_with_transform_and_color(DrawMode::Fill, rectangle, transform, color)
-        };
+        let mut draw =
+            |transform, color| d2.draw_with_color_and_transform(rectangle, color, transform);
 
-        let origin = Transform::translation(width / 2., height / 2.);
+        let origin = Transform2D::translation(width / 2., height / 2.);
         draw(origin, [1., 1., 1., 1.]);
-        draw(origin * Transform::translation(50., 50.), [1., 0., 0., 0.5]);
-        draw(origin * Transform::translation(50., -50.), [1., 0., 0., 1.]);
-        d2.image_with_transform_and_color(
+        draw(
+            origin * Transform2D::translation(50., 50.),
+            [1., 0., 0., 0.5],
+        );
+        draw(
+            origin * Transform2D::translation(50., -50.),
+            [1., 0., 0., 1.],
+        );
+        d2.image_with_color_and_transform(
             rectangle,
             &self.canvas,
-            origin * Transform::translation(-50., 50.),
             [1., 1., 1., 0.5],
+            origin * Transform2D::translation(-50., 50.),
         );
-        d2.image_with_transform_and_color(
+        d2.image_with_color_and_transform(
             rectangle,
             &self.canvas,
-            origin * Transform::translation(-50., -50.),
             [1., 1., 1., 1.],
+            origin * Transform2D::translation(-50., -50.),
         );
+        ctx.gfx.process(&mut ctx.ctx, &mut d2);
     }
 }
 

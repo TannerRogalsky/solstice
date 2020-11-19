@@ -1,8 +1,222 @@
 mod d2;
-pub mod d3;
+mod d3;
+mod shared;
 
 pub use d2::*;
+pub use d3::*;
+pub use shared::*;
 pub use solstice;
+
+use solstice::{image::Image, mesh::MappedIndexedMesh, texture::Texture, Context};
+
+pub struct Graphics {
+    mesh3d: MappedIndexedMesh<Vertex3D, u32>,
+    mesh2d: MappedIndexedMesh<Vertex2D, u32>,
+    default_shader: Shader,
+    default_texture: Image,
+    text_workspace: text::Text,
+    width: f32,
+    height: f32,
+}
+
+impl Graphics {
+    pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, GraphicsError> {
+        let mesh2d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
+        let mesh3d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
+        // FIXME: NO UNWRAP
+        let default_shader = Shader::new(ctx).unwrap();
+        let default_texture = create_default_texture(ctx)?;
+
+        let text_workspace = text::Text::new(ctx)?;
+
+        Ok(Self {
+            mesh3d,
+            mesh2d,
+            default_shader,
+            default_texture,
+            text_workspace,
+            width,
+            height,
+        })
+    }
+
+    pub fn add_font(&mut self, font_data: glyph_brush::ab_glyph::FontVec) -> glyph_brush::FontId {
+        self.text_workspace.add_font(font_data)
+    }
+
+    pub fn set_width_height(&mut self, width: f32, height: f32) {
+        self.width = width;
+        self.height = height;
+    }
+
+    pub fn process(&mut self, ctx: &mut Context, draw_list: &mut DrawList) {
+        for command in draw_list.commands.drain(..) {
+            match command {
+                Command::Draw(draw_state) => {
+                    let DrawState {
+                        draw_mode,
+                        geometry,
+                        transform,
+                        color,
+                        texture,
+                        target,
+                    } = draw_state;
+                    match geometry {
+                        GeometryVariants::D2(geometry) => {
+                            let transform_verts = |mut v: Vertex2D| -> Vertex2D {
+                                v.color = color.into();
+                                v
+                            };
+
+                            let (vertices, indices) = match draw_mode {
+                                DrawMode::Fill => (
+                                    geometry.vertices().map(transform_verts).collect::<Vec<_>>(),
+                                    geometry.indices().collect::<Vec<_>>(),
+                                ),
+                                DrawMode::Stroke => {
+                                    // TODO: do we need to expand from indices here?
+                                    stroke_polygon(
+                                        geometry.vertices().map(transform_verts),
+                                        color.into(),
+                                    )
+                                }
+                            };
+                            self.mesh2d.set_vertices(&vertices, 0);
+                            self.mesh2d.set_indices(&indices, 0);
+                            let mesh = self.mesh2d.unmap(ctx);
+                            let geometry = solstice::Geometry {
+                                mesh,
+                                draw_range: 0..indices.len(),
+                                draw_mode: solstice::DrawMode::Triangles,
+                                instance_count: 1,
+                            };
+                            self.default_shader.set_width_height(
+                                Projection::Orthographic,
+                                self.width,
+                                self.height,
+                                false,
+                            );
+                            self.default_shader.send_uniform(
+                                "uModel",
+                                solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
+                            );
+                            self.default_shader.set_color(draw_state.color);
+                            match texture.as_ref() {
+                                None => self.default_shader.bind_texture(&self.default_texture),
+                                Some(texture) => self.default_shader.bind_texture(texture),
+                            }
+                            self.default_shader.activate(ctx);
+                            solstice::Renderer::draw(
+                                ctx,
+                                &self.default_shader,
+                                &geometry,
+                                solstice::PipelineSettings {
+                                    depth_state: None,
+                                    framebuffer: target.as_ref().map(|c| &c.inner),
+                                    ..solstice::PipelineSettings::default()
+                                },
+                            );
+                        }
+                        GeometryVariants::D3(geometry) => {
+                            let vertices = geometry.vertices().collect::<std::boxed::Box<[_]>>();
+                            let indices = geometry.indices().collect::<std::boxed::Box<[_]>>();
+                            self.mesh3d.set_vertices(&vertices, 0);
+                            self.mesh3d.set_indices(&indices, 0);
+                            let mesh = self.mesh3d.unmap(ctx);
+                            let geometry = solstice::Geometry {
+                                mesh,
+                                draw_range: 0..indices.len(),
+                                draw_mode: solstice::DrawMode::Triangles,
+                                instance_count: 1,
+                            };
+                            self.default_shader.set_width_height(
+                                Projection::Perspective,
+                                self.width,
+                                self.height,
+                                false,
+                            );
+                            self.default_shader.send_uniform(
+                                "uModel",
+                                solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
+                            );
+                            self.default_shader.set_color(draw_state.color);
+                            match texture.as_ref() {
+                                None => self.default_shader.bind_texture(&self.default_texture),
+                                Some(texture) => self.default_shader.bind_texture(texture),
+                            }
+                            self.default_shader.activate(ctx);
+                            solstice::Renderer::draw(
+                                ctx,
+                                &self.default_shader,
+                                &geometry,
+                                solstice::PipelineSettings {
+                                    framebuffer: target.as_ref().map(|c| &c.inner),
+                                    ..solstice::PipelineSettings::default()
+                                },
+                            );
+                        }
+                    };
+                }
+                Command::Clear(color, target) => {
+                    solstice::Renderer::clear(
+                        ctx,
+                        solstice::ClearSettings {
+                            color: Some(color.into()),
+                            target: target.as_ref().map(|c| &c.inner),
+                            ..solstice::ClearSettings::default()
+                        },
+                    );
+                }
+            }
+        }
+    }
+}
+
+fn stroke_polygon<P, I>(vertices: I, color: [f32; 4]) -> (Vec<Vertex2D>, Vec<u32>)
+where
+    P: Into<lyon_tessellation::math::Point>,
+    I: IntoIterator<Item = P>,
+{
+    use lyon_tessellation::*;
+    let mut builder = path::Builder::new();
+    builder.polygon(
+        &vertices
+            .into_iter()
+            .map(Into::into)
+            .collect::<std::boxed::Box<[_]>>(),
+    );
+    let path = builder.build();
+
+    struct WithColor([f32; 4]);
+
+    impl StrokeVertexConstructor<Vertex2D> for WithColor {
+        fn new_vertex(
+            &mut self,
+            point: lyon_tessellation::math::Point,
+            attributes: StrokeAttributes<'_, '_>,
+        ) -> Vertex2D {
+            Vertex2D {
+                position: [point.x, point.y],
+                color: self.0,
+                uv: attributes.normal().into(),
+            }
+        }
+    }
+
+    let mut buffers: VertexBuffers<Vertex2D, u32> = VertexBuffers::new();
+    {
+        let mut tessellator = StrokeTessellator::new();
+        tessellator
+            .tessellate(
+                &path,
+                &StrokeOptions::default().with_line_width(5.),
+                &mut BuffersBuilder::new(&mut buffers, WithColor(color)),
+            )
+            .unwrap();
+    }
+
+    (buffers.vertices, buffers.indices)
+}
 
 pub trait Geometry<V: solstice::vertex::Vertex>: std::fmt::Debug {
     type Vertices: Iterator<Item = V>;
@@ -10,6 +224,136 @@ pub trait Geometry<V: solstice::vertex::Vertex>: std::fmt::Debug {
 
     fn vertices(&self) -> Self::Vertices;
     fn indices(&self) -> Self::Indices;
+}
+
+pub trait BoxedGeometry<'a, V, I>: dyn_clone::DynClone + std::fmt::Debug
+where
+    V: solstice::vertex::Vertex,
+    I: solstice::mesh::Index,
+{
+    fn vertices(&self) -> std::boxed::Box<dyn Iterator<Item = V> + 'a>;
+    fn indices(&self) -> std::boxed::Box<dyn Iterator<Item = I> + 'a>;
+}
+
+pub trait Draw<V: solstice::vertex::Vertex, G: Geometry<V> + Clone + 'static> {
+    fn draw(&mut self, geometry: G);
+    fn draw_with_transform<TX: Into<d3::Transform3D>>(&mut self, geometry: G, transform: TX);
+    fn draw_with_color<C: Into<Color>>(&mut self, geometry: G, color: C);
+    fn draw_with_color_and_transform<C: Into<Color>, TX: Into<d3::Transform3D>>(
+        &mut self,
+        geometry: G,
+        color: C,
+        transform: TX,
+    );
+    fn stroke(&mut self, geometry: G);
+    fn stroke_with_transform<TX: Into<d3::Transform3D>>(&mut self, geometry: G, transform: TX);
+    fn stroke_with_color<C: Into<Color>>(&mut self, geometry: G, color: C);
+    fn stroke_with_color_and_transform<C: Into<Color>, TX: Into<d3::Transform3D>>(
+        &mut self,
+        geometry: G,
+        color: C,
+        transform: TX,
+    );
+    fn image<T: Texture>(&mut self, geometry: G, texture: T);
+    fn image_with_color<T, C>(&mut self, geometry: G, texture: T, color: C)
+    where
+        T: Texture,
+        C: Into<Color>;
+    fn image_with_transform<T, TX>(&mut self, geometry: G, texture: T, transform: TX)
+    where
+        T: Texture,
+        TX: Into<d3::Transform3D>;
+    fn image_with_color_and_transform<T, C, TX>(
+        &mut self,
+        geometry: G,
+        texture: T,
+        color: C,
+        transform: TX,
+    ) where
+        T: Texture,
+        C: Into<Color>,
+        TX: Into<d3::Transform3D>;
+}
+
+#[derive(PartialEq, Clone, Debug)]
+struct TextureCache {
+    ty: solstice::texture::TextureType,
+    key: solstice::TextureKey,
+    info: solstice::texture::TextureInfo,
+}
+
+impl solstice::texture::Texture for &TextureCache {
+    fn get_texture_key(&self) -> solstice::TextureKey {
+        self.key
+    }
+
+    fn get_texture_type(&self) -> solstice::texture::TextureType {
+        self.ty
+    }
+
+    fn get_texture_info(&self) -> solstice::texture::TextureInfo {
+        self.info
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum DrawMode {
+    Fill,
+    Stroke,
+}
+
+#[derive(Clone, Debug)]
+enum GeometryVariants {
+    D2(std::boxed::Box<dyn BoxedGeometry<'static, d2::Vertex2D, u32>>),
+    D3(std::boxed::Box<dyn BoxedGeometry<'static, d3::Vertex3D, u32>>),
+}
+
+#[derive(Clone, Debug)]
+pub struct DrawState {
+    draw_mode: DrawMode,
+    geometry: GeometryVariants,
+    transform: d3::Transform3D,
+    color: Color,
+    texture: Option<TextureCache>,
+    target: Option<Canvas>,
+}
+
+#[derive(Clone, Debug)]
+pub enum Command {
+    Draw(DrawState),
+    Clear(Color, Option<Canvas>),
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct DrawList {
+    commands: Vec<Command>,
+    color: Color,
+    transform: Transform3D,
+    target: Option<Canvas>,
+    shader: Option<Shader>,
+}
+
+impl DrawList {
+    pub fn clear<C: Into<Color>>(&mut self, color: C) {
+        self.commands
+            .push(Command::Clear(color.into(), self.target.clone()))
+    }
+
+    pub fn set_color<C: Into<Color>>(&mut self, color: C) {
+        self.color = color.into();
+    }
+
+    pub fn set_transform<T: Into<Transform3D>>(&mut self, transform: T) {
+        self.transform = transform.into();
+    }
+
+    pub fn set_canvas(&mut self, target: Option<Canvas>) {
+        self.target = target;
+    }
+
+    pub fn set_shader(&mut self, shader: Option<Shader>) {
+        self.shader = shader;
+    }
 }
 
 type ImageResult = Result<solstice::image::Image, solstice::GraphicsError>;

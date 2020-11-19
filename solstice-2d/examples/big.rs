@@ -13,7 +13,7 @@ impl Example for Big {
         let (width, height) = ctx.dimensions();
         use solstice_2d::*;
 
-        let mut ctx = ctx.ctx2d.start(&mut ctx.ctx);
+        let mut dl = DrawList::default();
         let cycle = 3.;
         let t = time.as_secs_f32() % cycle / cycle;
         let circle = Circle {
@@ -42,8 +42,7 @@ impl Example for Big {
             let dy = phi.sin() * half_height * radius;
 
             let color = to_rgba(ratio * TAU + t, 1.0, 0.5);
-            ctx.draw_with_color(
-                DrawMode::Fill,
+            dl.draw_with_color(
                 Circle {
                     x: ox + dx,
                     y: oy + dy,
@@ -52,6 +51,8 @@ impl Example for Big {
                 color,
             );
         }
+
+        ctx.gfx.process(&mut ctx.ctx, &mut dl);
     }
 }
 

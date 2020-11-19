@@ -1,5 +1,8 @@
-use solstice::shader::{Attribute, DynamicShader, Uniform, UniformLocation};
-use solstice::{Context, ShaderKey};
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Projection {
+    Orthographic,
+    Perspective,
+}
 
 #[derive(Debug)]
 pub enum ShaderError {
@@ -15,6 +18,38 @@ impl std::fmt::Display for ShaderError {
 
 impl std::error::Error for ShaderError {}
 
+pub struct ShaderSource<'a> {
+    pub vertex: &'a str,
+    pub fragment: &'a str,
+}
+
+impl<'a> From<&'a String> for ShaderSource<'a> {
+    fn from(src: &'a String) -> Self {
+        Self {
+            vertex: src.as_str(),
+            fragment: src.as_str(),
+        }
+    }
+}
+
+impl<'a> From<&'a str> for ShaderSource<'a> {
+    fn from(src: &'a str) -> Self {
+        Self {
+            vertex: src,
+            fragment: src,
+        }
+    }
+}
+
+impl<'a> From<(&'a str, &'a str)> for ShaderSource<'a> {
+    fn from((vertex, fragment): (&'a str, &'a str)) -> Self {
+        Self { vertex, fragment }
+    }
+}
+
+use solstice::shader::{Attribute, DynamicShader, Uniform, UniformLocation};
+use solstice::{Context, ShaderKey};
+
 #[derive(Eq, PartialEq, Clone, Debug)]
 struct TextureCache {
     ty: solstice::texture::TextureType,
@@ -26,7 +61,7 @@ const MAX_TEXTURE_UNITS: usize = 8;
 
 #[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct Shader3D {
+pub struct Shader {
     inner: solstice::shader::DynamicShader,
 
     projection_location: UniformLocation,
@@ -63,35 +98,6 @@ fn get_location(
         .get_uniform_by_name(name)
         .ok_or_else(|| ShaderError::UniformNotFound(name.to_owned()))
         .map(|uniform| uniform.location.clone())
-}
-
-pub struct ShaderSource<'a> {
-    vertex: &'a str,
-    fragment: &'a str,
-}
-
-impl<'a> From<&'a String> for ShaderSource<'a> {
-    fn from(src: &'a String) -> Self {
-        Self {
-            vertex: src.as_str(),
-            fragment: src.as_str(),
-        }
-    }
-}
-
-impl<'a> From<&'a str> for ShaderSource<'a> {
-    fn from(src: &'a str) -> Self {
-        Self {
-            vertex: src,
-            fragment: src,
-        }
-    }
-}
-
-impl<'a> From<(&'a str, &'a str)> for ShaderSource<'a> {
-    fn from((vertex, fragment): (&'a str, &'a str)) -> Self {
-        Self { vertex, fragment }
-    }
 }
 
 fn shader_src(src: ShaderSource) -> String {
@@ -137,7 +143,7 @@ void main() {{
     )
 }
 
-impl Shader3D {
+impl Shader {
     pub fn new(ctx: &mut Context) -> Result<Self, ShaderError> {
         Self::with((DEFAULT_VERT, DEFAULT_FRAG), ctx)
     }
@@ -220,23 +226,42 @@ impl Shader3D {
         })
     }
 
-    pub fn set_width_height(&mut self, width: f32, height: f32, invert_y: bool) {
-        let projection_cache = if invert_y {
-            nalgebra::Matrix4::new_perspective(
-                width / height,
-                std::f32::consts::FRAC_PI_2,
-                0.1,
-                1000.0,
-            )
-        } else {
-            nalgebra::Matrix4::new_perspective(
-                width / height,
-                std::f32::consts::FRAC_PI_2,
-                0.1,
-                1000.0,
-            )
+    pub fn set_width_height(
+        &mut self,
+        projection: Projection,
+        width: f32,
+        height: f32,
+        invert_y: bool,
+    ) {
+        let projection_cache: mint::ColumnMatrix4<f32> = match projection {
+            Projection::Orthographic => {
+                if invert_y {
+                    ortho(0., width, 0., height, 0., 1000.).into()
+                } else {
+                    ortho(0., width, height, 0., 0., 1000.).into()
+                }
+            }
+            Projection::Perspective => {
+                if invert_y {
+                    nalgebra::Matrix4::new_perspective(
+                        width / height,
+                        -std::f32::consts::FRAC_PI_2,
+                        0.1,
+                        1000.0,
+                    )
+                    .into()
+                } else {
+                    nalgebra::Matrix4::new_perspective(
+                        width / height,
+                        std::f32::consts::FRAC_PI_2,
+                        0.1,
+                        1000.0,
+                    )
+                    .into()
+                }
+            }
         };
-        self.projection_cache = projection_cache.into();
+        self.projection_cache = projection_cache;
     }
 
     pub fn set_color(&mut self, c: crate::Color) {
@@ -300,7 +325,7 @@ impl Shader3D {
     }
 }
 
-impl solstice::shader::Shader for Shader3D {
+impl solstice::shader::Shader for Shader {
     fn handle(&self) -> ShaderKey {
         self.inner.handle()
     }
@@ -312,4 +337,33 @@ impl solstice::shader::Shader for Shader3D {
     fn uniforms(&self) -> &[Uniform] {
         self.inner.uniforms()
     }
+}
+
+fn ortho(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> [[f32; 4]; 4] {
+    let c0r0 = 2. / (right - left);
+    let c0r1 = 0.;
+    let c0r2 = 0.;
+    let c0r3 = 0.;
+
+    let c1r0 = 0.;
+    let c1r1 = 2. / (top - bottom);
+    let c1r2 = 0.;
+    let c1r3 = 0.;
+
+    let c2r0 = 0.;
+    let c2r1 = 0.;
+    let c2r2 = -2. / (far - near);
+    let c2r3 = 0.;
+
+    let c3r0 = -(right + left) / (right - left);
+    let c3r1 = -(top + bottom) / (top - bottom);
+    let c3r2 = -(far + near) / (far - near);
+    let c3r3 = 1.;
+
+    [
+        [c0r0, c0r1, c0r2, c0r3],
+        [c1r0, c1r1, c1r2, c1r3],
+        [c2r0, c2r1, c2r2, c2r3],
+        [c3r0, c3r1, c3r2, c3r3],
+    ]
 }
