@@ -99,6 +99,15 @@ impl Graphics {
                         target,
                         mut shader,
                     } = draw_state;
+                    let mut cached_viewport = None;
+                    let (width, height) = if let Some(canvas) = target.as_ref() {
+                        let (width, height) = canvas.dimensions();
+                        cached_viewport = Some(ctx.viewport());
+                        ctx.set_viewport(0, 0, width as _, height as _);
+                        (width, height)
+                    } else {
+                        (self.width, self.height)
+                    };
                     match geometry {
                         GeometryVariants::D2(geometry) => {
                             let transform_verts = |mut v: Vertex2D| -> Vertex2D {
@@ -132,12 +141,7 @@ impl Graphics {
                                 instance_count: 1,
                             };
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(
-                                Projection::Orthographic,
-                                self.width,
-                                self.height,
-                                false,
-                            );
+                            shader.set_width_height(Projection::Orthographic, width, height, false);
                             shader.send_uniform(
                                 "uModel",
                                 solstice::shader::RawUniformValue::Mat4(
@@ -174,12 +178,7 @@ impl Graphics {
                                 instance_count: 1,
                             };
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(
-                                Projection::Perspective,
-                                self.width,
-                                self.height,
-                                false,
-                            );
+                            shader.set_width_height(Projection::Perspective, width, height, false);
                             shader.send_uniform(
                                 "uModel",
                                 solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
@@ -201,6 +200,9 @@ impl Graphics {
                             );
                         }
                     };
+                    if let Some(v) = cached_viewport {
+                        ctx.set_viewport(v.x(), v.y(), v.width(), v.height());
+                    }
                 }
                 Command::Clear(color, target) => {
                     solstice::Renderer::clear(
