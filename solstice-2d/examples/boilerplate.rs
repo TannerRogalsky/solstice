@@ -41,6 +41,7 @@ pub trait Example: Sized {
             solstice::glow::Context::from_loader_function(|name| window.get_proc_address(name))
         };
         let mut context = solstice::Context::new(glow_ctx);
+        context.set_viewport(0, 0, width as _, height as _);
         let gfx = solstice_2d::Graphics::new(&mut context, width as _, height as _).unwrap();
 
         let mut ctx = ExampleContext {
