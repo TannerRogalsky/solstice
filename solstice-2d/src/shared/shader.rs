@@ -233,12 +233,13 @@ impl Shader {
         height: f32,
         invert_y: bool,
     ) {
+        const FAR_PLANE: f32 = 1000.0;
         let projection_cache: mint::ColumnMatrix4<f32> = match projection {
             Projection::Orthographic => {
                 if invert_y {
-                    ortho(0., width, 0., height, 0., 1000.).into()
+                    ortho(0., width, 0., height, 0., FAR_PLANE).into()
                 } else {
-                    ortho(0., width, height, 0., 0., 1000.).into()
+                    ortho(0., width, height, 0., 0., FAR_PLANE).into()
                 }
             }
             Projection::Perspective => {
@@ -247,7 +248,7 @@ impl Shader {
                         width / height,
                         -std::f32::consts::FRAC_PI_2,
                         0.1,
-                        1000.0,
+                        FAR_PLANE,
                     )
                     .into()
                 } else {
@@ -255,7 +256,7 @@ impl Shader {
                         width / height,
                         std::f32::consts::FRAC_PI_2,
                         0.1,
-                        1000.0,
+                        FAR_PLANE,
                     )
                     .into()
                 }
