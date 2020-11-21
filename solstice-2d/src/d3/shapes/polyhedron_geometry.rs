@@ -181,6 +181,14 @@ fn apply_radius(radius: f32, vertices: &mut [Point3D]) {
     }
 }
 
+fn azimuth(point: &Point3D) -> f32 {
+    point.z.atan2(-point.x)
+}
+
+fn inclination(point: &Point3D) -> f32 {
+    (-point.y).atan2((point.x * point.x + point.z * point.z).sqrt())
+}
+
 impl crate::Geometry<crate::d3::Vertex3D> for Polyhedron {
     type Vertices = std::iter::Map<std::vec::IntoIter<Point3D>, fn(Point3D) -> Vertex3D>;
     type Indices =
@@ -197,11 +205,15 @@ impl crate::Geometry<crate::d3::Vertex3D> for Polyhedron {
         );
         apply_radius(self.radius, vertices.as_mut_slice());
 
-        vertices.into_iter().map(|p| Vertex3D {
-            position: [p.x, p.y, p.z],
-            uv: [0.0, 0.0],
-            color: [1., 1., 1., 1.],
-            normal: [0., 0., 0.],
+        vertices.into_iter().map(|p| {
+            let u = azimuth(&p) / 2. / std::f32::consts::PI + 0.5;
+            let v = inclination(&p) / std::f32::consts::PI + 0.5;
+            Vertex3D {
+                position: [p.x, p.y, p.z],
+                uv: [u, v],
+                color: [1., 1., 1., 1.],
+                normal: [0., 0., 0.],
+            }
         })
     }
 

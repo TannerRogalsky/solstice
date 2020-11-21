@@ -2,14 +2,33 @@ mod boilerplate;
 use boilerplate::*;
 use std::time::Duration;
 
+const CUSTOM_SHADER: &str = r#"
+varying vec3 cubeUV;
+
+#ifdef VERTEX
+vec4 pos(mat4 transform_projection, vec4 vertex_position) {
+    cubeUV = vertex_position.xyz;
+    return transform_projection * vertex_position;
+}
+#endif
+
+#ifdef FRAGMENT
+vec4 effect(vec4 color, Image texture, vec2 st, vec2 screen_coords) {
+    return vec4(cubeUV, 1.0);
+}
+#endif
+"#;
+
 struct Main {
     canvas: solstice_2d::Canvas,
+    shader: solstice_2d::Shader,
 }
 
 impl Example for Main {
     fn new(ctx: &mut ExampleContext) -> eyre::Result<Self> {
         let canvas = solstice_2d::Canvas::new(&mut ctx.ctx, 720.0, 720.0)?;
-        Ok(Self { canvas })
+        let shader = solstice_2d::Shader::with(CUSTOM_SHADER, &mut ctx.ctx)?;
+        Ok(Self { canvas, shader })
     }
 
     fn draw(&mut self, ctx: &mut ExampleContext, time: Duration) {
@@ -64,12 +83,14 @@ impl Example for Main {
             Polyhedron::dodecahedron(radius, 0),
         ];
 
+        dl.set_shader(Some(self.shader.clone()));
         let count = polyhedra.len() - 1;
         for (index, polyhedron) in polyhedra.into_iter().enumerate() {
             let x = ((index as f32 / count as f32) - 0.5) * 2.0 * radius * 4.0;
             let tx = Transform3D::translation(x, 0.0, -4.0) * rotation;
-            dl.draw_with_color_and_transform(polyhedron, color, tx);
+            dl.image_with_color_and_transform(polyhedron, &self.canvas, color, tx);
         }
+        dl.set_shader(None);
 
         ctx.gfx.process(&mut ctx.ctx, &mut dl);
     }
