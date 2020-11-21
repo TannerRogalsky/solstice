@@ -94,6 +94,8 @@ impl Graphics {
                         draw_mode,
                         geometry,
                         transform,
+                        camera,
+                        projection_mode,
                         color,
                         texture,
                         target,
@@ -141,7 +143,11 @@ impl Graphics {
                                 instance_count: 1,
                             };
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(Projection::Orthographic, width, height, false);
+                            shader.set_width_height(projection_mode, width, height, false);
+                            shader.send_uniform(
+                                "uView",
+                                solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
+                            );
                             shader.send_uniform(
                                 "uModel",
                                 solstice::shader::RawUniformValue::Mat4(
@@ -178,7 +184,11 @@ impl Graphics {
                                 instance_count: 1,
                             };
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(Projection::Perspective, width, height, false);
+                            shader.set_width_height(projection_mode, width, height, false);
+                            shader.send_uniform(
+                                "uView",
+                                solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
+                            );
                             shader.send_uniform(
                                 "uModel",
                                 solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
@@ -359,7 +369,9 @@ enum GeometryVariants {
 pub struct DrawState {
     draw_mode: DrawMode,
     geometry: GeometryVariants,
-    transform: d3::Transform3D,
+    transform: Transform3D,
+    camera: Transform3D,
+    projection_mode: Projection,
     color: Color,
     texture: Option<TextureCache>,
     target: Option<Canvas>,
@@ -377,6 +389,8 @@ pub struct DrawList {
     commands: Vec<Command>,
     color: Color,
     transform: Transform3D,
+    camera: Transform3D,
+    projection_mode: Option<Projection>,
     target: Option<Canvas>,
     shader: Option<Shader>,
 }
@@ -393,6 +407,14 @@ impl DrawList {
 
     pub fn set_transform<T: Into<Transform3D>>(&mut self, transform: T) {
         self.transform = transform.into();
+    }
+
+    pub fn set_camera<T: Into<Transform3D>>(&mut self, camera: T) {
+        self.camera = camera.into();
+    }
+
+    pub fn set_projection_mode(&mut self, projection_mode: Option<Projection>) {
+        self.projection_mode = projection_mode;
     }
 
     pub fn set_canvas(&mut self, target: Option<Canvas>) {

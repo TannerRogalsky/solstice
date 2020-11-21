@@ -11,8 +11,8 @@ pub use transforms::*;
 pub use vertex::{Point, Vertex2D};
 
 use super::{
-    Color, Command, Draw, DrawList, DrawMode, DrawState, Geometry, GeometryVariants, TextureCache,
-    Transform3D,
+    Color, Command, Draw, DrawList, DrawMode, DrawState, Geometry, GeometryVariants, Projection,
+    TextureCache, Transform3D,
 };
 use solstice::texture::Texture;
 
@@ -42,6 +42,8 @@ where
             draw_mode: DrawMode::Fill,
             geometry: GeometryVariants::D2(std::boxed::Box::new(geometry)),
             transform: transform.into(),
+            camera: self.camera,
+            projection_mode: self.projection_mode.unwrap_or(Projection::Orthographic),
             color: color.into(),
             texture: None,
             target: self.target.clone(),
@@ -71,6 +73,8 @@ where
             draw_mode: DrawMode::Stroke,
             geometry: GeometryVariants::D2(std::boxed::Box::new(geometry)),
             transform: transform.into(),
+            camera: self.camera,
+            projection_mode: self.projection_mode.unwrap_or(Projection::Orthographic),
             color: color.into(),
             texture: None,
             target: self.target.clone(),
@@ -113,6 +117,8 @@ where
             draw_mode: DrawMode::Fill,
             geometry: GeometryVariants::D2(std::boxed::Box::new(geometry)),
             transform: transform.into(),
+            camera: self.camera,
+            projection_mode: self.projection_mode.unwrap_or(Projection::Orthographic),
             color: color.into(),
             texture: Some(TextureCache {
                 ty: texture.get_texture_type(),

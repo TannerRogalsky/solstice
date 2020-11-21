@@ -6,7 +6,7 @@ pub use transform::*;
 
 use super::{
     BoxedGeometry, Color, Command, Draw, DrawList, DrawMode, DrawState, Geometry, GeometryVariants,
-    TextureCache,
+    Projection, TextureCache,
 };
 use solstice::texture::Texture;
 
@@ -61,6 +61,8 @@ where
             draw_mode: DrawMode::Fill,
             geometry: GeometryVariants::D3(std::boxed::Box::new(geometry)),
             transform: transform.into(),
+            camera: self.camera,
+            projection_mode: self.projection_mode.unwrap_or(Projection::Perspective),
             color: color.into(),
             texture: None,
             target: self.target.clone(),
@@ -90,6 +92,8 @@ where
             draw_mode: DrawMode::Stroke,
             geometry: GeometryVariants::D3(std::boxed::Box::new(geometry)),
             transform: transform.into(),
+            camera: self.camera,
+            projection_mode: self.projection_mode.unwrap_or(Projection::Perspective),
             color: color.into(),
             texture: None,
             target: self.target.clone(),
@@ -132,6 +136,8 @@ where
             draw_mode: DrawMode::Fill,
             geometry: GeometryVariants::D3(std::boxed::Box::new(geometry)),
             transform: transform.into(),
+            camera: self.camera,
+            projection_mode: self.projection_mode.unwrap_or(Projection::Perspective),
             color: color.into(),
             texture: Some(TextureCache {
                 ty: texture.get_texture_type(),
