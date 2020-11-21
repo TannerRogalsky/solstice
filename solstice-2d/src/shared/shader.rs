@@ -113,6 +113,7 @@ varying vec2 vUV;
 #ifdef VERTEX
 attribute vec4 position;
 attribute vec4 color;
+attribute vec3 normal;
 attribute vec2 uv;
 
 uniform mat4 uProjection;
