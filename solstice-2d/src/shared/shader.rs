@@ -1,7 +1,26 @@
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Orthographic {
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
+    pub near: f32,
+    pub far: f32,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Perspective {
+    pub aspect: f32,
+    pub fovy: f32,
+    pub near: f32,
+    pub far: f32,
+}
+
+/// A None value means we will use the default projections of the given type
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Projection {
-    Orthographic,
-    Perspective,
+    Orthographic(Option<Orthographic>),
+    Perspective(Option<Perspective>),
 }
 
 #[derive(Debug)]
@@ -236,31 +255,47 @@ impl Shader {
     ) {
         const FAR_PLANE: f32 = 1000.0;
         let projection_cache: mint::ColumnMatrix4<f32> = match projection {
-            Projection::Orthographic => {
-                if invert_y {
-                    ortho(0., width, 0., height, 0., FAR_PLANE).into()
+            Projection::Orthographic(projection) => {
+                let (top, bottom) = if invert_y {
+                    (height, 0.0)
                 } else {
-                    ortho(0., width, height, 0., 0., FAR_PLANE).into()
-                }
+                    (0.0, height)
+                };
+                let Orthographic {
+                    left,
+                    right,
+                    top,
+                    bottom,
+                    near,
+                    far,
+                } = projection.unwrap_or(Orthographic {
+                    left: 0.0,
+                    right: width,
+                    top,
+                    bottom,
+                    near: 0.0,
+                    far: FAR_PLANE,
+                });
+                ortho(left, right, bottom, top, near, far).into()
             }
-            Projection::Perspective => {
-                if invert_y {
-                    nalgebra::Matrix4::new_perspective(
-                        width / height,
-                        -std::f32::consts::FRAC_PI_2,
-                        0.1,
-                        FAR_PLANE,
-                    )
-                    .into()
+            Projection::Perspective(projection) => {
+                let fovy = if invert_y {
+                    -std::f32::consts::FRAC_PI_2
                 } else {
-                    nalgebra::Matrix4::new_perspective(
-                        width / height,
-                        std::f32::consts::FRAC_PI_2,
-                        0.1,
-                        FAR_PLANE,
-                    )
-                    .into()
-                }
+                    std::f32::consts::FRAC_PI_2
+                };
+                let Perspective {
+                    aspect,
+                    fovy,
+                    near,
+                    far,
+                } = projection.unwrap_or(Perspective {
+                    aspect: width / height,
+                    fovy,
+                    near: 0.1,
+                    far: FAR_PLANE,
+                });
+                nalgebra::Matrix4::new_perspective(aspect, fovy, near, far).into()
             }
         };
         self.projection_cache = projection_cache;

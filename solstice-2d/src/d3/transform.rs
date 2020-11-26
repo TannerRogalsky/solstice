@@ -41,6 +41,15 @@ impl Transform3D {
         let p = self.inner.clone() * p;
         [p.x, p.y, p.z]
     }
+
+    pub fn look_at(x: f32, y: f32, z: f32) -> Self {
+        let eye = nalgebra::Point3::new(0., 0., 0.);
+        let target = nalgebra::Point3::new(x, y, z);
+        let up = nalgebra::Vector3::y();
+        Self {
+            inner: nalgebra::Matrix4::look_at_lh(&eye, &target, &up),
+        }
+    }
 }
 
 impl std::ops::Mul for Transform3D {

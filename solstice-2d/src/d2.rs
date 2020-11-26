@@ -43,7 +43,9 @@ where
             geometry: GeometryVariants::D2(std::boxed::Box::new(geometry)),
             transform: transform.into(),
             camera: self.camera,
-            projection_mode: self.projection_mode.unwrap_or(Projection::Orthographic),
+            projection_mode: self
+                .projection_mode
+                .unwrap_or(Projection::Orthographic(None)),
             color: color.into(),
             texture: None,
             target: self.target.clone(),
@@ -74,7 +76,9 @@ where
             geometry: GeometryVariants::D2(std::boxed::Box::new(geometry)),
             transform: transform.into(),
             camera: self.camera,
-            projection_mode: self.projection_mode.unwrap_or(Projection::Orthographic),
+            projection_mode: self
+                .projection_mode
+                .unwrap_or(Projection::Orthographic(None)),
             color: color.into(),
             texture: None,
             target: self.target.clone(),
@@ -118,7 +122,9 @@ where
             geometry: GeometryVariants::D2(std::boxed::Box::new(geometry)),
             transform: transform.into(),
             camera: self.camera,
-            projection_mode: self.projection_mode.unwrap_or(Projection::Orthographic),
+            projection_mode: self
+                .projection_mode
+                .unwrap_or(Projection::Orthographic(None)),
             color: color.into(),
             texture: Some(TextureCache {
                 ty: texture.get_texture_type(),
