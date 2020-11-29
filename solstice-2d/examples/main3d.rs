@@ -92,6 +92,31 @@ impl Example for Main {
         }
         dl.set_shader(None);
 
+        let offset = [0., 0.];
+        let dim = [2., 2.];
+        let point_count = 7u32;
+
+        let point_generator = |t: f32| {
+            (0..point_count).map(move |i| {
+                let phi = i as f32 / (point_count - 1) as f32;
+                let tau = std::f32::consts::PI * 2.;
+                let [ox, oy] = offset;
+                let [dx, dy] = dim;
+                let (x, y) = ((phi + t) * tau).sin_cos();
+                LineVertex {
+                    position: [ox + x * dx, oy + y * dy, -8.0 + (t * tau).sin() * 5.0],
+                    width: (1. - phi) * 10.0 + 5.0,
+                    color: [0.4, phi, 0.2, 1.0],
+                }
+            })
+        };
+
+        let ring_count = 7;
+        for ring in 0..ring_count {
+            let phi = ring as f32 / ring_count as f32;
+            dl.line_3d(point_generator(t + phi));
+        }
+
         ctx.gfx.process(&mut ctx.ctx, &mut dl);
     }
 }
