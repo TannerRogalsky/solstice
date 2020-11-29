@@ -208,11 +208,12 @@ impl crate::Geometry<crate::d3::Vertex3D> for Polyhedron {
         vertices.into_iter().map(|p| {
             let u = azimuth(&p) / 2. / std::f32::consts::PI + 0.5;
             let v = inclination(&p) / std::f32::consts::PI + 0.5;
+            let normal = p.normalize();
             Vertex3D {
                 position: [p.x, p.y, p.z],
                 uv: [u, v],
                 color: [1., 1., 1., 1.],
-                normal: [0., 0., 0.],
+                normal: [normal.x, normal.y, normal.z],
             }
         })
     }
