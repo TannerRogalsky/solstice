@@ -163,13 +163,15 @@ where
     }
 
     pub fn draw_range(&self) -> std::ops::Range<usize> {
-        self.draw_range
-            .clone()
-            .unwrap_or(0..(self.vbo.size() / std::mem::size_of::<V>()))
+        self.draw_range.clone().unwrap_or(0..(self.len()))
     }
 
     pub fn draw_mode(&self) -> super::DrawMode {
         self.draw_mode
+    }
+
+    pub fn len(&self) -> usize {
+        self.vbo.size() / std::mem::size_of::<V>()
     }
 }
 
@@ -392,7 +394,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AttachedAttributes<'a> {
     pub buffer: &'a Buffer,
     pub formats: &'a [VertexFormat],
