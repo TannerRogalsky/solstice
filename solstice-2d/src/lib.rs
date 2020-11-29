@@ -94,8 +94,7 @@ impl Graphics {
             match command {
                 Command::Draw(draw_state) => {
                     let DrawState {
-                        draw_mode,
-                        geometry,
+                        data: (draw_mode, geometry),
                         transform,
                         camera,
                         projection_mode,
@@ -217,21 +216,26 @@ impl Graphics {
                         ctx.set_viewport(v.x(), v.y(), v.width(), v.height());
                     }
                 }
-                Command::Line(LineState {
-                    geometry,
-                    depth_buffer,
-                }) => {
+                Command::Line(draw_state) => {
+                    let DrawState {
+                        data:
+                            LineState {
+                                geometry,
+                                depth_buffer,
+                            },
+                        transform,
+                        camera,
+                        projection_mode,
+                        color,
+                        texture,
+                        target,
+                        shader,
+                    } = draw_state;
                     let verts = geometry.collect::<std::boxed::Box<[_]>>();
                     self.line_workspace.add_points(&verts);
 
-                    let projection = if depth_buffer {
-                        Projection::Perspective(None)
-                    } else {
-                        Projection::Orthographic(None)
-                    };
-
-                    let mut shader = self.line_workspace.shader().clone();
-                    shader.set_width_height(projection, self.width, self.height, false);
+                    let mut shader = shader.unwrap_or_else(|| self.line_workspace.shader().clone());
+                    shader.set_width_height(projection_mode, self.width, self.height, false);
                     // TODO: this belongs in the above function
                     shader.send_uniform(
                         "resolution",
@@ -239,13 +243,17 @@ impl Graphics {
                     );
                     shader.send_uniform(
                         "uView",
-                        solstice::shader::RawUniformValue::Mat4(Transform2D::default().into()),
+                        solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
                     );
                     shader.send_uniform(
                         "uModel",
-                        solstice::shader::RawUniformValue::Mat4(Transform2D::default().into()),
+                        solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
                     );
-                    shader.set_color(Color::default());
+                    match texture.as_ref() {
+                        None => shader.bind_texture(&self.default_texture),
+                        Some(texture) => shader.bind_texture(texture),
+                    }
+                    shader.set_color(color);
                     shader.activate(ctx);
 
                     let geometry = self.line_workspace.geometry(ctx);
@@ -262,7 +270,7 @@ impl Graphics {
                         &geometry,
                         solstice::PipelineSettings {
                             depth_state,
-                            // framebuffer: target.as_ref().map(|c| &c.inner),
+                            framebuffer: target.as_ref().map(|c| &c.inner),
                             ..solstice::PipelineSettings::default()
                         },
                     )
@@ -413,15 +421,14 @@ pub enum DrawMode {
 }
 
 #[derive(Clone, Debug)]
-enum GeometryVariants {
+pub enum GeometryVariants {
     D2(std::boxed::Box<dyn BoxedGeometry<'static, d2::Vertex2D, u32>>),
     D3(std::boxed::Box<dyn BoxedGeometry<'static, d3::Vertex3D, u32>>),
 }
 
 #[derive(Clone, Debug)]
-pub struct DrawState {
-    draw_mode: DrawMode,
-    geometry: GeometryVariants,
+pub struct DrawState<T> {
+    data: T,
     transform: Transform3D,
     camera: Transform3D,
     projection_mode: Projection,
@@ -452,8 +459,8 @@ pub struct LineState {
 
 #[derive(Clone, Debug)]
 pub enum Command {
-    Draw(DrawState),
-    Line(LineState),
+    Draw(DrawState<(DrawMode, GeometryVariants)>),
+    Line(DrawState<LineState>),
     Clear(Color, Option<Canvas>),
 }
 
@@ -478,9 +485,20 @@ impl DrawList {
         &mut self,
         points: G,
     ) {
-        let command = Command::Line(LineState {
-            geometry: std::boxed::Box::new(points),
-            depth_buffer: false,
+        let command = Command::Line(DrawState {
+            data: LineState {
+                geometry: std::boxed::Box::new(points),
+                depth_buffer: false,
+            },
+            transform: self.transform,
+            camera: self.camera,
+            projection_mode: self
+                .projection_mode
+                .unwrap_or(Projection::Orthographic(None)),
+            color: self.color,
+            texture: None,
+            target: self.target.clone(),
+            shader: self.shader.clone(),
         });
         self.commands.push(command)
     }
@@ -489,9 +507,20 @@ impl DrawList {
         &mut self,
         points: G,
     ) {
-        let command = Command::Line(LineState {
-            geometry: std::boxed::Box::new(points),
-            depth_buffer: true,
+        let command = Command::Line(DrawState {
+            data: LineState {
+                geometry: std::boxed::Box::new(points),
+                depth_buffer: true,
+            },
+            transform: self.transform,
+            camera: self.camera,
+            projection_mode: self
+                .projection_mode
+                .unwrap_or(Projection::Perspective(None)),
+            color: self.color,
+            texture: None,
+            target: self.target.clone(),
+            shader: self.shader.clone(),
         });
         self.commands.push(command)
     }

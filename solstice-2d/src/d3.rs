@@ -58,8 +58,10 @@ where
         transform: TX,
     ) {
         self.commands.push(Command::Draw(DrawState {
-            draw_mode: DrawMode::Fill,
-            geometry: GeometryVariants::D3(std::boxed::Box::new(geometry)),
+            data: (
+                DrawMode::Fill,
+                GeometryVariants::D3(std::boxed::Box::new(geometry)),
+            ),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -91,8 +93,10 @@ where
         transform: TX,
     ) {
         self.commands.push(Command::Draw(DrawState {
-            draw_mode: DrawMode::Stroke,
-            geometry: GeometryVariants::D3(std::boxed::Box::new(geometry)),
+            data: (
+                DrawMode::Stroke,
+                GeometryVariants::D3(std::boxed::Box::new(geometry)),
+            ),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -137,8 +141,10 @@ where
         TX: Into<Transform3D>,
     {
         self.commands.push(Command::Draw(DrawState {
-            draw_mode: DrawMode::Fill,
-            geometry: GeometryVariants::D3(std::boxed::Box::new(geometry)),
+            data: (
+                DrawMode::Fill,
+                GeometryVariants::D3(std::boxed::Box::new(geometry)),
+            ),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
