@@ -38,6 +38,7 @@ impl std::ops::Drop for GraphicsLock<'_> {
 pub struct Graphics {
     mesh3d: MappedIndexedMesh<Vertex3D, u32>,
     mesh2d: MappedIndexedMesh<Vertex2D, u32>,
+    line_workspace: LineWorkspace,
     default_shader: Shader,
     default_texture: Image,
     text_workspace: text::Text,
@@ -49,6 +50,7 @@ impl Graphics {
     pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, GraphicsError> {
         let mesh2d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
         let mesh3d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
+        let line_workspace = LineWorkspace::new(ctx)?;
         let default_shader = Shader::new(ctx)?;
         let default_texture = create_default_texture(ctx)?;
 
@@ -57,6 +59,7 @@ impl Graphics {
         Ok(Self {
             mesh3d,
             mesh2d,
+            line_workspace,
             default_shader,
             default_texture,
             text_workspace,
@@ -213,6 +216,56 @@ impl Graphics {
                     if let Some(v) = cached_viewport {
                         ctx.set_viewport(v.x(), v.y(), v.width(), v.height());
                     }
+                }
+                Command::Line(LineState {
+                    geometry,
+                    depth_buffer,
+                }) => {
+                    let verts = geometry.collect::<std::boxed::Box<[_]>>();
+                    self.line_workspace.add_points(&verts);
+
+                    let projection = if depth_buffer {
+                        Projection::Perspective(None)
+                    } else {
+                        Projection::Orthographic(None)
+                    };
+
+                    let mut shader = self.line_workspace.shader().clone();
+                    shader.set_width_height(projection, self.width, self.height, false);
+                    // TODO: this belongs in the above function
+                    shader.send_uniform(
+                        "resolution",
+                        solstice::shader::RawUniformValue::Vec2([self.width, self.height].into()),
+                    );
+                    shader.send_uniform(
+                        "uView",
+                        solstice::shader::RawUniformValue::Mat4(Transform2D::default().into()),
+                    );
+                    shader.send_uniform(
+                        "uModel",
+                        solstice::shader::RawUniformValue::Mat4(Transform2D::default().into()),
+                    );
+                    shader.set_color(Color::default());
+                    shader.activate(ctx);
+
+                    let geometry = self.line_workspace.geometry(ctx);
+
+                    let depth_state = if depth_buffer {
+                        Some(solstice::DepthState::default())
+                    } else {
+                        None
+                    };
+
+                    solstice::Renderer::draw(
+                        ctx,
+                        &shader,
+                        &geometry,
+                        solstice::PipelineSettings {
+                            depth_state,
+                            // framebuffer: target.as_ref().map(|c| &c.inner),
+                            ..solstice::PipelineSettings::default()
+                        },
+                    )
                 }
                 Command::Clear(color, target) => {
                     solstice::Renderer::clear(
@@ -378,9 +431,29 @@ pub struct DrawState {
     shader: Option<Shader>,
 }
 
+trait VertexGeometry:
+    Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + 'static
+{
+}
+impl<T: Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + 'static>
+    VertexGeometry for T
+{
+}
+dyn_clone::clone_trait_object!(VertexGeometry);
+
+// Maybe DrawState just be generic on it's geometry
+// That would mean we have less assurance about the type
+// How would that change the processing?
+#[derive(Clone, Debug)]
+pub struct LineState {
+    geometry: std::boxed::Box<dyn VertexGeometry>,
+    depth_buffer: bool,
+}
+
 #[derive(Clone, Debug)]
 pub enum Command {
     Draw(DrawState),
+    Line(LineState),
     Clear(Color, Option<Canvas>),
 }
 
@@ -397,8 +470,30 @@ pub struct DrawList {
 
 impl DrawList {
     pub fn clear<C: Into<Color>>(&mut self, color: C) {
-        self.commands
-            .push(Command::Clear(color.into(), self.target.clone()))
+        let command = Command::Clear(color.into(), self.target.clone());
+        self.commands.push(command)
+    }
+
+    pub fn line_2d<G: Iterator<Item = LineVertex> + Clone + std::fmt::Debug + 'static>(
+        &mut self,
+        points: G,
+    ) {
+        let command = Command::Line(LineState {
+            geometry: std::boxed::Box::new(points),
+            depth_buffer: false,
+        });
+        self.commands.push(command)
+    }
+
+    pub fn line_3d<G: Iterator<Item = LineVertex> + Clone + std::fmt::Debug + 'static>(
+        &mut self,
+        points: G,
+    ) {
+        let command = Command::Line(LineState {
+            geometry: std::boxed::Box::new(points),
+            depth_buffer: true,
+        });
+        self.commands.push(command)
     }
 
     pub fn set_color<C: Into<Color>>(&mut self, color: C) {

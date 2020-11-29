@@ -1,7 +1,9 @@
 mod color;
+mod lines;
 mod shader;
 
 pub use color::*;
+pub use lines::*;
 pub use shader::*;
 
 #[derive(Debug)]
