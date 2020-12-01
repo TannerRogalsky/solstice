@@ -51,7 +51,7 @@ impl Vertex for LineVertex {
             VertexFormat {
                 name: "color1",
                 offset: std::mem::size_of::<[f32; 3]>() + std::mem::size_of::<f32>(),
-                atype: AttributeType::F32F32F32,
+                atype: AttributeType::F32F32F32F32,
                 normalize: false,
             },
             VertexFormat {
@@ -69,7 +69,7 @@ impl Vertex for LineVertex {
             VertexFormat {
                 name: "color2",
                 offset: OFFSET + std::mem::size_of::<[f32; 3]>() + std::mem::size_of::<f32>(),
-                atype: AttributeType::F32F32F32,
+                atype: AttributeType::F32F32F32F32,
                 normalize: false,
             },
         ]
