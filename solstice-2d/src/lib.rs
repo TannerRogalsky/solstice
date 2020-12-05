@@ -89,8 +89,8 @@ impl Graphics {
         [self.width, self.height]
     }
 
-    pub fn process(&mut self, ctx: &mut Context, draw_list: &mut DrawList) {
-        for command in draw_list.commands.drain(..) {
+    pub fn process(&mut self, ctx: &mut Context, draw_list: &DrawList) {
+        for command in draw_list.commands.iter() {
             match command {
                 Command::Draw(draw_state) => {
                     let DrawState {
@@ -101,7 +101,7 @@ impl Graphics {
                         color,
                         texture,
                         target,
-                        mut shader,
+                        shader,
                     } = draw_state;
                     let mut cached_viewport = None;
                     let (width, height) = if let Some(canvas) = target.as_ref() {
@@ -118,7 +118,7 @@ impl Graphics {
                                 let [x, y] = v.position;
                                 let [x, y, _] = transform.transform_point(x, y, 0.);
                                 v.position = [x, y];
-                                v.color = color.into();
+                                v.color = (*color).into();
                                 v
                             };
 
@@ -131,7 +131,7 @@ impl Graphics {
                                     // TODO: do we need to expand from indices here?
                                     stroke_polygon(
                                         geometry.vertices().map(transform_verts),
-                                        color.into(),
+                                        (*color).into(),
                                     )
                                 }
                             };
@@ -144,8 +144,9 @@ impl Graphics {
                                 draw_mode: solstice::DrawMode::Triangles,
                                 instance_count: 1,
                             };
+                            let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(projection_mode, width, height, false);
+                            shader.set_width_height(*projection_mode, width, height, false);
                             shader.send_uniform(
                                 "uView",
                                 solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
@@ -185,8 +186,9 @@ impl Graphics {
                                 draw_mode: solstice::DrawMode::Triangles,
                                 instance_count: 1,
                             };
+                            let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(projection_mode, width, height, false);
+                            shader.set_width_height(*projection_mode, width, height, false);
                             shader.send_uniform(
                                 "uView",
                                 solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
@@ -231,11 +233,12 @@ impl Graphics {
                         target,
                         shader,
                     } = draw_state;
-                    let verts = geometry.collect::<std::boxed::Box<[_]>>();
+                    let verts = geometry.clone().collect::<std::boxed::Box<[_]>>();
                     self.line_workspace.add_points(&verts);
 
+                    let shader = shader.clone();
                     let mut shader = shader.unwrap_or_else(|| self.line_workspace.shader().clone());
-                    shader.set_width_height(projection_mode, self.width, self.height, false);
+                    shader.set_width_height(*projection_mode, self.width, self.height, false);
                     // TODO: this belongs in the above function
                     shader.send_uniform(
                         "resolution",
@@ -253,12 +256,12 @@ impl Graphics {
                         None => shader.bind_texture(&self.default_texture),
                         Some(texture) => shader.bind_texture(texture),
                     }
-                    shader.set_color(color);
+                    shader.set_color(*color);
                     shader.activate(ctx);
 
                     let geometry = self.line_workspace.geometry(ctx);
 
-                    let depth_state = if depth_buffer {
+                    let depth_state = if *depth_buffer {
                         Some(solstice::DepthState::default())
                     } else {
                         None
@@ -279,7 +282,7 @@ impl Graphics {
                     solstice::Renderer::clear(
                         ctx,
                         solstice::ClearSettings {
-                            color: Some(color.into()),
+                            color: Some((*color).into()),
                             target: target.as_ref().map(|c| &c.inner),
                             ..solstice::ClearSettings::default()
                         },
