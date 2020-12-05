@@ -94,7 +94,7 @@ impl Graphics {
             match command {
                 Command::Draw(draw_state) => {
                     let DrawState {
-                        data: (draw_mode, geometry),
+                        data: geometry,
                         transform,
                         camera,
                         projection_mode,
@@ -122,19 +122,9 @@ impl Graphics {
                                 v
                             };
 
-                            let (vertices, indices) = match draw_mode {
-                                DrawMode::Fill => (
-                                    geometry.vertices().map(transform_verts).collect::<Vec<_>>(),
-                                    geometry.indices().collect::<Vec<_>>(),
-                                ),
-                                DrawMode::Stroke => {
-                                    // TODO: do we need to expand from indices here?
-                                    stroke_polygon(
-                                        geometry.vertices().map(transform_verts),
-                                        (*color).into(),
-                                    )
-                                }
-                            };
+                            let vertices =
+                                geometry.vertices().map(transform_verts).collect::<Vec<_>>();
+                            let indices = geometry.indices().collect::<Vec<_>>();
                             self.mesh2d.set_vertices(&vertices, 0);
                             self.mesh2d.set_indices(&indices, 0);
                             let mesh = self.mesh2d.unmap(ctx);
@@ -223,6 +213,7 @@ impl Graphics {
                         data:
                             LineState {
                                 geometry,
+                                is_loop,
                                 depth_buffer,
                             },
                         transform,
@@ -235,6 +226,11 @@ impl Graphics {
                     } = draw_state;
                     let verts = geometry.clone().collect::<std::boxed::Box<[_]>>();
                     self.line_workspace.add_points(&verts);
+                    if let Some(first) = verts.first() {
+                        if *is_loop {
+                            self.line_workspace.add_points(&[*first]);
+                        }
+                    }
 
                     let shader = shader.clone();
                     let mut shader = shader.unwrap_or_else(|| self.line_workspace.shader().clone());
@@ -291,52 +287,6 @@ impl Graphics {
             }
         }
     }
-}
-
-fn stroke_polygon<P, I>(vertices: I, color: [f32; 4]) -> (Vec<Vertex2D>, Vec<u32>)
-where
-    P: Into<lyon_tessellation::math::Point>,
-    I: IntoIterator<Item = P>,
-{
-    use lyon_tessellation::*;
-    let mut builder = path::Builder::new();
-    builder.polygon(
-        &vertices
-            .into_iter()
-            .map(Into::into)
-            .collect::<std::boxed::Box<[_]>>(),
-    );
-    let path = builder.build();
-
-    struct WithColor([f32; 4]);
-
-    impl StrokeVertexConstructor<Vertex2D> for WithColor {
-        fn new_vertex(
-            &mut self,
-            point: lyon_tessellation::math::Point,
-            attributes: StrokeAttributes<'_, '_>,
-        ) -> Vertex2D {
-            Vertex2D {
-                position: [point.x, point.y],
-                color: self.0,
-                uv: attributes.normal().into(),
-            }
-        }
-    }
-
-    let mut buffers: VertexBuffers<Vertex2D, u32> = VertexBuffers::new();
-    {
-        let mut tessellator = StrokeTessellator::new();
-        tessellator
-            .tessellate(
-                &path,
-                &StrokeOptions::default().with_line_width(5.),
-                &mut BuffersBuilder::new(&mut buffers, WithColor(color)),
-            )
-            .unwrap();
-    }
-
-    (buffers.vertices, buffers.indices)
 }
 
 pub trait Geometry<V: solstice::vertex::Vertex>: std::fmt::Debug {
@@ -417,12 +367,6 @@ impl solstice::texture::Texture for &TextureCache {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum DrawMode {
-    Fill,
-    Stroke,
-}
-
 #[derive(Clone, Debug)]
 pub enum GeometryVariants {
     D2(std::boxed::Box<dyn BoxedGeometry<'static, d2::Vertex2D, u32>>),
@@ -451,18 +395,16 @@ impl<T: Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + 's
 }
 dyn_clone::clone_trait_object!(VertexGeometry);
 
-// Maybe DrawState just be generic on it's geometry
-// That would mean we have less assurance about the type
-// How would that change the processing?
 #[derive(Clone, Debug)]
 pub struct LineState {
     geometry: std::boxed::Box<dyn VertexGeometry>,
+    is_loop: bool,
     depth_buffer: bool,
 }
 
 #[derive(Clone, Debug)]
 pub enum Command {
-    Draw(DrawState<(DrawMode, GeometryVariants)>),
+    Draw(DrawState<GeometryVariants>),
     Line(DrawState<LineState>),
     Clear(Color, Option<Canvas>),
 }
@@ -491,6 +433,7 @@ impl DrawList {
         let command = Command::Line(DrawState {
             data: LineState {
                 geometry: std::boxed::Box::new(points),
+                is_loop: false,
                 depth_buffer: false,
             },
             transform: self.transform,
@@ -513,6 +456,7 @@ impl DrawList {
         let command = Command::Line(DrawState {
             data: LineState {
                 geometry: std::boxed::Box::new(points),
+                is_loop: false,
                 depth_buffer: true,
             },
             transform: self.transform,

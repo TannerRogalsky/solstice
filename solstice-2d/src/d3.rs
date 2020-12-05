@@ -5,8 +5,8 @@ pub use shapes::*;
 pub use transform::*;
 
 use super::{
-    BoxedGeometry, Color, Command, Draw, DrawList, DrawMode, DrawState, Geometry, GeometryVariants,
-    Projection, TextureCache,
+    BoxedGeometry, Color, Command, Draw, DrawList, DrawState, Geometry, GeometryVariants,
+    LineState, LineVertex, Projection, TextureCache,
 };
 use solstice::texture::Texture;
 
@@ -58,10 +58,7 @@ where
         transform: TX,
     ) {
         self.commands.push(Command::Draw(DrawState {
-            data: (
-                DrawMode::Fill,
-                GeometryVariants::D3(std::boxed::Box::new(geometry)),
-            ),
+            data: GeometryVariants::D3(std::boxed::Box::new(geometry)),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -92,11 +89,22 @@ where
         color: C,
         transform: TX,
     ) {
-        self.commands.push(Command::Draw(DrawState {
-            data: (
-                DrawMode::Stroke,
-                GeometryVariants::D3(std::boxed::Box::new(geometry)),
-            ),
+        self.commands.push(Command::Line(DrawState {
+            data: LineState {
+                geometry: std::boxed::Box::new(
+                    geometry
+                        .vertices()
+                        .map(|v: Vertex3D| LineVertex {
+                            position: v.position,
+                            width: 10.0,
+                            color: [1., 1., 1., 1.],
+                        })
+                        .collect::<Vec<_>>()
+                        .into_iter(),
+                ),
+                is_loop: true,
+                depth_buffer: false,
+            },
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -141,10 +149,7 @@ where
         TX: Into<Transform3D>,
     {
         self.commands.push(Command::Draw(DrawState {
-            data: (
-                DrawMode::Fill,
-                GeometryVariants::D3(std::boxed::Box::new(geometry)),
-            ),
+            data: GeometryVariants::D3(std::boxed::Box::new(geometry)),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self

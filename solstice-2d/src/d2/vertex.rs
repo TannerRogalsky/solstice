@@ -59,12 +59,6 @@ impl From<Point> for Vertex2D {
     }
 }
 
-impl Into<lyon_tessellation::math::Point> for Vertex2D {
-    fn into(self) -> lyon_tessellation::math::Point {
-        self.position.into()
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Point {
     pub x: f32,
@@ -94,24 +88,6 @@ impl From<(f32, f32)> for Point {
 impl From<[f32; 2]> for Point {
     fn from([x, y]: [f32; 2]) -> Self {
         Self { x, y }
-    }
-}
-
-impl From<lyon_tessellation::math::Point> for Point {
-    fn from(p: lyon_tessellation::math::Point) -> Self {
-        Self { x: p.x, y: p.y }
-    }
-}
-
-impl Into<lyon_tessellation::math::Point> for Point {
-    fn into(self) -> lyon_tessellation::math::Point {
-        lyon_tessellation::math::Point::new(self.x, self.y)
-    }
-}
-
-impl Into<lyon_tessellation::math::Point> for &Point {
-    fn into(self) -> lyon_tessellation::math::Point {
-        lyon_tessellation::math::Point::new(self.x, self.y)
     }
 }
 

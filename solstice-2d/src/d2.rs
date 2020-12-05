@@ -11,8 +11,8 @@ pub use transforms::*;
 pub use vertex::{Point, Vertex2D};
 
 use super::{
-    Color, Command, Draw, DrawList, DrawMode, DrawState, Geometry, GeometryVariants, Projection,
-    TextureCache, Transform3D,
+    Color, Command, Draw, DrawList, DrawState, Geometry, GeometryVariants, LineState, LineVertex,
+    Projection, TextureCache, Transform3D,
 };
 use solstice::texture::Texture;
 
@@ -39,10 +39,7 @@ where
         transform: TX,
     ) {
         self.commands.push(Command::Draw(DrawState {
-            data: (
-                DrawMode::Fill,
-                GeometryVariants::D2(std::boxed::Box::new(geometry)),
-            ),
+            data: GeometryVariants::D2(std::boxed::Box::new(geometry)),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -73,11 +70,22 @@ where
         color: C,
         transform: TX,
     ) {
-        self.commands.push(Command::Draw(DrawState {
-            data: (
-                DrawMode::Stroke,
-                GeometryVariants::D2(std::boxed::Box::new(geometry)),
-            ),
+        self.commands.push(Command::Line(DrawState {
+            data: LineState {
+                geometry: std::boxed::Box::new(
+                    geometry
+                        .vertices()
+                        .map(|v: Vertex2D| LineVertex {
+                            position: [v.position[0], v.position[1], 0.],
+                            width: 10.0,
+                            color: [1., 1., 1., 1.],
+                        })
+                        .collect::<Vec<_>>()
+                        .into_iter(),
+                ),
+                is_loop: true,
+                depth_buffer: false,
+            },
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -122,10 +130,7 @@ where
         TX: Into<Transform3D>,
     {
         self.commands.push(Command::Draw(DrawState {
-            data: (
-                DrawMode::Fill,
-                GeometryVariants::D2(std::boxed::Box::new(geometry)),
-            ),
+            data: GeometryVariants::D2(std::boxed::Box::new(geometry)),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self

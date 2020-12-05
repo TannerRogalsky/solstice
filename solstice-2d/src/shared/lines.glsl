@@ -27,6 +27,6 @@ vec4 pos(mat4 transform_projection, vec4 _vertex_position) {
 
 #ifdef FRAGMENT
 vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
-    return vLineColor;
+    return vLineColor * uColor * Texel(texture, texture_coords);
 }
 #endif
