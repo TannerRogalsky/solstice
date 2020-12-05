@@ -34,7 +34,7 @@ impl Example for Main {
         };
 
         let tiling_noise = {
-            let image = image::open(resources.join("tiling.png"))?;
+            let image = image::open(resources.join("noise_seed1-cell16-level2-att4_32.png"))?;
             let image = image.as_rgba8().unwrap();
             solstice::image::Image::with_data(
                 &mut ctx.ctx,
@@ -48,16 +48,16 @@ impl Example for Main {
         };
 
         let gen_noise = {
-            let mut rng = rand::thread_rng();
             solstice_2d::create_perlin_texture(
                 &mut ctx.ctx,
                 solstice_2d::PerlinTextureSettings {
-                    rng: &mut rng,
-                    width: 512,
-                    height: 512,
-                    period: 256,
-                    levels: 4,
+                    seed: 1,
+                    width: 32,
+                    height: 32,
+                    period: 16,
+                    levels: 2,
                     attenuation: 0.4,
+                    color: true,
                 },
             )?
         };

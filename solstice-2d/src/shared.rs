@@ -1,9 +1,11 @@
 mod color;
 mod lines;
+mod noise_texture;
 mod shader;
 
 pub use color::*;
 pub use lines::*;
+pub use noise_texture::*;
 pub use shader::*;
 
 #[derive(Debug)]
