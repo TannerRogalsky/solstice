@@ -42,6 +42,7 @@ pub struct Graphics {
     default_shader: Shader,
     default_texture: Image,
     text_workspace: text::Text,
+    text_shader: Shader,
     width: f32,
     height: f32,
 }
@@ -55,6 +56,7 @@ impl Graphics {
         let default_texture = create_default_texture(ctx)?;
 
         let text_workspace = text::Text::new(ctx)?;
+        let text_shader = Shader::with((text::DEFAULT_VERT, text::DEFAULT_FRAG), ctx)?;
 
         Ok(Self {
             mesh3d,
@@ -63,6 +65,7 @@ impl Graphics {
             default_shader,
             default_texture,
             text_workspace,
+            text_shader,
             width,
             height,
         })
@@ -178,7 +181,12 @@ impl Graphics {
                             };
                             let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(*projection_mode, width, height, false);
+                            shader.set_width_height(
+                                *projection_mode,
+                                width,
+                                height,
+                                target.is_some(),
+                            );
                             shader.send_uniform(
                                 "uView",
                                 solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
@@ -234,7 +242,12 @@ impl Graphics {
 
                     let shader = shader.clone();
                     let mut shader = shader.unwrap_or_else(|| self.line_workspace.shader().clone());
-                    shader.set_width_height(*projection_mode, self.width, self.height, false);
+                    shader.set_width_height(
+                        *projection_mode,
+                        self.width,
+                        self.height,
+                        target.is_some(),
+                    );
                     // TODO: this belongs in the above function
                     shader.send_uniform(
                         "resolution",
@@ -273,6 +286,70 @@ impl Graphics {
                             ..solstice::PipelineSettings::default()
                         },
                     )
+                }
+                Command::Print(state) => {
+                    let DrawState {
+                        data:
+                            PrintState {
+                                text,
+                                font_id,
+                                scale,
+                                bounds,
+                            },
+                        transform,
+                        camera,
+                        projection_mode,
+                        color,
+                        texture: _,
+                        target,
+                        shader,
+                    } = state;
+                    self.text_workspace.set_text(
+                        glyph_brush::Text {
+                            text: text.as_str(),
+                            scale: glyph_brush::ab_glyph::PxScale::from(*scale),
+                            font_id: *font_id,
+                            extra: glyph_brush::Extra {
+                                color: (*color).into(),
+                                z: 0.0,
+                            },
+                        },
+                        *bounds,
+                        ctx,
+                    );
+
+                    let mut shader = shader.clone();
+                    let shader = shader.as_mut().unwrap_or(&mut self.text_shader);
+                    shader.bind_texture(self.text_workspace.texture());
+                    shader.set_width_height(
+                        *projection_mode,
+                        self.width,
+                        self.height,
+                        target.is_some(),
+                    );
+                    shader.send_uniform(
+                        "uView",
+                        solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
+                    );
+                    shader.send_uniform(
+                        "uModel",
+                        solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
+                    );
+                    shader.set_color(Color::new(1., 1., 1., 1.));
+                    shader.activate(ctx);
+
+                    let geometry = self.text_workspace.geometry(ctx);
+
+                    solstice::Renderer::draw(
+                        ctx,
+                        shader,
+                        &geometry,
+                        solstice::PipelineSettings {
+                            depth_state: None,
+                            framebuffer: target.as_ref().map(|c| &c.inner),
+                            ..solstice::PipelineSettings::default()
+                        },
+                    );
                 }
                 Command::Clear(color, target) => {
                     solstice::Renderer::clear(
@@ -403,8 +480,17 @@ pub struct LineState {
 }
 
 #[derive(Clone, Debug)]
+pub struct PrintState {
+    text: String,
+    font_id: glyph_brush::FontId,
+    scale: f32,
+    bounds: d2::Rectangle,
+}
+
+#[derive(Clone, Debug)]
 pub enum Command {
     Draw(DrawState<GeometryVariants>),
+    Print(DrawState<PrintState>),
     Line(DrawState<LineState>),
     Clear(Color, Option<Canvas>),
 }
@@ -424,6 +510,33 @@ impl DrawList {
     pub fn clear<C: Into<Color>>(&mut self, color: C) {
         let command = Command::Clear(color.into(), self.target.clone());
         self.commands.push(command)
+    }
+
+    pub fn print(
+        &mut self,
+        text: String,
+        font_id: glyph_brush::FontId,
+        scale: f32,
+        bounds: Rectangle,
+    ) {
+        let command = Command::Print(DrawState {
+            data: PrintState {
+                text,
+                font_id,
+                scale,
+                bounds,
+            },
+            transform: self.transform,
+            camera: self.camera,
+            projection_mode: self
+                .projection_mode
+                .unwrap_or(Projection::Orthographic(None)),
+            color: self.color,
+            texture: None,
+            target: self.target.clone(),
+            shader: self.shader.clone(),
+        });
+        self.commands.push(command);
     }
 
     pub fn line_2d<G: Iterator<Item = LineVertex> + Clone + std::fmt::Debug + 'static>(

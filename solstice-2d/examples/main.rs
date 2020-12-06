@@ -95,6 +95,7 @@ impl Example for Main {
 
     fn draw(&mut self, ctx: &mut ExampleContext, time: Duration) {
         use solstice_2d::*;
+        let (width, height) = ctx.dimensions();
         let mut dl = DrawList::default();
         dl.clear([0., 0., 0., 1.]);
 
@@ -193,23 +194,46 @@ impl Example for Main {
         dl.set_color([1., 0., 1., 1.]);
         dl.stroke(arc);
 
-        // dl.set_color([1., 1., 1., 1.]);
-        // dl.print(deja_vu_sans, "Hello, World!", 0., 128., 128.);
-        // dl.set_color([0.5, 0.1, 1., 0.25]);
-        // dl.print(pixel_font, "Test", 128., 128., 256.);
+        dl.set_color([1., 1., 1., 1.]);
+        dl.print(
+            String::from("Hello, World!"),
+            deja_vu_sans,
+            64.,
+            Rectangle {
+                x: 128.,
+                y: 128.,
+                width,
+                height,
+            },
+        );
+        dl.set_color([0.5, 0.1, 1., 0.25]);
+        dl.print(
+            String::from("Test"),
+            pixel_font,
+            128.,
+            Rectangle {
+                x: 128.,
+                y: 256.,
+                width,
+                height,
+            },
+        );
 
-        // dl.set_color([1., 1., 1., 1.]);
-        // dl.line(0., 0., 400., 400.);
-        // dl.line(400., 400., 0., 400.);
-        // dl.line(0., 400., 0., 0.);
-        //
-        // {
-        //     let t = Transform2D::translation(10., 0.);
-        //     dl.set_transform(t);
-        //     dl.set_color([0.5, 0.1, 0.75, 0.5]);
-        //     dl.lines(&[(0., 0.), (400., 400.), (0., 400.), (0., 0.)]);
-        //     dl.set_transform(Transform2D::default());
-        // }
+        {
+            let t = Transform2D::translation(10., 0.);
+            dl.set_transform(t);
+            dl.set_color([0.5, 0.1, 0.75, 0.5]);
+            dl.line_2d(
+                [(0., 0.), (400., 400.), (0., 400.), (0., 0.)]
+                    .iter()
+                    .map(|(x, y)| LineVertex {
+                        position: [*x, *y, 0.],
+                        width: 10.,
+                        ..LineVertex::default()
+                    }),
+            );
+            dl.set_transform(Transform2D::default());
+        }
 
         let radius = 50.;
         for i in 3..12 {
