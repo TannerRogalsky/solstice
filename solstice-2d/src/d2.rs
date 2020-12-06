@@ -16,7 +16,7 @@ use super::{
 };
 use solstice::texture::Texture;
 
-impl<G> Draw<crate::Vertex2D, G> for DrawList
+impl<G> Draw<crate::Vertex2D, G> for DrawList<'_>
 where
     G: Geometry<crate::Vertex2D> + Clone + 'static,
 {
@@ -77,7 +77,7 @@ where
                         .vertices()
                         .map(|v: Vertex2D| LineVertex {
                             position: [v.position[0], v.position[1], 0.],
-                            width: 10.0,
+                            width: 5.0,
                             color: [1., 1., 1., 1.],
                         })
                         .collect::<Vec<_>>()

@@ -35,7 +35,7 @@ where
 }
 dyn_clone::clone_trait_object!(BoxedGeometry<'_, Vertex3D, u32>);
 
-impl<G> Draw<Vertex3D, G> for DrawList
+impl<G> Draw<Vertex3D, G> for DrawList<'_>
 where
     G: Geometry<Vertex3D> + Clone + 'static,
 {
@@ -96,7 +96,7 @@ where
                         .vertices()
                         .map(|v: Vertex3D| LineVertex {
                             position: v.position,
-                            width: 10.0,
+                            width: 5.0,
                             color: [1., 1., 1., 1.],
                         })
                         .collect::<Vec<_>>()

@@ -9,27 +9,27 @@ pub use solstice;
 
 use solstice::{image::Image, mesh::MappedIndexedMesh, texture::Texture, Context};
 
-pub struct GraphicsLock<'a> {
+pub struct GraphicsLock<'a, 'b> {
     ctx: &'a mut Context,
     gfx: &'a mut Graphics,
-    dl: DrawList,
+    dl: DrawList<'b>,
 }
 
-impl std::ops::Deref for GraphicsLock<'_> {
-    type Target = DrawList;
+impl<'b> std::ops::Deref for GraphicsLock<'_, 'b> {
+    type Target = DrawList<'b>;
 
     fn deref(&self) -> &Self::Target {
         &self.dl
     }
 }
 
-impl std::ops::DerefMut for GraphicsLock<'_> {
+impl std::ops::DerefMut for GraphicsLock<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.dl
     }
 }
 
-impl std::ops::Drop for GraphicsLock<'_> {
+impl std::ops::Drop for GraphicsLock<'_, '_> {
     fn drop(&mut self) {
         self.gfx.process(self.ctx, &mut self.dl)
     }
@@ -71,7 +71,7 @@ impl Graphics {
         })
     }
 
-    pub fn lock<'a>(&'a mut self, ctx: &'a mut Context) -> GraphicsLock<'a> {
+    pub fn lock<'a>(&'a mut self, ctx: &'a mut Context) -> GraphicsLock<'a, '_> {
         GraphicsLock {
             ctx,
             gfx: self,
@@ -306,7 +306,7 @@ impl Graphics {
                     } = state;
                     self.text_workspace.set_text(
                         glyph_brush::Text {
-                            text: text.as_str(),
+                            text,
                             scale: glyph_brush::ab_glyph::PxScale::from(*scale),
                             font_id: *font_id,
                             extra: glyph_brush::Extra {
@@ -480,24 +480,24 @@ pub struct LineState {
 }
 
 #[derive(Clone, Debug)]
-pub struct PrintState {
-    text: String,
+pub struct PrintState<'a> {
+    text: &'a str,
     font_id: glyph_brush::FontId,
     scale: f32,
     bounds: d2::Rectangle,
 }
 
 #[derive(Clone, Debug)]
-pub enum Command {
+pub enum Command<'a> {
     Draw(DrawState<GeometryVariants>),
-    Print(DrawState<PrintState>),
+    Print(DrawState<PrintState<'a>>),
     Line(DrawState<LineState>),
     Clear(Color, Option<Canvas>),
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct DrawList {
-    commands: Vec<Command>,
+pub struct DrawList<'a> {
+    commands: Vec<Command<'a>>,
     color: Color,
     transform: Transform3D,
     camera: Transform3D,
@@ -506,7 +506,7 @@ pub struct DrawList {
     shader: Option<Shader>,
 }
 
-impl DrawList {
+impl<'a> DrawList<'a> {
     pub fn clear<C: Into<Color>>(&mut self, color: C) {
         let command = Command::Clear(color.into(), self.target.clone());
         self.commands.push(command)
@@ -514,7 +514,7 @@ impl DrawList {
 
     pub fn print(
         &mut self,
-        text: String,
+        text: &'a str,
         font_id: glyph_brush::FontId,
         scale: f32,
         bounds: Rectangle,

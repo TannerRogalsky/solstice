@@ -196,7 +196,7 @@ impl Example for Main {
 
         dl.set_color([1., 1., 1., 1.]);
         dl.print(
-            String::from("Hello, World!"),
+            "Hello, World!",
             deja_vu_sans,
             64.,
             Rectangle {
@@ -208,7 +208,7 @@ impl Example for Main {
         );
         dl.set_color([0.5, 0.1, 1., 0.25]);
         dl.print(
-            String::from("Test"),
+            "Test",
             pixel_font,
             128.,
             Rectangle {
