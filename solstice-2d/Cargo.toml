@@ -26,5 +26,6 @@ eyre = "0.6"
 glutin = "0.24"
 
 wfc = "0.9"
+rand = "0.7"
 grid_2d = "0.14"
 image = { version = "0.23" }
