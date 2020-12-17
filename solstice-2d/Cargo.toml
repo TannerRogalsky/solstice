@@ -1,6 +1,6 @@
 [package]
 name = "solstice-2d"
-version = "0.2.4-alpha.0"
+version = "0.2.4"
 authors = ["Tanner Rogalsky <tanner@tannerrogalsky.com>"]
 edition = "2018"
 license-file = "../LICENSE"
