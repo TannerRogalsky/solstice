@@ -481,7 +481,7 @@ pub struct LineState {
 
 #[derive(Clone, Debug)]
 pub struct PrintState<'a> {
-    text: &'a str,
+    text: std::borrow::Cow<'a, str>,
     font_id: glyph_brush::FontId,
     scale: f32,
     bounds: d2::Rectangle,
@@ -512,16 +512,13 @@ impl<'a> DrawList<'a> {
         self.commands.push(command)
     }
 
-    pub fn print(
-        &mut self,
-        text: &'a str,
-        font_id: glyph_brush::FontId,
-        scale: f32,
-        bounds: Rectangle,
-    ) {
+    pub fn print<T>(&mut self, text: T, font_id: glyph_brush::FontId, scale: f32, bounds: Rectangle)
+    where
+        T: Into<std::borrow::Cow<'a, str>>,
+    {
         let command = Command::Print(DrawState {
             data: PrintState {
-                text,
+                text: text.into(),
                 font_id,
                 scale,
                 bounds,
