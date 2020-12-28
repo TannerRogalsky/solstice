@@ -145,6 +145,7 @@ where
 
     /// Write new data into a range of the Mesh's vertex data.
     pub fn set_vertices(&self, ctx: &mut super::Context, vertices: &[V], offset: usize) {
+        ctx.bind_buffer(self.vbo.handle(), self.vbo.buffer_type());
         ctx.buffer_static_draw(
             &self.vbo,
             to_bytes(vertices),
@@ -276,15 +277,12 @@ where
 
     /// Write new data into a range of the Mesh's vertex data.
     pub fn set_vertices(&self, ctx: &mut Context, vertices: &[V], offset: usize) {
-        ctx.buffer_static_draw(
-            &self.mesh.vbo,
-            to_bytes(vertices),
-            offset * std::mem::size_of::<V>(),
-        )
+        self.mesh.set_vertices(ctx, vertices, offset)
     }
 
     /// Write new data into a range of the Mesh's vertex data.
     pub fn set_indices(&self, ctx: &mut Context, indices: &[I], offset: usize) {
+        ctx.bind_buffer(self.ibo.handle(), self.ibo.buffer_type());
         ctx.buffer_static_draw(
             &self.ibo,
             to_bytes(indices),
