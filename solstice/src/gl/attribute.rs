@@ -10,6 +10,9 @@ pub fn from_gl(atype: u32) -> AttributeType {
         glow::FLOAT_MAT3 => AttributeType::F32x3x3,
         glow::FLOAT_MAT4 => AttributeType::F32x4x4,
         glow::INT => AttributeType::I32,
+        glow::INT_VEC2 => AttributeType::I32I32,
+        glow::INT_VEC3 => AttributeType::I32I32I32,
+        glow::INT_VEC4 => AttributeType::I32I32I32I32,
         v => panic!("Unknown value returned by OpenGL attribute type: {:#x}", v),
     }
 }

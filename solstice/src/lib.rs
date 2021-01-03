@@ -939,14 +939,33 @@ impl Context {
                 let (data_type, elements_count, _instances_count) = vertex_format.atype.to_gl();
                 unsafe {
                     self.ctx.vertex_attrib_divisor(i, step);
-                    self.ctx.vertex_attrib_pointer_f32(
-                        i,
-                        elements_count,
-                        data_type,
-                        vertex_format.normalize,
-                        stride as i32,
-                        vertex_format.offset as i32,
-                    );
+                    use vertex::AttributeType;
+                    match vertex_format.atype {
+                        AttributeType::F32
+                        | AttributeType::F32F32
+                        | AttributeType::F32F32F32
+                        | AttributeType::F32F32F32F32
+                        | AttributeType::F32x2x2
+                        | AttributeType::F32x3x3
+                        | AttributeType::F32x4x4 => self.ctx.vertex_attrib_pointer_f32(
+                            i,
+                            elements_count,
+                            data_type,
+                            vertex_format.normalize,
+                            stride as i32,
+                            vertex_format.offset as i32,
+                        ),
+                        AttributeType::I32
+                        | AttributeType::I32I32
+                        | AttributeType::I32I32I32
+                        | AttributeType::I32I32I32I32 => self.ctx.vertex_attrib_pointer_i32(
+                            i,
+                            elements_count,
+                            data_type,
+                            stride as i32,
+                            vertex_format.offset as i32,
+                        ),
+                    }
                 }
             }
         }
