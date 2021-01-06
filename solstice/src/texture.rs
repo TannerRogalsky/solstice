@@ -268,6 +268,12 @@ pub trait TextureUpdate {
         texture_type: TextureType,
         data: Option<&[u8]>,
     );
+    #[cfg(target_arch = "wasm32")]
+    fn set_texture_data_with_html_image<T: Texture>(
+        &mut self,
+        texture: T,
+        data: &web_sys::HtmlImageElement,
+    );
     fn set_texture_wrap(
         &mut self,
         texture_key: super::TextureKey,

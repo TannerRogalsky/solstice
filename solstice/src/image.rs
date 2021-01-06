@@ -97,6 +97,21 @@ impl Image {
         Ok(this)
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn with_html_image(
+        ctx: &mut Context,
+        texture_type: TextureType,
+        format: PixelFormat,
+        width: u32,
+        height: u32,
+        data: &web_sys::HtmlImageElement,
+        settings: Settings,
+    ) -> Result<Self, super::GraphicsError> {
+        let this = Image::new(ctx, texture_type, format, width, height, settings)?;
+        ctx.set_texture_data_with_html_image(&this, data);
+        Ok(this)
+    }
+
     pub fn set_texture_info(&mut self, texture_info: TextureInfo) {
         self.texture_info = texture_info;
     }

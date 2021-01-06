@@ -1274,6 +1274,50 @@ impl texture::TextureUpdate for Context {
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
+    fn set_texture_data_with_html_image<T: texture::Texture>(
+        &mut self,
+        texture: T,
+        data: &web_sys::HtmlImageElement,
+    ) {
+        let texture_info = texture.get_texture_info();
+        let gl::TextureFormat {
+            internal,
+            external,
+            ty,
+            swizzle,
+        } = gl::pixel_format::to_gl(texture_info.get_format(), &self.version);
+        let gl_target = gl::texture::to_gl(texture.get_texture_type());
+        self.bind_texture_to_unit(
+            texture.get_texture_type(),
+            texture.get_texture_key(),
+            0.into(),
+        );
+        unsafe {
+            if let Some(swizzle) = swizzle {
+                self.ctx
+                    .tex_parameter_i32(gl_target, glow::TEXTURE_SWIZZLE_R, swizzle[0]);
+                self.ctx
+                    .tex_parameter_i32(gl_target, glow::TEXTURE_SWIZZLE_G, swizzle[1]);
+                self.ctx
+                    .tex_parameter_i32(gl_target, glow::TEXTURE_SWIZZLE_B, swizzle[2]);
+                self.ctx
+                    .tex_parameter_i32(gl_target, glow::TEXTURE_SWIZZLE_A, swizzle[3]);
+            }
+            self.ctx.tex_image_2d_with_html_image(
+                gl_target,
+                0,
+                internal as i32,
+                external,
+                ty,
+                data,
+            );
+            if texture_info.mipmaps() {
+                self.ctx.generate_mipmap(gl_target);
+            }
+        }
+    }
+
     fn set_texture_wrap(
         &mut self,
         texture_key: TextureKey,
