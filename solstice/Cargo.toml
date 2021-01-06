@@ -15,7 +15,7 @@ derive = ["solstice-derive"]
 [dependencies]
 glow = "0.7"
 log = "0.4"
-slotmap = "0.4"
+slotmap = "1.0"
 mint = "0.5"
 ndarray = "0.13"
 serde = { version = "1.0", optional = true, features = ["derive"] }
