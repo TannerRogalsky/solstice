@@ -58,6 +58,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct QuadBatch<T> {
     mesh: MappedIndexedMesh<T, u16>,
     count: usize,

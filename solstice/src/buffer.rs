@@ -114,7 +114,8 @@ pub struct ModifiedRange<D> {
     pub size: D,
 }
 
-pub struct Mapped<T, D> {
+#[derive(Debug)]
+pub struct Mapped<T, D: ndarray::Dimension> {
     pub(crate) inner: T,
     pub(crate) memory_map: ndarray::Array<u8, D>,
     pub(crate) modified_range: Option<ModifiedRange<D>>,

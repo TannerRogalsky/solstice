@@ -306,6 +306,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct MappedIndexedMesh<V, I> {
     inner: IndexedMesh<V, I>,
     vbo: MappedBuffer,
