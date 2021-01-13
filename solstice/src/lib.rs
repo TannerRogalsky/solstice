@@ -320,6 +320,7 @@ pub struct Context {
     active_framebuffer: [Option<FramebufferKey>; 2],
     current_texture_unit: TextureUnit,
     current_viewport: viewport::Viewport<i32>,
+    current_scissor: Option<viewport::Viewport<i32>>,
     enabled_attributes: u32, // a bitmask that represents the vertex attribute state
 }
 
@@ -385,6 +386,7 @@ impl Context {
             active_framebuffer: [None; 2],
             current_texture_unit: 0.into(),
             current_viewport: viewport::Viewport::default(),
+            current_scissor: None,
             enabled_attributes: std::u32::MAX,
         };
         ctx.set_vertex_attributes(0, &[]);
@@ -1083,6 +1085,35 @@ impl Context {
         self.current_viewport
     }
 
+    pub fn set_scissor(&mut self, region: Option<viewport::Viewport<i32>>) {
+        match (region, &mut self.current_scissor) {
+            (None, Some(_current)) => {
+                unsafe {
+                    self.ctx.disable(glow::SCISSOR_TEST);
+                }
+                self.current_scissor = None;
+            }
+            (Some(new), None) => {
+                unsafe {
+                    self.ctx.enable(glow::SCISSOR_TEST);
+                    self.ctx
+                        .scissor(new.x(), new.y(), new.width(), new.height());
+                }
+                self.current_scissor = Some(new);
+            }
+            (Some(new), Some(current)) => {
+                if &new != current {
+                    unsafe {
+                        self.ctx
+                            .scissor(new.x(), new.y(), new.width(), new.height());
+                    }
+                    *current = new;
+                }
+            }
+            (None, None) => {}
+        }
+    }
+
     pub fn clear_color(&self, red: f32, green: f32, blue: f32, alpha: f32) {
         unsafe { self.ctx.clear_color(red, green, blue, alpha) }
     }
@@ -1468,6 +1499,7 @@ impl Renderer for Context {
         } else {
             self.disable(Feature::DepthTest(DepthFunction::Never));
         }
+        self.set_scissor(settings.scissor_state);
 
         self.bind_framebuffer(
             canvas::Target::All,
@@ -1768,12 +1800,13 @@ impl Default for StencilState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PipelineSettings<'a> {
-    pub viewport: viewport::Viewport<u32>,
+    pub viewport: viewport::Viewport<i32>,
     pub framebuffer: Option<&'a canvas::Canvas>,
     pub polygon_state: PolygonState,
     pub depth_state: Option<DepthState>,
     pub blend_state: Option<BlendState>,
     pub stencil_state: Option<StencilState>,
+    pub scissor_state: Option<viewport::Viewport<i32>>,
 }
 
 impl<'a> Default for PipelineSettings<'a> {
@@ -1785,6 +1818,7 @@ impl<'a> Default for PipelineSettings<'a> {
             polygon_state: Default::default(),
             blend_state: None,
             stencil_state: None,
+            scissor_state: None,
         }
     }
 }
