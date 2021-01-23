@@ -1448,7 +1448,10 @@ impl Renderer for Context {
             depth,
             stencil,
             target,
+            scissor,
         } = settings;
+        self.set_scissor(scissor);
+
         let mut clear_bits = 0;
 
         if let Some(color) = color {
@@ -1648,6 +1651,7 @@ pub struct ClearSettings<'a> {
     pub depth: Option<ClampedF32>,
     pub stencil: Option<i32>, // TODO: does signed make sense here?
     pub target: Option<&'a canvas::Canvas>,
+    pub scissor: Option<viewport::Viewport<i32>>,
 }
 
 impl Default for ClearSettings<'_> {
@@ -1657,6 +1661,7 @@ impl Default for ClearSettings<'_> {
             depth: Some(ClampedF32(1.)),
             stencil: Some(0),
             target: None,
+            scissor: None,
         }
     }
 }
