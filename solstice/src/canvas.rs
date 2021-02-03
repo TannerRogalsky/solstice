@@ -1,7 +1,6 @@
-use super::PixelFormat;
 use super::{
     texture::{Filter, Texture, TextureInfo, TextureType, TextureUpdate, Wrap},
-    Context,
+    Context, PixelFormat,
 };
 
 #[derive(PartialEq, Eq)]
@@ -22,6 +21,8 @@ pub struct Settings {
     pub dpi_scale: f32,
     pub msaa: usize,
     pub readable: Option<bool>,
+    pub wrap: Wrap,
+    pub filter: Filter,
 }
 
 impl Default for Settings {
@@ -36,6 +37,8 @@ impl Default for Settings {
             dpi_scale: 1.0,
             msaa: 0,
             readable: None,
+            wrap: Default::default(),
+            filter: Default::default(),
         }
     }
 }
@@ -54,8 +57,8 @@ impl Canvas {
             settings.format,
             (settings.width as f32 * settings.dpi_scale + 0.5) as u32,
             (settings.height as f32 * settings.dpi_scale + 0.5) as u32,
-            Filter::default(),
-            Wrap::default(),
+            settings.filter,
+            settings.wrap,
             settings.mipmap_mode != MipmapMode::None,
         );
         let (framebuffer_key, texture_key) = {
