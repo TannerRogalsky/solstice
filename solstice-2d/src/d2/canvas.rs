@@ -12,16 +12,24 @@ impl Canvas {
         width: f32,
         height: f32,
     ) -> Result<Self, solstice::GraphicsError> {
-        let inner = s::Canvas::new(
+        Self::with_settings(
             ctx,
             s::Settings {
                 width: width as _,
                 height: height as _,
                 ..s::Settings::default()
             },
-        )?;
+        )
+    }
+
+    pub fn with_settings(
+        ctx: &mut solstice::Context,
+        settings: s::Settings,
+    ) -> Result<Self, solstice::GraphicsError> {
+        let inner = s::Canvas::new(ctx, settings)?;
         Ok(Self { inner })
     }
+
     pub fn dimensions(&self) -> (f32, f32) {
         let info = solstice::texture::Texture::get_texture_info(&self.inner);
         (info.width() as _, info.height() as _)
