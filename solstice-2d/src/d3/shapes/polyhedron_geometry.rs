@@ -125,6 +125,10 @@ impl Polyhedron {
             detail,
         }
     }
+
+    fn vertex_count(&self) -> usize {
+        self.indices.len() * ((self.detail as usize + 1).pow(2))
+    }
 }
 
 fn subdivide(detail: u32, vertices: &mut Vec<Point3D>, indices: &[u32], v: &[Point3D]) {
@@ -189,13 +193,63 @@ fn inclination(point: &Point3D) -> f32 {
     (-point.y).atan2((point.x * point.x + point.z * point.z).sqrt())
 }
 
-impl crate::Geometry<crate::d3::Vertex3D> for Polyhedron {
-    type Vertices = std::iter::Map<std::vec::IntoIter<Point3D>, fn(Point3D) -> Vertex3D>;
-    type Indices =
-        std::iter::Map<std::iter::Enumerate<Self::Vertices>, fn((usize, Vertex3D)) -> u32>;
+fn correct_uvs(vertices: &mut Vec<Vertex3D>) {
+    for triangle in vertices.chunks_exact_mut(3) {
+        let a = triangle[0].position;
+        let b = triangle[1].position;
+        let c = triangle[2].position;
+
+        let cx = a[0] + b[0] + c[0];
+        let cy = a[1] + b[1] + c[1];
+        let cz = a[2] + b[2] + c[2];
+        let centroid = Point3D::new(cx, cy, cz).divide_scalar(3.);
+        let azi = azimuth(&centroid);
+
+        correct_uv(&mut triangle[0].uv[0], &a, azi);
+        correct_uv(&mut triangle[1].uv[0], &b, azi);
+        correct_uv(&mut triangle[2].uv[0], &c, azi);
+    }
+}
+
+fn correct_uv(uv: &mut f32, vector: &[f32; 3], azi: f32) {
+    if (azi < 0.) && (*uv - 1.).abs() < f32::EPSILON {
+        *uv = *uv - 1.;
+    }
+
+    if (vector[0] == 0.) && (vector[2] == 0.) {
+        *uv = azi / 2. / std::f32::consts::PI + 0.5;
+    }
+}
+
+fn correct_seam(vertices: &mut Vec<Vertex3D>) {
+    for triangle in vertices.chunks_exact_mut(3) {
+        let x0 = triangle[0].uv[0];
+        let x1 = triangle[1].uv[0];
+        let x2 = triangle[2].uv[0];
+
+        let max = x0.max(x1.max(x2));
+        let min = x0.min(x1.min(x2));
+
+        if max > 0.9 && min < 0.1 {
+            if x0 < 0.2 {
+                triangle[0].uv[0] += 1.;
+            }
+            if x1 < 0.2 {
+                triangle[1].uv[0] += 1.;
+            }
+            if x2 < 0.2 {
+                triangle[2].uv[0] += 1.;
+            }
+        }
+    }
+}
+
+impl crate::Geometry<Vertex3D> for Polyhedron {
+    type Vertices = std::vec::IntoIter<Vertex3D>;
+    type Indices = std::ops::Range<u32>;
 
     fn vertices(&self) -> Self::Vertices {
-        let mut vertices = vec![];
+        let mut vertices = Vec::with_capacity(self.vertex_count());
 
         subdivide(
             self.detail,
@@ -205,20 +259,42 @@ impl crate::Geometry<crate::d3::Vertex3D> for Polyhedron {
         );
         apply_radius(self.radius, vertices.as_mut_slice());
 
-        vertices.into_iter().map(|p| {
-            let u = azimuth(&p) / 2. / std::f32::consts::PI + 0.5;
-            let v = inclination(&p) / std::f32::consts::PI + 0.5;
-            let normal = p.normalize();
-            Vertex3D {
-                position: [p.x, p.y, p.z],
-                uv: [u, v],
-                color: [1., 1., 1., 1.],
-                normal: [normal.x, normal.y, normal.z],
-            }
-        })
+        let mut vertices = vertices
+            .into_iter()
+            .map(|p| {
+                let u = azimuth(&p) / 2. / std::f32::consts::PI + 0.5;
+                let v = inclination(&p) / std::f32::consts::PI + 0.5;
+                let normal = p.normalize();
+                Vertex3D {
+                    position: [p.x, p.y, p.z],
+                    uv: [u, v],
+                    color: [1., 1., 1., 1.],
+                    normal: [normal.x, normal.y, normal.z],
+                }
+            })
+            .collect::<Vec<_>>();
+
+        correct_uvs(&mut vertices);
+        correct_seam(&mut vertices);
+
+        vertices.into_iter()
     }
 
     fn indices(&self) -> Self::Indices {
-        self.vertices().enumerate().map(|(i, _)| i as u32)
+        0..(self.vertex_count() as u32)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn subdivision_count() {
+        for detail in 0..10 {
+            let shape = Polyhedron::tetrahedron(1., detail);
+
+            assert_eq!(12 * ((detail as usize + 1).pow(2)), shape.vertex_count());
+        }
     }
 }
