@@ -10,7 +10,6 @@ pub enum MipmapMode {
     Auto,
 }
 
-// TODO: builder pattern?
 pub struct Settings {
     pub width: u32,
     pub height: u32,
@@ -23,6 +22,7 @@ pub struct Settings {
     pub readable: Option<bool>,
     pub wrap: Wrap,
     pub filter: Filter,
+    pub with_depth: bool,
 }
 
 impl Default for Settings {
@@ -39,6 +39,7 @@ impl Default for Settings {
             readable: None,
             wrap: Default::default(),
             filter: Default::default(),
+            with_depth: false
         }
     }
 }
@@ -47,6 +48,7 @@ impl Default for Settings {
 pub struct Canvas {
     framebuffer_key: super::FramebufferKey,
     texture_key: super::TextureKey,
+    renderbuffer_key: Option<super::RenderbufferKey>,
     texture_info: TextureInfo,
     texture_type: TextureType,
 }
@@ -61,7 +63,7 @@ impl Canvas {
             settings.wrap,
             settings.mipmap_mode != MipmapMode::None,
         );
-        let (framebuffer_key, texture_key) = {
+        let (framebuffer_key, texture_key, renderbuffer_key) = {
             let texture_key = ctx.new_texture(settings.texture_type)?;
             ctx.bind_texture_to_unit(settings.texture_type, texture_key, 0.into());
             ctx.set_texture_wrap(texture_key, settings.texture_type, texture.wrap());
@@ -69,9 +71,10 @@ impl Canvas {
             // set format
             ctx.set_texture_data(texture_key, texture, settings.texture_type, None);
 
+            let target = Target::All;
+            let current_framebuffer = ctx.get_active_framebuffer(target);
+
             let framebuffer_key = {
-                let target = Target::All;
-                let current_framebuffer = ctx.get_active_framebuffer(target);
                 let framebuffer_key = ctx.new_framebuffer()?;
                 ctx.bind_framebuffer(target, Some(framebuffer_key));
 
@@ -93,14 +96,31 @@ impl Canvas {
                     }
                 }
 
-                ctx.bind_framebuffer(target, current_framebuffer);
                 framebuffer_key
             };
-            (framebuffer_key, texture_key)
+
+            let renderbuffer_key = if settings.with_depth {
+                let depth_buffer_key = ctx.new_renderbuffer()?;
+                ctx.bind_renderbuffer(Some(depth_buffer_key));
+                ctx.renderbuffer_storage(
+                    PixelFormat::Depth16,
+                    texture.width() as _,
+                    texture.height() as _,
+                );
+                ctx.framebuffer_renderbuffer(Attachment::Depth, Some(depth_buffer_key));
+                Some(depth_buffer_key)
+            } else {
+                None
+            };
+
+            ctx.bind_framebuffer(target, current_framebuffer);
+
+            (framebuffer_key, texture_key, renderbuffer_key)
         };
         Ok(Self {
             texture_type: settings.texture_type,
             framebuffer_key,
+            renderbuffer_key,
             texture_key,
             texture_info: texture,
         })

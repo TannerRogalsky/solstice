@@ -28,6 +28,7 @@ pub enum GraphicsError {
     TextureError,
     BufferError,
     FramebufferError,
+    RenderbufferError,
 }
 
 impl std::fmt::Display for GraphicsError {
@@ -43,7 +44,8 @@ type GLContext = glow::Context;
 type GLBuffer = <GLContext as HasContext>::Buffer;
 type GLProgram = <GLContext as HasContext>::Program;
 type GLTexture = <GLContext as HasContext>::Texture;
-type GLFrameBuffer = <GLContext as HasContext>::Framebuffer;
+type GLFramebuffer = <GLContext as HasContext>::Framebuffer;
+type GLRenderbuffer = <GLContext as HasContext>::Renderbuffer;
 type GLUniformLocation = <GLContext as HasContext>::UniformLocation;
 
 slotmap::new_key_type! {
@@ -51,6 +53,7 @@ slotmap::new_key_type! {
     pub struct BufferKey;
     pub struct TextureKey;
     pub struct FramebufferKey;
+    pub struct RenderbufferKey;
 }
 
 pub struct DebugGroup<'a> {
@@ -316,8 +319,10 @@ pub struct Context {
     active_buffers: [Option<BufferKey>; 2],
     textures: SlotMap<TextureKey, GLTexture>,
     bound_textures: Vec<Vec<Option<GLTexture>>>,
-    framebuffers: SlotMap<FramebufferKey, GLFrameBuffer>,
+    framebuffers: SlotMap<FramebufferKey, GLFramebuffer>,
     active_framebuffer: [Option<FramebufferKey>; 2],
+    renderbuffers: SlotMap<RenderbufferKey, GLRenderbuffer>,
+    active_renderbuffer: Option<RenderbufferKey>,
     current_texture_unit: TextureUnit,
     current_viewport: viewport::Viewport<i32>,
     current_scissor: Option<viewport::Viewport<i32>>,
@@ -384,6 +389,8 @@ impl Context {
             bound_textures,
             framebuffers: SlotMap::with_key(),
             active_framebuffer: [None; 2],
+            renderbuffers: SlotMap::with_key(),
+            active_renderbuffer: None,
             current_texture_unit: 0.into(),
             current_viewport: viewport::Viewport::default(),
             current_scissor: None,
@@ -910,6 +917,59 @@ impl Context {
                 self.textures.get(texture_key).copied(),
                 level as i32,
             )
+        }
+    }
+
+    pub fn new_renderbuffer(&mut self) -> Result<RenderbufferKey, GraphicsError> {
+        let renderbuffer = unsafe {
+            self.ctx
+                .create_renderbuffer()
+                .map_err(|_| GraphicsError::RenderbufferError)?
+        };
+        Ok(self.renderbuffers.insert(renderbuffer))
+    }
+
+    pub fn bind_renderbuffer(&mut self, renderbuffer: Option<RenderbufferKey>) {
+        if self.active_renderbuffer != renderbuffer {
+            self.active_renderbuffer = renderbuffer;
+            let gl_renderbuffer =
+                renderbuffer.and_then(|renderbuffer| self.renderbuffers.get(renderbuffer).cloned());
+            unsafe {
+                self.ctx
+                    .bind_renderbuffer(glow::RENDERBUFFER, gl_renderbuffer);
+            }
+        }
+    }
+
+    pub fn renderbuffer_storage(&mut self, format: PixelFormat, width: i32, height: i32) {
+        let gl_format = gl::pixel_format::to_gl(format, &self.version);
+        unsafe {
+            self.ctx
+                .renderbuffer_storage(glow::RENDERBUFFER, gl_format.internal, width, height)
+        }
+    }
+
+    pub fn framebuffer_renderbuffer(
+        &mut self,
+        attachment: canvas::Attachment,
+        renderbuffer: Option<RenderbufferKey>,
+    ) {
+        let gl_renderbuffer =
+            renderbuffer.and_then(|renderbuffer| self.renderbuffers.get(renderbuffer).cloned());
+        unsafe {
+            self.ctx.framebuffer_renderbuffer(
+                glow::FRAMEBUFFER,
+                attachment.to_gl(),
+                glow::RENDERBUFFER,
+                gl_renderbuffer,
+            )
+        }
+    }
+
+    pub fn destroy_renderbuffer(&mut self, renderbuffer_key: RenderbufferKey) {
+        match self.renderbuffers.remove(renderbuffer_key) {
+            None => (),
+            Some(renderbuffer) => unsafe { self.ctx.delete_renderbuffer(renderbuffer) },
         }
     }
 
