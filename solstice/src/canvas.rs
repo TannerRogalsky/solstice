@@ -39,7 +39,7 @@ impl Default for Settings {
             readable: None,
             wrap: Default::default(),
             filter: Default::default(),
-            with_depth: false
+            with_depth: false,
         }
     }
 }

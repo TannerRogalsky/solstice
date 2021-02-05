@@ -10,12 +10,15 @@ struct FramebufferExample {
 impl Example for FramebufferExample {
     fn new(ctx: &mut ExampleContext) -> eyre::Result<Self> {
         let (width, height) = ctx.dimensions();
-        let bg_canvas = solstice_2d::Canvas::with_settings(&mut ctx.ctx, solstice_2d::solstice::canvas::Settings {
-            width: width as _,
-            height: height as _,
-            with_depth: true,
-            ..Default::default()
-        })?;
+        let bg_canvas = solstice_2d::Canvas::with_settings(
+            &mut ctx.ctx,
+            solstice_2d::solstice::canvas::Settings {
+                width: width as _,
+                height: height as _,
+                with_depth: true,
+                ..Default::default()
+            },
+        )?;
         let texture_canvas = solstice_2d::Canvas::new(&mut ctx.ctx, width, height)?;
 
         {
