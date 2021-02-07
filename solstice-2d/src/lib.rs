@@ -232,6 +232,15 @@ impl Graphics {
                         target,
                         shader,
                     } = draw_state;
+                    let mut cached_viewport = None;
+                    let (width, height) = if let Some(canvas) = target.as_ref() {
+                        let (width, height) = canvas.dimensions();
+                        cached_viewport = Some(ctx.viewport());
+                        ctx.set_viewport(0, 0, width as _, height as _);
+                        (width, height)
+                    } else {
+                        (self.width, self.height)
+                    };
                     let verts = geometry.clone().collect::<std::boxed::Box<[_]>>();
                     self.line_workspace.add_points(&verts);
                     if let Some(first) = verts.first() {
@@ -244,14 +253,14 @@ impl Graphics {
                     let mut shader = shader.unwrap_or_else(|| self.line_workspace.shader().clone());
                     shader.set_width_height(
                         *projection_mode,
-                        self.width,
-                        self.height,
+                        width,
+                        height,
                         target.is_some(),
                     );
                     // TODO: this belongs in the above function
                     shader.send_uniform(
                         "resolution",
-                        solstice::shader::RawUniformValue::Vec2([self.width, self.height].into()),
+                        solstice::shader::RawUniformValue::Vec2([width, height].into()),
                     );
                     shader.send_uniform(
                         "uView",
@@ -285,7 +294,10 @@ impl Graphics {
                             framebuffer: target.as_ref().map(|c| &c.inner),
                             ..solstice::PipelineSettings::default()
                         },
-                    )
+                    );
+                    if let Some(v) = cached_viewport {
+                        ctx.set_viewport(v.x(), v.y(), v.width(), v.height());
+                    }
                 }
                 Command::Print(state) => {
                     let DrawState {
