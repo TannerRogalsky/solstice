@@ -56,7 +56,7 @@ impl Example for Main {
                     height: 32,
                     period: 16,
                     levels: 2,
-                    attenuation: 0.4,
+                    attenuation: std::convert::TryInto::try_into(0.4).unwrap(),
                     color: true,
                 },
             )?

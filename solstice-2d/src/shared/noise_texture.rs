@@ -262,7 +262,7 @@ mod tests {
             height: 4,
             period: 2,
             levels: 1,
-            attenuation: 0.0,
+            attenuation: std::convert::TryInto::try_into(0.0).unwrap(),
             color: false,
         };
         let bytes = dup_channel(bytes(settings));
@@ -286,7 +286,7 @@ mod tests {
             height: 4,
             period: 2,
             levels: 1,
-            attenuation: 0.0,
+            attenuation: std::convert::TryInto::try_into(0.0).unwrap(),
             color: true,
         };
         let bytes = add_alpha(bytes(settings));
