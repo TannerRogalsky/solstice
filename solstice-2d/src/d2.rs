@@ -167,7 +167,7 @@ impl<T: SimpleConvexGeometry> crate::Geometry<Vertex2D> for T {
     }
 
     fn indices(&self) -> Self::Indices {
-        (1..(self.vertex_count() as u32 - 1))
+        (1..(self.vertex_count() as u32).saturating_sub(1))
             .flat_map(|i| arrayvec::ArrayVec::<[u32; 3]>::from([0, i, i + 1]))
     }
 }
