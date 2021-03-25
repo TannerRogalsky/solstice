@@ -38,7 +38,10 @@ impl Text {
                 solstice::PixelFormat::Alpha,
                 width,
                 height,
-                Settings::default(),
+                Settings {
+                    mipmaps: false,
+                    ..Settings::default()
+                },
             )?
         };
         // will only do texture sub data updates to initialize as empty texture
