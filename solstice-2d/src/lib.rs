@@ -106,15 +106,7 @@ impl Graphics {
                         target,
                         shader,
                     } = draw_state;
-                    let mut cached_viewport = None;
-                    let (width, height) = if let Some(canvas) = target.as_ref() {
-                        let (width, height) = canvas.dimensions();
-                        cached_viewport = Some(ctx.viewport());
-                        ctx.set_viewport(0, 0, width as _, height as _);
-                        (width, height)
-                    } else {
-                        (self.width, self.height)
-                    };
+                    let (width, height) = (self.width, self.height);
                     match geometry {
                         GeometryVariants::D2(geometry) => {
                             let transform_verts = |mut v: Vertex2D| -> Vertex2D {
@@ -139,7 +131,12 @@ impl Graphics {
                             };
                             let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(*projection_mode, width, height, false);
+                            shader.set_width_height(
+                                *projection_mode,
+                                width,
+                                height,
+                                target.is_some(),
+                            );
                             shader.send_uniform(
                                 "uView",
                                 solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
@@ -212,9 +209,6 @@ impl Graphics {
                             );
                         }
                     };
-                    if let Some(v) = cached_viewport {
-                        ctx.set_viewport(v.x(), v.y(), v.width(), v.height());
-                    }
                 }
                 Command::Line(draw_state) => {
                     let DrawState {
@@ -232,15 +226,7 @@ impl Graphics {
                         target,
                         shader,
                     } = draw_state;
-                    let mut cached_viewport = None;
-                    let (width, height) = if let Some(canvas) = target.as_ref() {
-                        let (width, height) = canvas.dimensions();
-                        cached_viewport = Some(ctx.viewport());
-                        ctx.set_viewport(0, 0, width as _, height as _);
-                        (width, height)
-                    } else {
-                        (self.width, self.height)
-                    };
+                    let (width, height) = (self.width, self.height);
                     let verts = geometry.clone().collect::<std::boxed::Box<[_]>>();
                     self.line_workspace.add_points(&verts);
                     if let Some(first) = verts.first() {
@@ -295,9 +281,6 @@ impl Graphics {
                             ..solstice::PipelineSettings::default()
                         },
                     );
-                    if let Some(v) = cached_viewport {
-                        ctx.set_viewport(v.x(), v.y(), v.width(), v.height());
-                    }
                 }
                 Command::Print(state) => {
                     let DrawState {
