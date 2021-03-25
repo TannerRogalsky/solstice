@@ -110,13 +110,14 @@ impl PerlinSampler {
     }
 }
 
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct PerlinTextureSettings {
     pub seed: i32,
     pub width: usize,
     pub height: usize,
     pub period: u32,
     pub levels: u32,
-    pub attenuation: f32,
+    pub attenuation: ordered_float::NotNan<f32>,
     pub color: bool,
 }
 
@@ -138,6 +139,7 @@ fn bytes(settings: PerlinTextureSettings) -> Vec<u8> {
         attenuation,
         color,
     } = settings;
+    let attenuation = attenuation.into_inner();
     let num_channels = if color { 3 } else { 1 };
     let mut raster = vec![0f32; width * height * num_channels];
     for channel in 0..num_channels {
