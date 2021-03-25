@@ -237,12 +237,7 @@ impl Graphics {
 
                     let shader = shader.clone();
                     let mut shader = shader.unwrap_or_else(|| self.line_workspace.shader().clone());
-                    shader.set_width_height(
-                        *projection_mode,
-                        width,
-                        height,
-                        target.is_some(),
-                    );
+                    shader.set_width_height(*projection_mode, width, height, target.is_some());
                     // TODO: this belongs in the above function
                     shader.send_uniform(
                         "resolution",
