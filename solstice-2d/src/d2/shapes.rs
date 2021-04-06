@@ -293,8 +293,9 @@ impl SimpleConvexGeometry for RegularPolygon {
         // an allocation is a small price to pay for my sanity
         (0..vertex_count).map(Box::new(move |i| {
             let phi = angle_shift * i as f32;
-            let (x, y) = (x + radius * phi.cos(), y + radius * phi.sin());
-            Vertex2D::new([x, y], [1., 1., 1., 1.], [0.5, 0.5])
+            let (s, c) = phi.sin_cos();
+            let (x, y) = (x + radius * c, y + radius * s);
+            Vertex2D::new([x, y], [1., 1., 1., 1.], [(c + 1.) / 2., (s + 1.) / 2.])
         }))
     }
 
