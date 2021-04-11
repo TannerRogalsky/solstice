@@ -64,7 +64,7 @@ impl SimpleConvexGeometry for Arc {
         } = *self;
         let (angle1, angle2) = (angle1.0, angle2.0);
 
-        if segments == 0 || (angle1 - angle2).abs() < std::f32::EPSILON {
+        if segments == 0 || (angle1 - angle2).abs() < f32::EPSILON {
             return Vec::<Vertex2D>::new().into_iter();
         }
 
