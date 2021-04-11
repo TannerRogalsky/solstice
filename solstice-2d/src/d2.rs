@@ -158,8 +158,8 @@ impl<T: SimpleConvexGeometry> crate::Geometry<Vertex2D> for T {
     type Vertices = T::Vertices;
     type Indices = std::iter::FlatMap<
         std::ops::Range<u32>,
-        arrayvec::ArrayVec<[u32; 3]>,
-        fn(u32) -> arrayvec::ArrayVec<[u32; 3]>,
+        std::array::IntoIter<u32, 3>,
+        fn(u32) -> std::array::IntoIter<u32, 3>,
     >;
 
     fn vertices(&self) -> Self::Vertices {
@@ -168,7 +168,7 @@ impl<T: SimpleConvexGeometry> crate::Geometry<Vertex2D> for T {
 
     fn indices(&self) -> Self::Indices {
         (1..(self.vertex_count() as u32).saturating_sub(1))
-            .flat_map(|i| arrayvec::ArrayVec::<[u32; 3]>::from([0, i, i + 1]))
+            .flat_map(|i| std::array::IntoIter::new([0, i, i + 1]))
     }
 }
 
