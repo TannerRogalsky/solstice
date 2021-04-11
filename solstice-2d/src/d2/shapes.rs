@@ -89,11 +89,14 @@ impl SimpleConvexGeometry for Arc {
             let mut phi = angle1;
             move |coordinates: &mut [Vertex2D]| {
                 for coordinate in coordinates.iter_mut() {
-                    phi += angle_shift;
-                    let x = x + radius * phi.cos();
-                    let y = y + radius * phi.sin();
+                    let (s, c) = phi.sin_cos();
+                    let x = x + radius * c;
+                    let y = y + radius * s;
                     coordinate.position[0] = x;
                     coordinate.position[1] = y;
+                    coordinate.uv[0] = (c + 1.) / 2.;
+                    coordinate.uv[1] = (s + 1.) / 2.;
+                    phi += angle_shift;
                 }
             }
         };
@@ -102,11 +105,13 @@ impl SimpleConvexGeometry for Arc {
             ArcType::Pie => {
                 let num_coords = segments as usize + 3;
                 let mut coords = vec![Vertex2D::default(); num_coords];
-                coords[0] = Vertex2D {
+                let anchor = Vertex2D {
                     position: [x, y],
                     ..Vertex2D::default()
                 };
-                create_points(&mut coords[1..]);
+                coords[0] = anchor;
+                coords[num_coords - 1] = anchor;
+                create_points(&mut coords[1..num_coords - 1]);
                 coords
             }
             ArcType::Open => {
