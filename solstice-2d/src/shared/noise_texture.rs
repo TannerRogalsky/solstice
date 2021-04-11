@@ -110,7 +110,7 @@ impl PerlinSampler {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
 pub struct PerlinTextureSettings {
     pub seed: i32,
     pub width: usize,
