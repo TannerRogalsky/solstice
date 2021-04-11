@@ -580,6 +580,10 @@ impl<'a> DrawList<'a> {
         self.transform = transform.into();
     }
 
+    pub fn get_transform(&self) -> Transform3D {
+        self.transform
+    }
+
     pub fn set_camera<T: Into<Transform3D>>(&mut self, camera: T) {
         self.camera = camera.into();
     }
