@@ -17,4 +17,4 @@ quote = "1.0"
 
 [dev-dependencies]
 memoffset = "0.5"
-solstice = { path = "../solstice", version = "^0.1.18-alpha.0"}
+solstice = { path = "../solstice", version = "^0.1.19-alpha.0"}
