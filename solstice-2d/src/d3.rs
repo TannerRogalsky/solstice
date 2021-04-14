@@ -23,7 +23,11 @@ impl<'a, V, I, G> BoxedGeometry<'a, Vertex3D, u32> for G
 where
     V: Iterator<Item = Vertex3D> + 'a,
     I: Iterator<Item = u32> + 'a,
-    G: Geometry<Vertex3D, Vertices = V, Indices = I> + dyn_clone::DynClone + std::fmt::Debug,
+    G: Geometry<Vertex3D, Vertices = V, Indices = I>
+        + dyn_clone::DynClone
+        + std::fmt::Debug
+        + Send
+        + Sync,
 {
     fn vertices(&self) -> std::boxed::Box<dyn Iterator<Item = Vertex3D> + 'a> {
         std::boxed::Box::new(Geometry::vertices(self))
@@ -37,7 +41,7 @@ dyn_clone::clone_trait_object!(BoxedGeometry<'_, Vertex3D, u32>);
 
 impl<G> Draw<Vertex3D, G> for DrawList<'_>
 where
-    G: Geometry<Vertex3D> + Clone + 'static,
+    G: Geometry<Vertex3D> + Clone + Send + Sync + 'static,
 {
     fn draw(&mut self, geometry: G) {
         self.draw_with_color_and_transform(geometry, self.color, self.transform)

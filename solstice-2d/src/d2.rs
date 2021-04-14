@@ -18,7 +18,7 @@ use solstice::texture::Texture;
 
 impl<G> Draw<crate::Vertex2D, G> for DrawList<'_>
 where
-    G: Geometry<crate::Vertex2D> + Clone + 'static,
+    G: Geometry<crate::Vertex2D> + Clone + Send + Sync + 'static,
 {
     fn draw(&mut self, geometry: G) {
         self.draw_with_color_and_transform(geometry, self.color, self.transform)
@@ -307,7 +307,11 @@ impl<'a, V, I, G> super::BoxedGeometry<'a, Vertex2D, u32> for G
 where
     V: Iterator<Item = Vertex2D> + 'a,
     I: Iterator<Item = u32> + 'a,
-    G: crate::Geometry<Vertex2D, Vertices = V, Indices = I> + dyn_clone::DynClone + std::fmt::Debug,
+    G: crate::Geometry<Vertex2D, Vertices = V, Indices = I>
+        + dyn_clone::DynClone
+        + std::fmt::Debug
+        + Send
+        + Sync,
 {
     fn vertices(&self) -> Box<dyn Iterator<Item = Vertex2D> + 'a> {
         Box::new(crate::Geometry::vertices(self))
