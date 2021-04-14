@@ -19,6 +19,19 @@ pub struct Vertex3D {
     pub normal: [f32; 3],
 }
 
+impl Geometry<Vertex3D> for Vec<Vertex3D> {
+    type Vertices = std::vec::IntoIter<Vertex3D>;
+    type Indices = std::ops::Range<u32>;
+
+    fn vertices(&self) -> Self::Vertices {
+        self.clone().into_iter()
+    }
+
+    fn indices(&self) -> Self::Indices {
+        0u32..self.len() as u32
+    }
+}
+
 impl<'a, V, I, G> BoxedGeometry<'a, Vertex3D, u32> for G
 where
     V: Iterator<Item = Vertex3D> + 'a,
