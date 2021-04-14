@@ -50,7 +50,7 @@ impl Example for FramebufferExample {
         use solstice_2d::*;
         let (width, height) = ctx.dimensions();
         let mut d2 = DrawList::default();
-        d2.clear([0., 0., 0., 1.]);
+        d2.clear([1., 0., 0., 1.]);
 
         d2.set_canvas(Some(self.bg_canvas.clone()));
         d2.clear([0., 0., 0., 1.]);
