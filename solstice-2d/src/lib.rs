@@ -43,8 +43,9 @@ pub struct Graphics {
     default_texture: Image,
     text_workspace: text::Text,
     text_shader: Shader,
-    width: f32,
-    height: f32,
+    viewport: solstice::viewport::Viewport<i32>,
+    scissor: Option<solstice::viewport::Viewport<i32>>,
+    default_projection_bounds: Option<Rectangle>,
 }
 
 impl Graphics {
@@ -66,8 +67,9 @@ impl Graphics {
             default_texture,
             text_workspace,
             text_shader,
-            width,
-            height,
+            viewport: solstice::viewport::Viewport::new(0, 0, width as _, height as _),
+            scissor: None,
+            default_projection_bounds: None,
         })
     }
 
@@ -83,16 +85,33 @@ impl Graphics {
         self.text_workspace.add_font(font_data)
     }
 
-    pub fn set_width_height(&mut self, width: f32, height: f32) {
-        self.width = width;
-        self.height = height;
+    pub fn set_default_projection_bounds(&mut self, bounds: Option<Rectangle>) {
+        self.default_projection_bounds = bounds;
     }
 
-    pub fn dimensions(&self) -> [f32; 2] {
-        [self.width, self.height]
+    pub fn set_width_height(&mut self, width: f32, height: f32) {
+        self.set_viewport(solstice::viewport::Viewport::new(
+            0,
+            0,
+            width as _,
+            height as _,
+        ))
+    }
+
+    pub fn set_viewport(&mut self, viewport: solstice::viewport::Viewport<i32>) {
+        self.viewport = viewport;
+    }
+
+    pub fn set_scissor(&mut self, scissor: Option<solstice::viewport::Viewport<i32>>) {
+        self.scissor = scissor;
     }
 
     pub fn process(&mut self, ctx: &mut Context, draw_list: &DrawList) {
+        fn canvas_bounds(t: &Canvas) -> solstice::viewport::Viewport<i32> {
+            let (w, h) = t.dimensions();
+            solstice::viewport::Viewport::new(0, 0, w as _, h as _)
+        }
+
         for command in draw_list.commands.iter() {
             match command {
                 Command::Draw(draw_state) => {
@@ -106,7 +125,13 @@ impl Graphics {
                         target,
                         shader,
                     } = draw_state;
-                    let (width, height) = (self.width, self.height);
+
+                    let (default_projection_bounds, scissor_state) = if target.is_some() {
+                        (None, None)
+                    } else {
+                        (self.default_projection_bounds, self.scissor)
+                    };
+
                     match geometry {
                         GeometryVariants::D2(geometry) => {
                             let transform_verts = |mut v: Vertex2D| -> Vertex2D {
@@ -131,10 +156,11 @@ impl Graphics {
                             };
                             let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(
+                            let viewport = target.as_ref().map_or(self.viewport, canvas_bounds);
+                            shader.set_viewport(
                                 *projection_mode,
-                                width,
-                                height,
+                                default_projection_bounds,
+                                viewport,
                                 target.is_some(),
                             );
                             shader.send_uniform(
@@ -153,12 +179,19 @@ impl Graphics {
                                 Some(texture) => shader.bind_texture(texture),
                             }
                             shader.activate(ctx);
+                            ctx.set_viewport(
+                                viewport.x() as _,
+                                viewport.y() as _,
+                                viewport.width() as _,
+                                viewport.height() as _,
+                            );
                             solstice::Renderer::draw(
                                 ctx,
                                 shader,
                                 &geometry,
                                 solstice::PipelineSettings {
                                     depth_state: None,
+                                    scissor_state,
                                     framebuffer: target.as_ref().map(|c| &c.inner),
                                     ..solstice::PipelineSettings::default()
                                 },
@@ -178,10 +211,11 @@ impl Graphics {
                             };
                             let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
-                            shader.set_width_height(
+                            let viewport = target.as_ref().map_or(self.viewport, canvas_bounds);
+                            shader.set_viewport(
                                 *projection_mode,
-                                width,
-                                height,
+                                default_projection_bounds,
+                                viewport,
                                 target.is_some(),
                             );
                             shader.send_uniform(
@@ -198,11 +232,19 @@ impl Graphics {
                                 Some(texture) => shader.bind_texture(texture),
                             }
                             shader.activate(ctx);
+
+                            ctx.set_viewport(
+                                viewport.x(),
+                                viewport.y(),
+                                viewport.width(),
+                                viewport.height(),
+                            );
                             solstice::Renderer::draw(
                                 ctx,
                                 shader,
                                 &geometry,
                                 solstice::PipelineSettings {
+                                    scissor_state,
                                     framebuffer: target.as_ref().map(|c| &c.inner),
                                     ..solstice::PipelineSettings::default()
                                 },
@@ -226,7 +268,6 @@ impl Graphics {
                         target,
                         shader,
                     } = draw_state;
-                    let (width, height) = (self.width, self.height);
                     let verts = geometry.clone().collect::<std::boxed::Box<[_]>>();
                     self.line_workspace.add_points(&verts);
                     if let Some(first) = verts.first() {
@@ -235,13 +276,20 @@ impl Graphics {
                         }
                     }
 
+                    let (default_projection_bounds, scissor_state) = if target.is_some() {
+                        (None, None)
+                    } else {
+                        (self.default_projection_bounds, self.scissor)
+                    };
+
                     let shader = shader.clone();
                     let mut shader = shader.unwrap_or_else(|| self.line_workspace.shader().clone());
-                    shader.set_width_height(*projection_mode, width, height, target.is_some());
-                    // TODO: this belongs in the above function
-                    shader.send_uniform(
-                        "resolution",
-                        solstice::shader::RawUniformValue::Vec2([width, height].into()),
+                    let viewport = target.as_ref().map_or(self.viewport, canvas_bounds);
+                    shader.set_viewport(
+                        *projection_mode,
+                        default_projection_bounds,
+                        viewport,
+                        target.is_some(),
                     );
                     shader.send_uniform(
                         "uView",
@@ -266,6 +314,12 @@ impl Graphics {
                         None
                     };
 
+                    ctx.set_viewport(
+                        viewport.x(),
+                        viewport.y(),
+                        viewport.width(),
+                        viewport.height(),
+                    );
                     solstice::Renderer::draw(
                         ctx,
                         &shader,
@@ -273,6 +327,7 @@ impl Graphics {
                         solstice::PipelineSettings {
                             depth_state,
                             framebuffer: target.as_ref().map(|c| &c.inner),
+                            scissor_state,
                             ..solstice::PipelineSettings::default()
                         },
                     );
@@ -308,13 +363,20 @@ impl Graphics {
                         ctx,
                     );
 
+                    let (default_projection_bounds, scissor_state) = if target.is_some() {
+                        (None, None)
+                    } else {
+                        (self.default_projection_bounds, self.scissor)
+                    };
+
                     let mut shader = shader.clone();
                     let shader = shader.as_mut().unwrap_or(&mut self.text_shader);
                     shader.bind_texture(self.text_workspace.texture());
-                    shader.set_width_height(
+                    let viewport = target.as_ref().map_or(self.viewport, canvas_bounds);
+                    shader.set_viewport(
                         *projection_mode,
-                        self.width,
-                        self.height,
+                        default_projection_bounds,
+                        viewport,
                         target.is_some(),
                     );
                     shader.send_uniform(
@@ -330,12 +392,19 @@ impl Graphics {
 
                     let geometry = self.text_workspace.geometry(ctx);
 
+                    ctx.set_viewport(
+                        viewport.x(),
+                        viewport.y(),
+                        viewport.width(),
+                        viewport.height(),
+                    );
                     solstice::Renderer::draw(
                         ctx,
                         shader,
                         &geometry,
                         solstice::PipelineSettings {
                             depth_state: None,
+                            scissor_state,
                             framebuffer: target.as_ref().map(|c| &c.inner),
                             ..solstice::PipelineSettings::default()
                         },
@@ -364,7 +433,7 @@ pub trait Geometry<V: solstice::vertex::Vertex>: std::fmt::Debug {
     fn indices(&self) -> Self::Indices;
 }
 
-pub trait BoxedGeometry<'a, V, I>: dyn_clone::DynClone + std::fmt::Debug
+pub trait BoxedGeometry<'a, V, I>: dyn_clone::DynClone + std::fmt::Debug + Send + Sync
 where
     V: solstice::vertex::Vertex,
     I: solstice::mesh::Index,
@@ -453,11 +522,11 @@ pub struct DrawState<T> {
 }
 
 trait VertexGeometry:
-    Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + 'static
+    Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + Send + Sync + 'static
 {
 }
-impl<T: Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + 'static>
-    VertexGeometry for T
+impl<T> VertexGeometry for T where
+    T: Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + Send + Sync + 'static
 {
 }
 dyn_clone::clone_trait_object!(VertexGeometry);
@@ -526,10 +595,10 @@ impl<'a> DrawList<'a> {
         self.commands.push(command);
     }
 
-    pub fn line_2d<G: Iterator<Item = LineVertex> + Clone + std::fmt::Debug + 'static>(
-        &mut self,
-        points: G,
-    ) {
+    pub fn line_2d<G>(&mut self, points: G)
+    where
+        G: Iterator<Item = LineVertex> + Clone + std::fmt::Debug + Send + Sync + 'static,
+    {
         let command = Command::Line(DrawState {
             data: LineState {
                 geometry: std::boxed::Box::new(points),
@@ -549,10 +618,10 @@ impl<'a> DrawList<'a> {
         self.commands.push(command)
     }
 
-    pub fn line_3d<G: Iterator<Item = LineVertex> + Clone + std::fmt::Debug + 'static>(
-        &mut self,
-        points: G,
-    ) {
+    pub fn line_3d<G>(&mut self, points: G)
+    where
+        G: Iterator<Item = LineVertex> + Clone + std::fmt::Debug + Send + Sync + 'static,
+    {
         let command = Command::Line(DrawState {
             data: LineState {
                 geometry: std::boxed::Box::new(points),

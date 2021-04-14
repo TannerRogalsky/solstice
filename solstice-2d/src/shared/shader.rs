@@ -91,6 +91,8 @@ pub struct Shader {
     model_cache: mint::ColumnMatrix4<f32>,
     color_location: Option<UniformLocation>,
     color_cache: mint::Vector4<f32>,
+    resolution_location: Option<UniformLocation>,
+    resolution_cache: mint::Vector2<f32>,
 
     textures: [TextureCache; MAX_TEXTURE_UNITS],
 
@@ -182,6 +184,7 @@ impl Shader {
         let view_location = get_location(&shader, "uView")?;
         let model_location = get_location(&shader, "uModel")?;
         let color_location = get_location(&shader, "uColor").ok();
+        let resolution_location = get_location(&shader, "uResolution").ok();
         let mut textures = (0..MAX_TEXTURE_UNITS).map(|i| {
             let location = get_location(&shader, ("tex".to_owned() + &i.to_string()).as_str()).ok();
             TextureCache {
@@ -241,25 +244,35 @@ impl Shader {
             model_cache: identity,
             color_location,
             color_cache: white,
+            resolution_location,
+            resolution_cache: mint::Vector2 { x: 0f32, y: 0f32 },
             textures,
             other_uniforms: Default::default(),
         })
     }
 
-    pub fn set_width_height(
+    pub fn set_viewport(
         &mut self,
         projection: Projection,
-        width: f32,
-        height: f32,
+        default_projection_bounds: Option<crate::Rectangle>,
+        viewport: solstice::viewport::Viewport<i32>,
         invert_y: bool,
     ) {
+        let viewport = default_projection_bounds.unwrap_or_else(|| {
+            crate::Rectangle::new(
+                viewport.x() as _,
+                viewport.y() as _,
+                viewport.width() as _,
+                viewport.height() as _,
+            )
+        });
         const FAR_PLANE: f32 = 1000.0;
         let projection_cache: mint::ColumnMatrix4<f32> = match projection {
             Projection::Orthographic(projection) => {
                 let (top, bottom) = if invert_y {
-                    (height, 0.0)
+                    (viewport.y + viewport.height, -viewport.y)
                 } else {
-                    (0.0, height)
+                    (-viewport.y, viewport.y + viewport.height)
                 };
                 let Orthographic {
                     left,
@@ -269,13 +282,14 @@ impl Shader {
                     near,
                     far,
                 } = projection.unwrap_or(Orthographic {
-                    left: 0.0,
-                    right: width,
+                    left: viewport.x,
+                    right: viewport.x + viewport.width,
                     top,
                     bottom,
                     near: 0.0,
                     far: FAR_PLANE,
                 });
+                self.resolution_cache = [right - left, top - bottom].into();
                 ortho(left, right, bottom, top, near, far).into()
             }
             Projection::Perspective(projection) => {
@@ -290,15 +304,32 @@ impl Shader {
                     near,
                     far,
                 } = projection.unwrap_or(Perspective {
-                    aspect: width / height,
+                    aspect: viewport.width / viewport.height,
                     fovy,
                     near: 0.1,
                     far: FAR_PLANE,
                 });
+                self.resolution_cache =
+                    [viewport.x + viewport.width, viewport.y + viewport.height].into();
                 nalgebra::Matrix4::new_perspective(aspect, fovy, near, far).into()
             }
         };
         self.projection_cache = projection_cache;
+    }
+
+    pub fn set_width_height(
+        &mut self,
+        projection: Projection,
+        width: f32,
+        height: f32,
+        invert_y: bool,
+    ) {
+        self.set_viewport(
+            projection,
+            None,
+            solstice::viewport::Viewport::new(0, 0, width as _, height as _),
+            invert_y,
+        )
     }
 
     pub fn set_color(&mut self, c: crate::Color) {
@@ -357,6 +388,12 @@ impl Shader {
         }
         if let Some(u) = self.color_location.as_ref() {
             ctx.set_uniform_by_location(u, &Vec4(self.color_cache));
+        }
+        if let Some(u) = self.resolution_location.as_ref() {
+            ctx.set_uniform_by_location(
+                u,
+                &solstice::shader::RawUniformValue::Vec2(self.resolution_cache),
+            );
         }
         ctx.set_uniform_by_location(&self.projection_location, &Mat4(self.projection_cache));
     }
