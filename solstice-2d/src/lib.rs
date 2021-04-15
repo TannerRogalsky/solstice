@@ -7,7 +7,12 @@ pub use d3::*;
 pub use shared::*;
 pub use solstice;
 
-use solstice::{image::Image, mesh::MappedIndexedMesh, texture::Texture, Context};
+use solstice::{
+    image::Image,
+    mesh::{MappedIndexedMesh, MappedVertexMesh},
+    texture::Texture,
+    Context,
+};
 
 pub struct GraphicsLock<'a, 'b> {
     ctx: &'a mut Context,
@@ -37,7 +42,9 @@ impl std::ops::Drop for GraphicsLock<'_, '_> {
 
 pub struct Graphics {
     mesh3d: MappedIndexedMesh<Vertex3D, u32>,
+    mesh3d_unindexed: MappedVertexMesh<Vertex3D>,
     mesh2d: MappedIndexedMesh<Vertex2D, u32>,
+    mesh2d_unindexed: MappedVertexMesh<Vertex2D>,
     line_workspace: LineWorkspace,
     default_shader: Shader,
     default_texture: Image,
@@ -51,7 +58,9 @@ pub struct Graphics {
 impl Graphics {
     pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, GraphicsError> {
         let mesh2d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
+        let mesh2d_unindexed = MappedVertexMesh::new(ctx, 10000)?;
         let mesh3d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
+        let mesh3d_unindexed = MappedVertexMesh::new(ctx, 10000)?;
         let line_workspace = LineWorkspace::new(ctx)?;
         let default_shader = Shader::new(ctx)?;
         let default_texture = create_default_texture(ctx)?;
@@ -61,7 +70,9 @@ impl Graphics {
 
         Ok(Self {
             mesh3d,
+            mesh3d_unindexed,
             mesh2d,
+            mesh2d_unindexed,
             line_workspace,
             default_shader,
             default_texture,
@@ -133,27 +144,17 @@ impl Graphics {
                     };
 
                     match geometry {
-                        GeometryVariants::D2(geometry) => {
-                            let transform_verts = |mut v: Vertex2D| -> Vertex2D {
+                        GeometryVariants::D2(vertices, indices) => {
+                            let transform_verts = |v: &Vertex2D| -> Vertex2D {
                                 let [x, y] = v.position;
                                 let [x, y, _] = transform.transform_point(x, y, 0.);
-                                v.position = [x, y];
-                                v.color = (*color).into();
-                                v
+                                Vertex2D {
+                                    position: [x, y],
+                                    color: (*color).into(),
+                                    uv: v.uv,
+                                }
                             };
 
-                            let vertices =
-                                geometry.vertices().map(transform_verts).collect::<Vec<_>>();
-                            let indices = geometry.indices().collect::<Vec<_>>();
-                            self.mesh2d.set_vertices(&vertices, 0);
-                            self.mesh2d.set_indices(&indices, 0);
-                            let mesh = self.mesh2d.unmap(ctx);
-                            let geometry = solstice::Geometry {
-                                mesh,
-                                draw_range: 0..indices.len(),
-                                draw_mode: solstice::DrawMode::Triangles,
-                                instance_count: 1,
-                            };
                             let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
                             let viewport = target.as_ref().map_or(self.viewport, canvas_bounds);
@@ -185,30 +186,41 @@ impl Graphics {
                                 viewport.width() as _,
                                 viewport.height() as _,
                             );
-                            solstice::Renderer::draw(
-                                ctx,
-                                shader,
-                                &geometry,
-                                solstice::PipelineSettings {
-                                    depth_state: None,
-                                    scissor_state,
-                                    framebuffer: target.as_ref().map(|c| &c.inner),
-                                    ..solstice::PipelineSettings::default()
-                                },
-                            );
-                        }
-                        GeometryVariants::D3(geometry) => {
-                            let vertices = geometry.vertices().collect::<std::boxed::Box<[_]>>();
-                            let indices = geometry.indices().collect::<std::boxed::Box<[_]>>();
-                            self.mesh3d.set_vertices(&vertices, 0);
-                            self.mesh3d.set_indices(&indices, 0);
-                            let mesh = self.mesh3d.unmap(ctx);
-                            let geometry = solstice::Geometry {
-                                mesh,
-                                draw_range: 0..indices.len(),
-                                draw_mode: solstice::DrawMode::Triangles,
-                                instance_count: 1,
+
+                            let settings = solstice::PipelineSettings {
+                                depth_state: None,
+                                scissor_state,
+                                framebuffer: target.as_ref().map(|c| &c.inner),
+                                ..solstice::PipelineSettings::default()
                             };
+                            let vertices = vertices.iter().map(transform_verts).collect::<Vec<_>>();
+                            match &indices {
+                                None => {
+                                    self.mesh2d_unindexed.set_vertices(&vertices, 0);
+                                    let mesh = self.mesh2d_unindexed.unmap(ctx);
+                                    let geometry = solstice::Geometry {
+                                        mesh,
+                                        draw_range: 0..vertices.len(),
+                                        draw_mode: solstice::DrawMode::Triangles,
+                                        instance_count: 1,
+                                    };
+                                    solstice::Renderer::draw(ctx, shader, &geometry, settings);
+                                }
+                                Some(indices) => {
+                                    self.mesh2d.set_vertices(&vertices, 0);
+                                    self.mesh2d.set_indices(&indices, 0);
+                                    let mesh = self.mesh2d.unmap(ctx);
+                                    let geometry = solstice::Geometry {
+                                        mesh,
+                                        draw_range: 0..indices.len(),
+                                        draw_mode: solstice::DrawMode::Triangles,
+                                        instance_count: 1,
+                                    };
+                                    solstice::Renderer::draw(ctx, shader, &geometry, settings);
+                                }
+                            }
+                        }
+                        GeometryVariants::D3(vertices, indices) => {
                             let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
                             let viewport = target.as_ref().map_or(self.viewport, canvas_bounds);
@@ -239,16 +251,37 @@ impl Graphics {
                                 viewport.width(),
                                 viewport.height(),
                             );
-                            solstice::Renderer::draw(
-                                ctx,
-                                shader,
-                                &geometry,
-                                solstice::PipelineSettings {
-                                    scissor_state,
-                                    framebuffer: target.as_ref().map(|c| &c.inner),
-                                    ..solstice::PipelineSettings::default()
-                                },
-                            );
+
+                            let settings = solstice::PipelineSettings {
+                                scissor_state,
+                                framebuffer: target.as_ref().map(|c| &c.inner),
+                                ..solstice::PipelineSettings::default()
+                            };
+                            match &indices {
+                                None => {
+                                    self.mesh3d_unindexed.set_vertices(&vertices, 0);
+                                    let mesh = self.mesh3d_unindexed.unmap(ctx);
+                                    let geometry = solstice::Geometry {
+                                        mesh,
+                                        draw_range: 0..vertices.len(),
+                                        draw_mode: solstice::DrawMode::Triangles,
+                                        instance_count: 1,
+                                    };
+                                    solstice::Renderer::draw(ctx, shader, &geometry, settings);
+                                }
+                                Some(indices) => {
+                                    self.mesh3d.set_vertices(&vertices, 0);
+                                    self.mesh3d.set_indices(&indices, 0);
+                                    let mesh = self.mesh3d.unmap(ctx);
+                                    let geometry = solstice::Geometry {
+                                        mesh,
+                                        draw_range: 0..indices.len(),
+                                        draw_mode: solstice::DrawMode::Triangles,
+                                        instance_count: 1,
+                                    };
+                                    solstice::Renderer::draw(ctx, shader, &geometry, settings);
+                                }
+                            }
                         }
                     };
                 }
@@ -268,9 +301,8 @@ impl Graphics {
                         target,
                         shader,
                     } = draw_state;
-                    let verts = geometry.clone().collect::<std::boxed::Box<[_]>>();
-                    self.line_workspace.add_points(&verts);
-                    if let Some(first) = verts.first() {
+                    self.line_workspace.add_points(geometry);
+                    if let Some(first) = geometry.first() {
                         if *is_loop {
                             self.line_workspace.add_points(&[*first]);
                         }
@@ -425,24 +457,31 @@ impl Graphics {
     }
 }
 
-pub trait Geometry<V: solstice::vertex::Vertex>: std::fmt::Debug {
-    type Vertices: Iterator<Item = V>;
-    type Indices: Iterator<Item = u32>;
-
-    fn vertices(&self) -> Self::Vertices;
-    fn indices(&self) -> Self::Indices;
-}
-
-pub trait BoxedGeometry<'a, V, I>: dyn_clone::DynClone + std::fmt::Debug + Send + Sync
+#[derive(Clone)]
+pub struct Geometry<'a, V>
 where
-    V: solstice::vertex::Vertex,
-    I: solstice::mesh::Index,
+    [V]: std::borrow::ToOwned,
 {
-    fn vertices(&self) -> std::boxed::Box<dyn Iterator<Item = V> + 'a>;
-    fn indices(&self) -> std::boxed::Box<dyn Iterator<Item = I> + 'a>;
+    vertices: std::borrow::Cow<'a, [V]>,
+    indices: Option<std::borrow::Cow<'a, [u32]>>,
 }
 
-pub trait Draw<V: solstice::vertex::Vertex, G: Geometry<V> + Clone + 'static> {
+impl<'a, V> Geometry<'a, V>
+where
+    [V]: std::borrow::ToOwned,
+{
+    pub fn new<IV: Into<std::borrow::Cow<'a, [V]>>, II: Into<std::borrow::Cow<'a, [u32]>>>(
+        vertices: IV,
+        indices: Option<II>,
+    ) -> Self {
+        Self {
+            vertices: vertices.into(),
+            indices: indices.map(Into::into),
+        }
+    }
+}
+
+pub trait Draw<V: solstice::vertex::Vertex, G> {
     fn draw(&mut self, geometry: G);
     fn draw_with_transform<TX: Into<d3::Transform3D>>(&mut self, geometry: G, transform: TX);
     fn draw_with_color<C: Into<Color>>(&mut self, geometry: G, color: C);
@@ -504,9 +543,15 @@ impl solstice::texture::Texture for &TextureCache {
 }
 
 #[derive(Clone, Debug)]
-pub enum GeometryVariants {
-    D2(std::boxed::Box<dyn BoxedGeometry<'static, d2::Vertex2D, u32>>),
-    D3(std::boxed::Box<dyn BoxedGeometry<'static, d3::Vertex3D, u32>>),
+pub enum GeometryVariants<'a> {
+    D2(
+        std::borrow::Cow<'a, [d2::Vertex2D]>,
+        Option<std::borrow::Cow<'a, [u32]>>,
+    ),
+    D3(
+        std::borrow::Cow<'a, [d3::Vertex3D]>,
+        Option<std::borrow::Cow<'a, [u32]>>,
+    ),
 }
 
 #[derive(Clone, Debug)]
@@ -522,18 +567,18 @@ pub struct DrawState<T> {
 }
 
 trait VertexGeometry:
-    Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + Send + Sync + 'static
+    Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + Send + Sync
 {
 }
 impl<T> VertexGeometry for T where
-    T: Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + Send + Sync + 'static
+    T: Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + Send + Sync
 {
 }
 dyn_clone::clone_trait_object!(VertexGeometry);
 
 #[derive(Clone, Debug)]
-pub struct LineState {
-    geometry: std::boxed::Box<dyn VertexGeometry>,
+pub struct LineState<'a> {
+    geometry: std::borrow::Cow<'a, [LineVertex]>,
     is_loop: bool,
     depth_buffer: bool,
 }
@@ -548,9 +593,9 @@ pub struct PrintState<'a> {
 
 #[derive(Clone, Debug)]
 pub enum Command<'a> {
-    Draw(DrawState<GeometryVariants>),
+    Draw(DrawState<GeometryVariants<'a>>),
     Print(DrawState<PrintState<'a>>),
-    Line(DrawState<LineState>),
+    Line(DrawState<LineState<'a>>),
     Clear(Color, Option<Canvas>),
 }
 
@@ -597,11 +642,11 @@ impl<'a> DrawList<'a> {
 
     pub fn line_2d<G>(&mut self, points: G)
     where
-        G: Iterator<Item = LineVertex> + Clone + std::fmt::Debug + Send + Sync + 'static,
+        G: Into<std::borrow::Cow<'a, [LineVertex]>>,
     {
         let command = Command::Line(DrawState {
             data: LineState {
-                geometry: std::boxed::Box::new(points),
+                geometry: points.into(),
                 is_loop: false,
                 depth_buffer: false,
             },
@@ -620,11 +665,11 @@ impl<'a> DrawList<'a> {
 
     pub fn line_3d<G>(&mut self, points: G)
     where
-        G: Iterator<Item = LineVertex> + Clone + std::fmt::Debug + Send + Sync + 'static,
+        G: Into<std::borrow::Cow<'a, [LineVertex]>>,
     {
         let command = Command::Line(DrawState {
             data: LineState {
-                geometry: std::boxed::Box::new(points),
+                geometry: points.into(),
                 is_loop: false,
                 depth_buffer: true,
             },

@@ -7,7 +7,7 @@ varying vec3 cubeUV;
 
 #ifdef VERTEX
 vec4 pos(mat4 transform_projection, vec4 vertex_position) {
-    cubeUV = vertex_position.xyz;
+    cubeUV = (vertex_position.xyz + 1.) / 2.;
     return transform_projection * vertex_position;
 }
 #endif
@@ -114,7 +114,7 @@ impl Example for Main {
         let ring_count = 7;
         for ring in 0..ring_count {
             let phi = ring as f32 / ring_count as f32;
-            dl.line_3d(point_generator(t + phi));
+            dl.line_3d(point_generator(t + phi).collect::<Vec<_>>());
         }
 
         ctx.gfx.process(&mut ctx.ctx, &mut dl);

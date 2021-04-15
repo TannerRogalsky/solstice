@@ -25,11 +25,8 @@ impl Default for Sphere {
     }
 }
 
-impl Geometry<Vertex3D> for Sphere {
-    type Vertices = std::vec::IntoIter<Vertex3D>;
-    type Indices = std::vec::IntoIter<u32>;
-
-    fn vertices(&self) -> Self::Vertices {
+impl Sphere {
+    fn vertices(&self) -> Vec<Vertex3D> {
         let mut vertices = vec![];
         let theta_end = std::f32::consts::PI.min(self.theta_start.0 + self.theta_length.0);
 
@@ -66,10 +63,10 @@ impl Geometry<Vertex3D> for Sphere {
             }
         }
 
-        vertices.into_iter()
+        vertices
     }
 
-    fn indices(&self) -> Self::Indices {
+    fn indices(&self) -> Vec<u32> {
         let mut indices = vec![];
         let theta_end = std::f32::consts::PI.min(self.theta_start.0 + self.theta_length.0);
 
@@ -100,6 +97,21 @@ impl Geometry<Vertex3D> for Sphere {
             }
         }
 
-        indices.into_iter()
+        indices
+    }
+}
+
+impl From<&Sphere> for Geometry<'_, Vertex3D> {
+    fn from(s: &Sphere) -> Self {
+        Self {
+            vertices: s.vertices().into(),
+            indices: Some(s.indices().into()),
+        }
+    }
+}
+
+impl From<Sphere> for Geometry<'_, Vertex3D> {
+    fn from(s: Sphere) -> Self {
+        (&s).into()
     }
 }

@@ -10,7 +10,10 @@ struct CSGExample {
 
 impl Example for CSGExample {
     fn new(_ctx: &mut ExampleContext) -> eyre::Result<Self> {
-        let csg = Csg::cube(Vector(1., 1., 1.), true);
+        let csg = Csg::subtract(
+            &Csg::cube(Vector(1., 1., 1.), true),
+            &Csg::cylinder(Vector(-1., 0., 0.), Vector(1., 0., 0.), 0.5, 8),
+        );
         let polygons = csg.get_triangles();
 
         let vertices = polygons
@@ -29,9 +32,7 @@ impl Example for CSGExample {
             })
             .collect();
 
-        Ok(Self {
-            vertices,
-        })
+        Ok(Self { vertices })
     }
 
     fn draw(&mut self, ctx: &mut ExampleContext, time: Duration) {
@@ -41,7 +42,11 @@ impl Example for CSGExample {
         dl.clear(Color::new(0.3, 0.3, 0.3, 1.));
 
         let mut transform = Transform3D::translation(0., 0., -2.);
-        transform *= Transform3D::rotation(Rad(0.), Rad(time.as_secs_f32()), Rad(time.as_secs_f32().sin() * 3.14));
+        transform *= Transform3D::rotation(
+            Rad(0.),
+            Rad(time.as_secs_f32()),
+            Rad(time.as_secs_f32().sin() * 3.14),
+        );
         dl.draw_with_transform(self.vertices.clone(), transform);
 
         ctx.gfx.process(&mut ctx.ctx, &dl);

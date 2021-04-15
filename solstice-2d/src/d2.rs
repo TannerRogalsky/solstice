@@ -16,9 +16,9 @@ use super::{
 };
 use solstice::texture::Texture;
 
-impl<G> Draw<crate::Vertex2D, G> for DrawList<'_>
+impl<'a, G> Draw<crate::Vertex2D, G> for DrawList<'a>
 where
-    G: Geometry<crate::Vertex2D> + Clone + Send + Sync + 'static,
+    G: Into<Geometry<'a, crate::Vertex2D>> + 'a,
 {
     fn draw(&mut self, geometry: G) {
         self.draw_with_color_and_transform(geometry, self.color, self.transform)
@@ -38,8 +38,9 @@ where
         color: C,
         transform: TX,
     ) {
+        let crate::Geometry { vertices, indices } = geometry.into();
         self.commands.push(Command::Draw(DrawState {
-            data: GeometryVariants::D2(std::boxed::Box::new(geometry)),
+            data: GeometryVariants::D2(vertices, indices),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -70,19 +71,18 @@ where
         color: C,
         transform: TX,
     ) {
+        let crate::Geometry { vertices, .. } = geometry.into();
         self.commands.push(Command::Line(DrawState {
             data: LineState {
-                geometry: std::boxed::Box::new(
-                    geometry
-                        .vertices()
-                        .map(|v: Vertex2D| LineVertex {
-                            position: [v.position[0], v.position[1], 0.],
-                            width: 5.0,
-                            color: [1., 1., 1., 1.],
-                        })
-                        .collect::<Vec<_>>()
-                        .into_iter(),
-                ),
+                geometry: vertices
+                    .iter()
+                    .map(|v: &Vertex2D| LineVertex {
+                        position: [v.position[0], v.position[1], 0.],
+                        width: 5.0,
+                        color: [1., 1., 1., 1.],
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
                 is_loop: true,
                 depth_buffer: false,
             },
@@ -129,8 +129,9 @@ where
         C: Into<Color>,
         TX: Into<Transform3D>,
     {
+        let crate::Geometry { vertices, indices } = geometry.into();
         self.commands.push(Command::Draw(DrawState {
-            data: GeometryVariants::D2(std::boxed::Box::new(geometry)),
+            data: GeometryVariants::D2(vertices, indices),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -152,24 +153,6 @@ pub trait SimpleConvexGeometry: std::fmt::Debug {
     type Vertices: Iterator<Item = Vertex2D>;
     fn vertices(&self) -> Self::Vertices;
     fn vertex_count(&self) -> usize;
-}
-
-impl<T: SimpleConvexGeometry> crate::Geometry<Vertex2D> for T {
-    type Vertices = T::Vertices;
-    type Indices = std::iter::FlatMap<
-        std::ops::Range<u32>,
-        std::array::IntoIter<u32, 3>,
-        fn(u32) -> std::array::IntoIter<u32, 3>,
-    >;
-
-    fn vertices(&self) -> Self::Vertices {
-        T::vertices(self)
-    }
-
-    fn indices(&self) -> Self::Indices {
-        (1..(self.vertex_count() as u32).saturating_sub(1))
-            .flat_map(|i| std::array::IntoIter::new([0, i, i + 1]))
-    }
 }
 
 macro_rules! impl_array_simple_convex_geom {
@@ -302,23 +285,3 @@ impl<'a> SimpleConvexGeometry for &'a [(f64, f64)] {
         self.len()
     }
 }
-
-impl<'a, V, I, G> super::BoxedGeometry<'a, Vertex2D, u32> for G
-where
-    V: Iterator<Item = Vertex2D> + 'a,
-    I: Iterator<Item = u32> + 'a,
-    G: crate::Geometry<Vertex2D, Vertices = V, Indices = I>
-        + dyn_clone::DynClone
-        + std::fmt::Debug
-        + Send
-        + Sync,
-{
-    fn vertices(&self) -> Box<dyn Iterator<Item = Vertex2D> + 'a> {
-        Box::new(crate::Geometry::vertices(self))
-    }
-
-    fn indices(&self) -> Box<dyn Iterator<Item = u32> + 'a> {
-        Box::new(crate::Geometry::indices(self))
-    }
-}
-dyn_clone::clone_trait_object!(super::BoxedGeometry<'_, Vertex2D, u32>);

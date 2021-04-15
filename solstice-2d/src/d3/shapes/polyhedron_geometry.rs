@@ -1,4 +1,5 @@
 use crate::d3::{Point3D, Vertex3D};
+use crate::Geometry;
 
 #[derive(Clone, Debug, PartialOrd, PartialEq)]
 pub struct Polyhedron {
@@ -244,20 +245,17 @@ fn correct_seam(vertices: &mut Vec<Vertex3D>) {
     }
 }
 
-impl crate::Geometry<Vertex3D> for Polyhedron {
-    type Vertices = std::vec::IntoIter<Vertex3D>;
-    type Indices = std::ops::Range<u32>;
-
-    fn vertices(&self) -> Self::Vertices {
-        let mut vertices = Vec::with_capacity(self.vertex_count());
+impl From<&Polyhedron> for Geometry<'_, Vertex3D> {
+    fn from(p: &Polyhedron) -> Self {
+        let mut vertices = Vec::with_capacity(p.vertex_count());
 
         subdivide(
-            self.detail,
+            p.detail,
             &mut vertices,
-            self.indices.as_slice(),
-            self.vertices.as_slice(),
+            p.indices.as_slice(),
+            p.vertices.as_slice(),
         );
-        apply_radius(self.radius, vertices.as_mut_slice());
+        apply_radius(p.radius, vertices.as_mut_slice());
 
         let mut vertices = vertices
             .into_iter()
@@ -277,11 +275,16 @@ impl crate::Geometry<Vertex3D> for Polyhedron {
         correct_uvs(&mut vertices);
         correct_seam(&mut vertices);
 
-        vertices.into_iter()
+        Self {
+            vertices: vertices.into(),
+            indices: None,
+        }
     }
+}
 
-    fn indices(&self) -> Self::Indices {
-        0..(self.vertex_count() as u32)
+impl From<Polyhedron> for Geometry<'_, Vertex3D> {
+    fn from(p: Polyhedron) -> Self {
+        (&p).into()
     }
 }
 

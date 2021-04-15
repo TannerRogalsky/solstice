@@ -28,26 +28,8 @@ impl Box {
             depth_segments,
         }
     }
-}
 
-impl Default for Box {
-    fn default() -> Self {
-        Self {
-            width: 1.,
-            height: 1.,
-            depth: 1.,
-            width_segments: 1,
-            height_segments: 1,
-            depth_segments: 1,
-        }
-    }
-}
-
-impl crate::Geometry<Vertex3D> for Box {
-    type Vertices = std::vec::IntoIter<Vertex3D>;
-    type Indices = std::vec::IntoIter<u32>;
-
-    fn vertices(&self) -> Self::Vertices {
+    fn vertices(&self) -> Vec<Vertex3D> {
         let mut vertices = Vec::new();
 
         build_plane(
@@ -129,10 +111,10 @@ impl crate::Geometry<Vertex3D> for Box {
             self.height_segments,
         );
 
-        vertices.into_iter()
+        vertices
     }
 
-    fn indices(&self) -> Self::Indices {
+    fn indices(&self) -> Vec<u32> {
         let faces = [
             (self.depth_segments, self.height_segments),
             (self.depth_segments, self.height_segments),
@@ -165,7 +147,32 @@ impl crate::Geometry<Vertex3D> for Box {
             index_start += grid_x * grid_y * 4;
         }
 
-        indices.into_iter()
+        indices
+    }
+}
+
+impl Default for Box {
+    fn default() -> Self {
+        Self {
+            width: 1.,
+            height: 1.,
+            depth: 1.,
+            width_segments: 1,
+            height_segments: 1,
+            depth_segments: 1,
+        }
+    }
+}
+
+impl From<&Box> for crate::Geometry<'_, Vertex3D> {
+    fn from(b: &Box) -> Self {
+        Self::new(b.vertices(), Some(b.indices()))
+    }
+}
+
+impl From<Box> for crate::Geometry<'_, Vertex3D> {
+    fn from(b: Box) -> Self {
+        Self::new(b.vertices(), Some(b.indices()))
     }
 }
 

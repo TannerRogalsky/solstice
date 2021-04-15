@@ -2,6 +2,7 @@ use crate::{
     d2::{SimpleConvexGeometry, Vertex2D},
     Geometry,
 };
+use std::borrow::Cow;
 
 /// An angle, in radians.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
@@ -228,38 +229,44 @@ impl Rectangle {
     }
 }
 
-impl Geometry<Vertex2D> for Rectangle {
-    type Vertices = std::vec::IntoIter<Vertex2D>;
-    type Indices = std::iter::Copied<std::slice::Iter<'static, u32>>;
+impl From<&Rectangle> for Geometry<'_, Vertex2D> {
+    fn from(r: &Rectangle) -> Self {
+        fn vertices(rect: &Rectangle) -> Cow<'static, [Vertex2D]> {
+            vec![
+                Vertex2D {
+                    position: [rect.x, rect.y],
+                    uv: [0., 0.],
+                    ..Default::default()
+                },
+                Vertex2D {
+                    position: [rect.x, rect.y + rect.height],
+                    uv: [0., 1.],
+                    ..Default::default()
+                },
+                Vertex2D {
+                    position: [rect.x + rect.width, rect.y + rect.height],
+                    uv: [1., 1.],
+                    ..Default::default()
+                },
+                Vertex2D {
+                    position: [rect.x + rect.width, rect.y],
+                    uv: [1., 0.],
+                    ..Default::default()
+                },
+            ]
+            .into()
+        }
 
-    fn vertices(&self) -> Self::Vertices {
-        vec![
-            Vertex2D {
-                position: [self.x, self.y],
-                uv: [0., 0.],
-                ..Default::default()
-            },
-            Vertex2D {
-                position: [self.x, self.y + self.height],
-                uv: [0., 1.],
-                ..Default::default()
-            },
-            Vertex2D {
-                position: [self.x + self.width, self.y + self.height],
-                uv: [1., 1.],
-                ..Default::default()
-            },
-            Vertex2D {
-                position: [self.x + self.width, self.y],
-                uv: [1., 0.],
-                ..Default::default()
-            },
-        ]
-        .into_iter()
+        Geometry {
+            vertices: vertices(r),
+            indices: Some([0, 1, 2, 0, 3, 2][..].into()),
+        }
     }
+}
 
-    fn indices(&self) -> Self::Indices {
-        [0, 1, 2, 0, 3, 2].iter().copied()
+impl From<Rectangle> for Geometry<'_, Vertex2D> {
+    fn from(r: Rectangle) -> Self {
+        (&r).into()
     }
 }
 
@@ -342,6 +349,22 @@ impl SimpleConvexGeometry for SimpleConvexPolygon {
 
     fn vertex_count(&self) -> usize {
         self.vertex_count as usize
+    }
+}
+
+impl<T> From<T> for Geometry<'_, Vertex2D>
+where
+    T: SimpleConvexGeometry,
+{
+    fn from(s: T) -> Self {
+        let vertices = s.vertices().collect::<Vec<_>>();
+        let indices = (1..(vertices.len() as u32).saturating_sub(1))
+            .flat_map(|i| std::array::IntoIter::new([0, i, i + 1]))
+            .collect::<Vec<_>>();
+        Geometry {
+            vertices: vertices.into(),
+            indices: Some(indices.into()),
+        }
     }
 }
 

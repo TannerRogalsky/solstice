@@ -5,8 +5,8 @@ pub use shapes::*;
 pub use transform::*;
 
 use super::{
-    BoxedGeometry, Color, Command, Draw, DrawList, DrawState, Geometry, GeometryVariants,
-    LineState, LineVertex, Projection, TextureCache,
+    Color, Command, Draw, DrawList, DrawState, Geometry, GeometryVariants, LineState, LineVertex,
+    Projection, TextureCache,
 };
 use solstice::texture::Texture;
 
@@ -19,42 +19,21 @@ pub struct Vertex3D {
     pub normal: [f32; 3],
 }
 
-impl Geometry<Vertex3D> for Vec<Vertex3D> {
-    type Vertices = std::vec::IntoIter<Vertex3D>;
-    type Indices = std::ops::Range<u32>;
-
-    fn vertices(&self) -> Self::Vertices {
-        self.clone().into_iter()
-    }
-
-    fn indices(&self) -> Self::Indices {
-        0u32..self.len() as u32
+impl From<Vec<Vertex3D>> for Geometry<'static, Vertex3D> {
+    fn from(vertices: Vec<Vertex3D>) -> Self {
+        Self::new::<_, Vec<u32>>(vertices, None)
     }
 }
 
-impl<'a, V, I, G> BoxedGeometry<'a, Vertex3D, u32> for G
-where
-    V: Iterator<Item = Vertex3D> + 'a,
-    I: Iterator<Item = u32> + 'a,
-    G: Geometry<Vertex3D, Vertices = V, Indices = I>
-        + dyn_clone::DynClone
-        + std::fmt::Debug
-        + Send
-        + Sync,
-{
-    fn vertices(&self) -> std::boxed::Box<dyn Iterator<Item = Vertex3D> + 'a> {
-        std::boxed::Box::new(Geometry::vertices(self))
-    }
-
-    fn indices(&self) -> std::boxed::Box<dyn Iterator<Item = u32> + 'a> {
-        std::boxed::Box::new(Geometry::indices(self))
+impl<'a> From<&'a [Vertex3D]> for Geometry<'a, Vertex3D> {
+    fn from(vertices: &'a [Vertex3D]) -> Self {
+        Self::new::<_, Vec<u32>>(vertices, None)
     }
 }
-dyn_clone::clone_trait_object!(BoxedGeometry<'_, Vertex3D, u32>);
 
-impl<G> Draw<Vertex3D, G> for DrawList<'_>
+impl<'a, G> Draw<Vertex3D, G> for DrawList<'a>
 where
-    G: Geometry<Vertex3D> + Clone + Send + Sync + 'static,
+    G: Into<Geometry<'a, Vertex3D>>,
 {
     fn draw(&mut self, geometry: G) {
         self.draw_with_color_and_transform(geometry, self.color, self.transform)
@@ -74,8 +53,9 @@ where
         color: C,
         transform: TX,
     ) {
+        let crate::Geometry { vertices, indices } = geometry.into();
         self.commands.push(Command::Draw(DrawState {
-            data: GeometryVariants::D3(std::boxed::Box::new(geometry)),
+            data: GeometryVariants::D3(vertices, indices),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -106,19 +86,18 @@ where
         color: C,
         transform: TX,
     ) {
+        let crate::Geometry { vertices, .. } = geometry.into();
         self.commands.push(Command::Line(DrawState {
             data: LineState {
-                geometry: std::boxed::Box::new(
-                    geometry
-                        .vertices()
-                        .map(|v: Vertex3D| LineVertex {
-                            position: v.position,
-                            width: 5.0,
-                            color: [1., 1., 1., 1.],
-                        })
-                        .collect::<Vec<_>>()
-                        .into_iter(),
-                ),
+                geometry: vertices
+                    .iter()
+                    .map(|v: &Vertex3D| LineVertex {
+                        position: v.position,
+                        width: 5.0,
+                        color: [1., 1., 1., 1.],
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
                 is_loop: true,
                 depth_buffer: false,
             },
@@ -165,8 +144,9 @@ where
         C: Into<Color>,
         TX: Into<Transform3D>,
     {
+        let crate::Geometry { vertices, indices } = geometry.into();
         self.commands.push(Command::Draw(DrawState {
-            data: GeometryVariants::D3(std::boxed::Box::new(geometry)),
+            data: GeometryVariants::D3(vertices, indices),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self

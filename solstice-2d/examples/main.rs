@@ -230,7 +230,8 @@ impl Example for Main {
                         position: [*x, *y, 0.],
                         width: 10.,
                         ..LineVertex::default()
-                    }),
+                    })
+                    .collect::<Vec<_>>(),
             );
             dl.set_transform(Transform2D::default());
         }
