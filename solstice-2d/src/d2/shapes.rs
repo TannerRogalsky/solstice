@@ -383,21 +383,24 @@ mod tests {
             radius_y: 100.,
         };
 
-        assert_eq!(Geometry::vertices(&geometry).count(), 3);
-        assert_eq!(Geometry::indices(&geometry).count(), 3);
+        let data = Geometry::<'_, Vertex2D>::from(geometry);
+        assert_eq!(data.vertices.len(), 3);
+        assert_eq!(data.indices.unwrap().len(), 3);
 
         let geometry = SimpleConvexPolygon {
             vertex_count: 4,
             ..geometry
         };
-        assert_eq!(Geometry::vertices(&geometry).count(), 4);
-        assert_eq!(Geometry::indices(&geometry).count(), 6);
+        let data = Geometry::<'_, Vertex2D>::from(geometry);
+        assert_eq!(data.vertices.len(), 4);
+        assert_eq!(data.indices.unwrap().len(), 6);
 
         let geometry = SimpleConvexPolygon {
             vertex_count: 5,
             ..geometry
         };
-        assert_eq!(Geometry::vertices(&geometry).count(), 5);
-        assert_eq!(Geometry::indices(&geometry).count(), (5 - 2) * 3);
+        let data = Geometry::<'_, Vertex2D>::from(geometry);
+        assert_eq!(data.vertices.len(), 5);
+        assert_eq!(data.indices.unwrap().len(), (5 - 2) * 3);
     }
 }
