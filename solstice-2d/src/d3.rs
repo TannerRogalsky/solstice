@@ -19,7 +19,7 @@ pub struct Vertex3D {
     pub normal: [f32; 3],
 }
 
-impl From<Vec<Vertex3D>> for Geometry<'static, Vertex3D> {
+impl From<Vec<Vertex3D>> for Geometry<'_, Vertex3D> {
     fn from(vertices: Vec<Vertex3D>) -> Self {
         Self::new::<_, Vec<u32>>(vertices, None)
     }
