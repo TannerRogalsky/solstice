@@ -30,4 +30,4 @@ rand = "0.8"
 grid_2d = "0.15"
 image = { version = "0.23" }
 
-rscsg = { path = "../../rscsg" }
+rscsg = { git = "https://github.com/tannerrogalsky/rscsg", branch = "fixes" }
