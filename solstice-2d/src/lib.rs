@@ -566,16 +566,6 @@ pub struct DrawState<T> {
     shader: Option<Shader>,
 }
 
-trait VertexGeometry:
-    Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + Send + Sync
-{
-}
-impl<T> VertexGeometry for T where
-    T: Iterator<Item = LineVertex> + dyn_clone::DynClone + std::fmt::Debug + Send + Sync
-{
-}
-dyn_clone::clone_trait_object!(VertexGeometry);
-
 #[derive(Clone, Debug)]
 pub struct LineState<'a> {
     geometry: std::borrow::Cow<'a, [LineVertex]>,
