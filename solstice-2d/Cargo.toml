@@ -19,7 +19,7 @@ glyph_brush = "0.7"
 nalgebra = { version = "0.26", features = ["mint"] }
 
 [dev-dependencies]
-approx = "0.4"
+approx = { git = "https://github.com/tannerrogalsky/approx", branch = "array_impl" }
 eyre = "0.6"
 
 glutin = "0.25"
