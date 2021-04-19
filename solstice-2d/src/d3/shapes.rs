@@ -1,8 +1,10 @@
 mod box_geometry;
+mod plane_geometry;
 mod polyhedron_geometry;
 mod sphere_geometry;
 
 pub use box_geometry::Box;
+pub use plane_geometry::Plane;
 pub use polyhedron_geometry::Polyhedron;
 pub use sphere_geometry::Sphere;
 
