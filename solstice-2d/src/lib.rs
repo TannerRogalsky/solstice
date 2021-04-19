@@ -166,7 +166,7 @@ impl Graphics {
                             );
                             shader.send_uniform(
                                 "uView",
-                                solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
+                                solstice::shader::RawUniformValue::Mat4(camera.into()),
                             );
                             shader.send_uniform(
                                 "uModel",
@@ -232,11 +232,11 @@ impl Graphics {
                             );
                             shader.send_uniform(
                                 "uView",
-                                solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
+                                solstice::shader::RawUniformValue::Mat4(camera.into()),
                             );
                             shader.send_uniform(
                                 "uModel",
-                                solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
+                                solstice::shader::RawUniformValue::Mat4(transform.into()),
                             );
                             shader.set_color(draw_state.color);
                             match texture.as_ref() {
@@ -325,11 +325,11 @@ impl Graphics {
                     );
                     shader.send_uniform(
                         "uView",
-                        solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
+                        solstice::shader::RawUniformValue::Mat4(camera.into()),
                     );
                     shader.send_uniform(
                         "uModel",
-                        solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
+                        solstice::shader::RawUniformValue::Mat4(transform.into()),
                     );
                     match texture.as_ref() {
                         None => shader.bind_texture(&self.default_texture),
@@ -413,11 +413,11 @@ impl Graphics {
                     );
                     shader.send_uniform(
                         "uView",
-                        solstice::shader::RawUniformValue::Mat4(camera.inner.into()),
+                        solstice::shader::RawUniformValue::Mat4(camera.into()),
                     );
                     shader.send_uniform(
                         "uModel",
-                        solstice::shader::RawUniformValue::Mat4(transform.inner.into()),
+                        solstice::shader::RawUniformValue::Mat4(transform.into()),
                     );
                     shader.set_color(Color::new(1., 1., 1., 1.));
                     shader.activate(ctx);

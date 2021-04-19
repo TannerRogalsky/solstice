@@ -1,14 +1,17 @@
 use crate::Rad;
+use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Transform3D {
-    pub inner: nalgebra::Matrix4<f32>,
+    isometry: Isometry3<f32>,
+    scale: Vector3<f32>,
 }
 
 impl Default for Transform3D {
     fn default() -> Self {
         Self {
-            inner: nalgebra::Matrix4::identity(),
+            isometry: Isometry3::translation(0., 0., 0.),
+            scale: Vector3::new(1., 1., 1.),
         }
     }
 }
@@ -16,29 +19,31 @@ impl Default for Transform3D {
 impl Transform3D {
     pub fn translation(x: f32, y: f32, z: f32) -> Self {
         Self {
-            inner: nalgebra::Matrix4::new_translation(&nalgebra::Vector3::new(x, y, z)),
+            isometry: Isometry3::translation(x, y, z),
+            scale: Vector3::new(1., 1., 1.),
         }
     }
 
     pub fn rotation<R: Into<Rad>>(roll: R, pitch: R, yaw: R) -> Self {
         Self {
-            inner: nalgebra::Matrix4::from_euler_angles(
-                roll.into().0,
-                pitch.into().0,
-                yaw.into().0,
+            isometry: Isometry3::from_parts(
+                Translation3::new(0., 0., 0.),
+                UnitQuaternion::from_euler_angles(roll.into().0, pitch.into().0, yaw.into().0),
             ),
+            ..Default::default()
         }
     }
 
     pub fn scale(x: f32, y: f32, z: f32) -> Self {
         Self {
-            inner: nalgebra::Matrix4::new_nonuniform_scaling(&nalgebra::Vector3::new(x, y, z)),
+            scale: Vector3::new(x, y, z),
+            ..Default::default()
         }
     }
 
     pub fn transform_point(&self, x: f32, y: f32, z: f32) -> [f32; 3] {
-        let p = nalgebra::Vector4::new(x, y, z, 1.0);
-        let p = self.inner.clone() * p;
+        let p = nalgebra::Point3::new(x * self.scale.x, y * self.scale.y, z * self.scale.z);
+        let p = self.isometry.transform_point(&p);
         [p.x, p.y, p.z]
     }
 
@@ -47,7 +52,8 @@ impl Transform3D {
         let target = nalgebra::Point3::new(x, y, z);
         let up = nalgebra::Vector3::y();
         Self {
-            inner: nalgebra::Matrix4::look_at_lh(&eye, &target, &up),
+            isometry: Isometry3::look_at_lh(&eye, &target, &up),
+            ..Default::default()
         }
     }
 }
@@ -56,8 +62,17 @@ impl std::ops::Mul for Transform3D {
     type Output = Transform3D;
 
     fn mul(self, rhs: Self) -> Self::Output {
+        let t = self
+            .isometry
+            .rotation
+            .transform_vector(&rhs.isometry.translation.vector.component_mul(&self.scale))
+            + self.isometry.translation.vector;
         Self {
-            inner: self.inner * rhs.inner,
+            isometry: Isometry3::from_parts(
+                t.into(),
+                self.isometry.rotation * rhs.isometry.rotation,
+            ),
+            scale: self.scale.component_mul(&rhs.scale),
         }
     }
 }
@@ -68,9 +83,22 @@ impl std::ops::MulAssign for Transform3D {
     }
 }
 
-impl From<crate::Transform2D> for Transform3D {
-    fn from(t: crate::Transform2D) -> Self {
-        let t: mint::ColumnMatrix4<f32> = t.into();
-        Self { inner: t.into() }
+impl From<Transform3D> for mint::ColumnMatrix4<f32> {
+    fn from(inner: Transform3D) -> Self {
+        inner
+            .isometry
+            .to_homogeneous()
+            .prepend_nonuniform_scaling(&inner.scale)
+            .into()
+    }
+}
+
+impl From<&Transform3D> for mint::ColumnMatrix4<f32> {
+    fn from(inner: &Transform3D) -> Self {
+        inner
+            .isometry
+            .to_homogeneous()
+            .prepend_nonuniform_scaling(&inner.scale)
+            .into()
     }
 }

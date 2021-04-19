@@ -1,77 +1,57 @@
+use nalgebra::{Isometry2, Vector2};
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Transform2D {
-    pub translation_x: f32,
-    pub translation_y: f32,
-    pub scale_x: f32,
-    pub scale_y: f32,
-    pub skew_x: f32,
-    pub skew_y: f32,
+    isometry: Isometry2<f32>,
+    scale: Vector2<f32>,
 }
 
 impl Default for Transform2D {
     fn default() -> Self {
         Self {
-            translation_x: 0.,
-            translation_y: 0.,
-            scale_x: 1.,
-            scale_y: 1.,
-            skew_x: 0.,
-            skew_y: 0.,
+            isometry: Isometry2::identity(),
+            scale: Vector2::new(1., 1.),
         }
     }
 }
 
 impl Transform2D {
-    pub fn rotation<R: Into<super::Rad>>(phi: R) -> Self {
-        let phi = phi.into();
-        let (sin, cos) = phi.0.sin_cos();
+    pub fn rotation<R: Into<super::Rad>>(rotation: R) -> Self {
         Self {
-            scale_x: cos,
-            skew_y: -sin,
-            skew_x: sin,
-            scale_y: cos,
+            isometry: Isometry2::rotation(-rotation.into().0),
             ..Default::default()
         }
     }
 
-    pub fn scale(scale: f32) -> Self {
+    pub fn scale(x: f32, y: f32) -> Self {
         Self {
-            scale_x: scale,
-            scale_y: scale,
+            scale: Vector2::new(x, y),
             ..Default::default()
         }
     }
 
     pub fn translation(x: f32, y: f32) -> Self {
         Self {
-            translation_x: x,
-            translation_y: y,
+            isometry: Isometry2::translation(x, y),
             ..Default::default()
         }
     }
 
-    pub fn transform_point(&self, x: f32, y: f32) -> (f32, f32) {
-        (
-            x * self.scale_x + y * self.skew_x + self.translation_x,
-            x * self.skew_y + y * self.scale_y + self.translation_y,
-        )
+    pub fn transform_point(&self, x: f32, y: f32) -> [f32; 2] {
+        let p = nalgebra::Point2::new(x * self.scale.x, y * self.scale.y);
+        let p = self.isometry.transform_point(&p);
+        [p.x, p.y]
     }
 }
 
 impl std::ops::Mul for Transform2D {
     type Output = Self;
 
-    fn mul(mut self, rhs: Self) -> Self::Output {
-        let lhs = self;
-        self.scale_x = lhs.scale_x * rhs.scale_x + lhs.skew_x * rhs.skew_y;
-        self.skew_y = lhs.skew_y * rhs.scale_x + lhs.scale_y * rhs.skew_y;
-        self.skew_x = lhs.scale_x * rhs.skew_x + lhs.skew_x * rhs.scale_y;
-        self.scale_y = lhs.skew_y * rhs.skew_x + lhs.scale_y * rhs.scale_y;
-        self.translation_x =
-            lhs.scale_x * rhs.translation_x + lhs.skew_x * rhs.translation_y + lhs.translation_x;
-        self.translation_y =
-            lhs.skew_y * rhs.translation_x + lhs.scale_y * rhs.translation_y + lhs.translation_y;
-        self
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self {
+            isometry: self.isometry * rhs.isometry,
+            scale: self.scale.component_mul(&rhs.scale),
+        }
     }
 }
 
@@ -83,54 +63,27 @@ impl std::ops::MulAssign for Transform2D {
 
 impl Into<mint::ColumnMatrix3<f32>> for Transform2D {
     fn into(self) -> mint::ColumnMatrix3<f32> {
-        mint::ColumnMatrix3 {
-            x: mint::Vector3 {
-                x: self.scale_x,
-                y: self.skew_y,
-                z: 0.,
-            },
-            y: mint::Vector3 {
-                x: self.skew_x,
-                y: self.scale_y,
-                z: 0.,
-            },
-            z: mint::Vector3 {
-                x: self.translation_x,
-                y: self.translation_y,
-                z: 1.,
-            },
-        }
+        self.isometry
+            .to_homogeneous()
+            .prepend_nonuniform_scaling(&self.scale)
+            .into()
     }
 }
 
-impl Into<mint::ColumnMatrix4<f32>> for Transform2D {
-    fn into(self) -> mint::ColumnMatrix4<f32> {
-        mint::ColumnMatrix4 {
-            x: mint::Vector4 {
-                x: self.scale_x,
-                y: self.skew_y,
-                z: 0.,
-                w: 0.,
-            },
-            y: mint::Vector4 {
-                x: self.skew_x,
-                y: self.scale_y,
-                z: 0.,
-                w: 0.,
-            },
-            z: mint::Vector4 {
-                x: 0.,
-                y: 0.,
-                z: 1.,
-                w: 0.,
-            },
-            w: mint::Vector4 {
-                x: self.translation_x,
-                y: self.translation_y,
-                z: 0.,
-                w: 1.,
-            },
-        }
+impl From<Transform2D> for mint::ColumnMatrix4<f32> {
+    fn from(t: Transform2D) -> Self {
+        crate::Transform3D::from(t).into()
+    }
+}
+
+impl From<Transform2D> for crate::Transform3D {
+    fn from(t: Transform2D) -> Self {
+        let translation = t.isometry.translation.vector;
+        let rotation = t.isometry.rotation.angle();
+        let scale = t.scale;
+        Self::translation(translation.x, translation.y, 0.)
+            * Self::rotation(crate::Rad(0.), crate::Rad(0.), crate::Rad(-rotation))
+            * Self::scale(scale.x, scale.y, 1.)
     }
 }
 
@@ -162,31 +115,28 @@ impl Transforms {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Rad;
 
     #[test]
     pub fn transform_point_identity() {
         let identity = Transform2D::default();
 
         let (px, py) = (0., 0.);
-        assert_eq!(identity.transform_point(px, py), (px, py));
+        assert_eq!(identity.transform_point(px, py), [px, py]);
 
         let (px, py) = (100., 0.);
-        assert_eq!(identity.transform_point(px, py), (px, py));
+        assert_eq!(identity.transform_point(px, py), [px, py]);
 
         let (px, py) = (-213., 123.);
-        assert_eq!(identity.transform_point(px, py), (px, py));
+        assert_eq!(identity.transform_point(px, py), [px, py]);
     }
 
     #[test]
     pub fn transform_point_translation() {
-        let identity = Transform2D {
-            translation_x: 2.,
-            translation_y: 1.5,
-            ..Transform2D::default()
-        };
+        let identity = Transform2D::translation(2., 1.5);
 
         let (px, py) = (0., 0.);
-        assert_eq!(identity.transform_point(px, py), (2., 1.5));
+        assert_eq!(identity.transform_point(px, py), [2., 1.5]);
     }
 
     #[test]
@@ -194,73 +144,96 @@ mod tests {
         use approx::*;
 
         let transform = Transform2D::rotation(crate::Deg(90.));
-        assert_abs_diff_eq!(transform.scale_x, 0.);
-        assert_abs_diff_eq!(transform.scale_y, 0.);
-        assert_abs_diff_eq!(transform.skew_x, 1.);
-        assert_abs_diff_eq!(transform.skew_y, -1.);
 
         let (px, py) = (0., 0.);
-        assert_eq!(transform.transform_point(px, py), (px, py));
+        assert_eq!(transform.transform_point(px, py), [px, py]);
 
         let (px, py) = (1., 0.);
-        let (tx, ty) = transform.transform_point(px, py);
-        assert_abs_diff_eq!(tx, 0.);
-        assert_abs_diff_eq!(ty, -1.);
+        let [tx, ty] = transform.transform_point(px, py);
+        assert_abs_diff_eq!([0., -1.], [tx, ty]);
 
-        let (tx, ty) = transform.transform_point(tx, ty);
+        let [tx, ty] = transform.transform_point(tx, ty);
         assert_abs_diff_eq!(tx, -px);
         assert_abs_diff_eq!(ty, -py);
 
         let (px, py) = (2., 2.);
-        let (tx, ty) = transform.transform_point(px, py);
+        let [tx, ty] = transform.transform_point(px, py);
         assert_abs_diff_eq!(tx, 2., epsilon = 0.001);
         assert_abs_diff_eq!(ty, -2., epsilon = 0.001);
 
-        let (tx, ty) = transform.transform_point(tx, ty);
+        let [tx, ty] = transform.transform_point(tx, ty);
         assert_abs_diff_eq!(tx, -2., epsilon = 0.001);
         assert_abs_diff_eq!(ty, -2., epsilon = 0.001);
 
-        let (tx, ty) = transform.transform_point(tx, ty);
+        let [tx, ty] = transform.transform_point(tx, ty);
         assert_abs_diff_eq!(tx, -2., epsilon = 0.001);
         assert_abs_diff_eq!(ty, 2., epsilon = 0.001);
 
-        let (tx, ty) = transform.transform_point(tx, ty);
+        let [tx, ty] = transform.transform_point(tx, ty);
         assert_abs_diff_eq!(tx, 2., epsilon = 0.001);
         assert_abs_diff_eq!(ty, 2., epsilon = 0.001);
     }
 
     #[test]
     pub fn transform_point_scale() {
-        let identity = Transform2D {
-            scale_x: 2.,
-            scale_y: 1.5,
-            ..Transform2D::default()
-        };
+        let identity = Transform2D::scale(2., 1.5);
 
         let (px, py) = (0., 0.);
-        assert_eq!(identity.transform_point(px, py), (px, py));
+        assert_eq!(identity.transform_point(px, py), [px, py]);
 
         let (px, py) = (100., 0.);
-        assert_eq!(identity.transform_point(px, py), (200., 0.));
+        assert_eq!(identity.transform_point(px, py), [200., 0.]);
 
         let (px, py) = (-213., 123.);
-        assert_eq!(identity.transform_point(px, py), (px * 2., py * 1.5));
+        assert_eq!(identity.transform_point(px, py), [px * 2., py * 1.5]);
     }
 
     #[test]
     pub fn transform_point() {
-        let identity = Transform2D {
-            translation_x: 100.,
-            translation_y: 200.,
-            scale_x: 2.,
-            scale_y: 1.5,
-            ..Transform2D::default()
-        };
+        let identity = Transform2D::translation(100., 200.) * Transform2D::scale(2., 1.5);
 
         let (px, py) = (0., 0.);
-        assert_eq!(identity.transform_point(px, py), (100., 200.));
+        assert_eq!(identity.transform_point(px, py), [100., 200.]);
 
         let (px, py) = (1., 2.);
-        assert_eq!(identity.transform_point(px, py), (102., 203.));
+        assert_eq!(identity.transform_point(px, py), [102., 203.]);
+    }
+
+    #[test]
+    fn transform_mul() {
+        use approx::*;
+
+        let t1 = Transform2D::translation(1., 1.);
+        let t2 = Transform2D::rotation(crate::Deg(90.));
+
+        assert_abs_diff_eq!([1., 1.], t1.transform_point(0., 0.));
+        assert_abs_diff_eq!([1., -1.], t2.transform_point(1., 1.));
+        assert_abs_diff_eq!([1., -1.], (t2 * t1).transform_point(0., 0.));
+    }
+
+    #[test]
+    fn conversion() {
+        use crate::Transform3D;
+
+        let t2_1 = Transform2D::translation(1., 2.);
+        let t3_1 = Transform3D::translation(1., 2., 0.);
+
+        assert_eq!(
+            mint::ColumnMatrix4::<f32>::from(t2_1),
+            mint::ColumnMatrix4::<f32>::from(t3_1)
+        );
+
+        let t2_2 = Transform2D::rotation(Rad(std::f32::consts::FRAC_PI_2));
+        let t3_2 = Transform3D::rotation(Rad(0.), Rad(0.), Rad(std::f32::consts::FRAC_PI_2));
+
+        assert_eq!(
+            mint::ColumnMatrix4::<f32>::from(t2_2),
+            mint::ColumnMatrix4::<f32>::from(t3_2)
+        );
+
+        assert_eq!(
+            mint::ColumnMatrix4::<f32>::from(t2_1 * t2_2),
+            mint::ColumnMatrix4::<f32>::from(t3_1 * t3_2)
+        );
     }
 }
