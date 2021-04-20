@@ -106,7 +106,7 @@ pub type BindingInfo<'a> = (&'a VertexFormat, usize, u32, super::BufferKey, Buff
 /// let mut mesh = solstice::mesh::Mesh::new(&mut ctx, 3000).unwrap();
 /// mesh.set_draw_range(Some(0..3)); // draws only the first three vertices of the 3000 allocated
 /// ```
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct VertexMesh<V> {
     vbo: Buffer,
     draw_range: Option<std::ops::Range<usize>>,
@@ -176,6 +176,7 @@ where
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct MappedVertexMesh<V> {
     inner: VertexMesh<V>,
     memory_map: MappedBuffer,
@@ -210,7 +211,7 @@ where
 ///
 /// This is useful if you have a number of vertices that you would otherwise have to duplicate
 /// because indices are generally smaller than a vertex so duplicating them is more performant.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct IndexedMesh<V, I> {
     mesh: VertexMesh<V>,
     ibo: Buffer,
@@ -306,7 +307,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct MappedIndexedMesh<V, I> {
     inner: IndexedMesh<V, I>,
     vbo: MappedBuffer,
@@ -515,21 +516,12 @@ impl<V: Vertex, I: Index> Mesh for &IndexedMesh<V, I> {
 }
 
 // TODO: Redo this but without the trait: implement behaviour for specific structs
-pub struct MultiMesh<'a, T> {
-    base: T,
+pub struct MultiMesh<'a> {
+    ibo: Option<(&'a Buffer, u32)>,
     attachments: Vec<AttachedAttributes<'a>>,
 }
 
-impl<'a, T> MultiMesh<'a, T> {
-    pub fn new(base: T, attachments: Vec<AttachedAttributes<'a>>) -> Self {
-        Self { base, attachments }
-    }
-}
-
-impl<'a, T> Mesh for MultiMesh<'a, T>
-where
-    T: Mesh,
-{
+impl<'a> Mesh for MultiMesh<'a> {
     fn attachments(&self) -> Vec<AttachedAttributes> {
         self.attachments.clone()
     }
@@ -541,30 +533,83 @@ where
         draw_mode: super::DrawMode,
         instance_count: usize,
     ) {
-        self.base.draw(ctx, draw_range, draw_mode, instance_count)
+        match self.ibo {
+            None => {
+                if draw_range.start >= draw_range.end {
+                    return;
+                }
+
+                let (count, offset) = (
+                    (draw_range.end - draw_range.start) as i32,
+                    draw_range.start as i32,
+                );
+                if instance_count > 1 {
+                    ctx.draw_arrays_instanced(draw_mode, offset, count, instance_count as i32);
+                } else {
+                    ctx.draw_arrays(draw_mode, offset, count);
+                }
+            }
+            Some((ibo, element_type)) => {
+                if draw_range.start >= draw_range.end {
+                    return;
+                }
+
+                let (count, offset) = (
+                    (draw_range.end - draw_range.start) as i32,
+                    draw_range.start as i32,
+                );
+
+                ctx.bind_buffer(ibo.handle(), ibo.buffer_type());
+                if instance_count > 1 {
+                    ctx.draw_elements_instanced(
+                        draw_mode,
+                        count,
+                        element_type,
+                        offset,
+                        instance_count as i32,
+                    );
+                } else {
+                    ctx.draw_elements(draw_mode, count, element_type, offset);
+                }
+            }
+        }
     }
 }
 
 pub trait MeshAttacher: Mesh {
-    fn attach<'a, T: Mesh>(&'a self, other: &'a T) -> MultiMesh<&'a Self> {
+    fn attach<'a, T: Mesh>(&'a self, other: &'a T) -> MultiMesh<'a> {
         Self::attach_with_step(self, other, 0)
     }
 
-    fn attach_with_step<'a, T: Mesh>(&'a self, other: &'a T, step: u32) -> MultiMesh<&'a Self> {
+    fn attach_with_step<'a, T: Mesh>(&'a self, other: &'a T, step: u32) -> MultiMesh<'a>;
+}
+
+impl<V: Vertex> MeshAttacher for VertexMesh<V> {
+    fn attach_with_step<'a, T: Mesh>(&'a self, other: &'a T, step: u32) -> MultiMesh<'a> {
         let mut attachments = self.attachments();
         attachments.extend(other.attachments().into_iter().map(|mut a| {
             a.step = step;
             a
         }));
         MultiMesh {
-            base: self,
+            ibo: None,
             attachments,
         }
     }
 }
-
-impl<V: Vertex> MeshAttacher for VertexMesh<V> {}
-impl<V: Vertex, I: Index> MeshAttacher for IndexedMesh<V, I> {}
+impl<V: Vertex, I: Index> MeshAttacher for IndexedMesh<V, I> {
+    fn attach_with_step<'a, T: Mesh>(&'a self, other: &'a T, step: u32) -> MultiMesh<'a> {
+        let mut attachments = self.attachments();
+        attachments.extend(other.attachments().into_iter().map(|mut a| {
+            a.step = step;
+            a
+        }));
+        MultiMesh {
+            ibo: Some((&self.ibo, I::GL_TYPE)),
+            attachments,
+        }
+    }
+}
 
 pub trait Index {
     const GL_TYPE: u32;

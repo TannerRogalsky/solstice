@@ -1,7 +1,7 @@
-use solstice::vertex::Vertex;
+use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
-#[derive(Vertex, Copy, Clone, Debug)]
+#[derive(Zeroable, Pod, solstice::vertex::Vertex, Copy, Clone, Debug, PartialEq)]
 pub struct Vertex2D {
     pub position: [f32; 2],
     pub color: [f32; 4],

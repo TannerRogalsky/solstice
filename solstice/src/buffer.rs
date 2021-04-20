@@ -20,7 +20,7 @@ impl Into<u32> for BufferType {
 /// * `Static`: The user will set the data once.
 /// * `Dynamic`: The user will set the data occasionally.
 /// * `Stream`: The user will be changing the data after every use. Or almost every use.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Usage {
     Stream,
     Static,
@@ -44,7 +44,7 @@ impl Usage {
 /// internally and allow the use of more types and structures.
 ///
 /// This buffer is not resizable. All operations are sized in bytes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Buffer {
     size: usize,
     handle: BufferKey,
@@ -108,13 +108,13 @@ impl Buffer {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct ModifiedRange<D> {
     pub offset: D,
     pub size: D,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Mapped<T, D: ndarray::Dimension> {
     pub(crate) inner: T,
     pub(crate) memory_map: ndarray::Array<u8, D>,

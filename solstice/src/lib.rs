@@ -1,4 +1,4 @@
-pub extern crate glow;
+pub use glow;
 
 #[cfg(feature = "derive")]
 extern crate solstice_derive;
@@ -187,7 +187,7 @@ struct GLConstants {
     max_texture_units: usize,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum DrawMode {
     Points,
     Lines,

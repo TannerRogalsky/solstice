@@ -8,14 +8,14 @@ use solstice::{
 
 const SHADER_SRC: &str = include_str!("lines.glsl");
 
-#[derive(Vertex)]
 #[repr(C)]
+#[derive(bytemuck::Zeroable, bytemuck::Pod, Vertex, Copy, Clone, Debug)]
 pub struct Position {
     point: [f32; 3],
 }
 
-#[derive(Copy, Clone, Debug)]
 #[repr(C)]
+#[derive(bytemuck::Zeroable, bytemuck::Pod, Copy, Clone, Debug)]
 pub struct LineVertex {
     pub position: [f32; 3],
     pub width: f32,
@@ -194,10 +194,7 @@ impl LineWorkspace {
         &self.shader
     }
 
-    pub fn geometry(
-        &mut self,
-        ctx: &mut Context,
-    ) -> solstice::Geometry<MultiMesh<&VertexMesh<Position>>> {
+    pub fn geometry(&mut self, ctx: &mut Context) -> solstice::Geometry<MultiMesh> {
         use solstice::mesh::*;
 
         let mesh = self.positions.unmap(ctx);

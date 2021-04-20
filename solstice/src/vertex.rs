@@ -75,7 +75,7 @@ pub struct VertexFormat {
 }
 
 /// Trait for structures that represent a vertex.
-pub trait Vertex {
+pub trait Vertex: bytemuck::Pod {
     /// Builds the `VertexFormat` representing the layout of this element.
     fn build_bindings() -> &'static [VertexFormat];
 }

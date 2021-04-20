@@ -8,10 +8,11 @@ use super::{
     Color, Command, Draw, DrawList, DrawState, Geometry, GeometryVariants, LineState, LineVertex,
     Projection, TextureCache,
 };
+use bytemuck::{Pod, Zeroable};
 use solstice::texture::Texture;
 
-#[derive(Debug, PartialEq, Copy, Clone, solstice::vertex::Vertex)]
 #[repr(C)]
+#[derive(Zeroable, Pod, Debug, PartialEq, Copy, Clone, solstice::vertex::Vertex)]
 pub struct Vertex3D {
     pub position: [f32; 3],
     pub uv: [f32; 2],
