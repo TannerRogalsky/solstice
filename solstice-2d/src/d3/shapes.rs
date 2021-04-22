@@ -1,8 +1,10 @@
+mod arc_geometry;
 mod box_geometry;
 mod plane_geometry;
 mod polyhedron_geometry;
 mod sphere_geometry;
 
+pub use arc_geometry::Arc3D;
 pub use box_geometry::Box;
 pub use plane_geometry::Plane;
 pub use polyhedron_geometry::Polyhedron;
@@ -46,5 +48,17 @@ impl Point3D {
             y: self.y * scalar,
             z: self.z * scalar,
         }
+    }
+}
+
+impl Into<[f32; 3]> for Point3D {
+    fn into(self) -> [f32; 3] {
+        [self.x, self.y, self.z]
+    }
+}
+
+impl From<[f32; 3]> for Point3D {
+    fn from([x, y, z]: [f32; 3]) -> Self {
+        Self { x, y, z }
     }
 }
