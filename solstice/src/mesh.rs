@@ -107,7 +107,7 @@ pub type BindingInfo<'a> = (&'a VertexFormat, usize, u32, super::BufferKey, Buff
 /// let mut mesh = solstice::mesh::Mesh::new(&mut ctx, 3000).unwrap();
 /// mesh.set_draw_range(Some(0..3)); // draws only the first three vertices of the 3000 allocated
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct VertexMesh<V> {
     vbo: Buffer,
     draw_range: Option<std::ops::Range<usize>>,
@@ -212,7 +212,7 @@ where
 ///
 /// This is useful if you have a number of vertices that you would otherwise have to duplicate
 /// because indices are generally smaller than a vertex so duplicating them is more performant.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct IndexedMesh<V, I> {
     mesh: VertexMesh<V>,
     ibo: Buffer,
