@@ -1913,8 +1913,8 @@ mod tests {
         println!("{:#?}", pipeline_settings);
     }
 
-    #[derive(Debug, Copy, Clone, PartialEq, Default)]
-    #[repr(C, packed)]
+    #[repr(C)]
+    #[derive(Debug, Copy, Clone, PartialEq, Default, bytemuck::Zeroable, bytemuck::Pod)]
     struct TestVertex {
         color: f32,
         position: f32,

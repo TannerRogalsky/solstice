@@ -54,7 +54,8 @@ pub type BindingInfo<'a> = (&'a VertexFormat, usize, u32, super::BufferKey, Buff
 ///
 /// ```
 /// use solstice::vertex::{VertexFormat, AttributeType};
-/// #[repr(C, packed)]
+/// #[repr(C)]
+/// #[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod)]
 /// struct TestVertex {
 ///     position: [f32; 2],
 ///     color: [f32; 4],

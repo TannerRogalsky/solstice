@@ -4,7 +4,7 @@ use solstice_derive::Vertex;
 #[test]
 fn derive_simple_semantics() {
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Vertex)]
+    #[derive(Clone, Copy, Debug, Vertex, bytemuck::Zeroable, bytemuck::Pod)]
     pub struct TestVertex {
         pub position: [f32; 3],
         pub alpha: f32,

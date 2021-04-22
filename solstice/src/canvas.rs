@@ -3,13 +3,14 @@ use super::{
     Context, PixelFormat,
 };
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MipmapMode {
     None,
     Manual, // todo: no functional difference between manual and auto right now
     Auto,
 }
 
+#[derive(Debug, Clone)]
 pub struct Settings {
     pub width: u32,
     pub height: u32,
