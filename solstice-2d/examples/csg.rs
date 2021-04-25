@@ -1,15 +1,16 @@
 mod boilerplate;
 use boilerplate::*;
 use rscsg::dim3::*;
+use solstice::mesh::VertexMesh;
 use solstice_2d::Vertex3D;
 use std::time::Duration;
 
 struct CSGExample {
-    vertices: Vec<Vertex3D>,
+    vertices: VertexMesh<Vertex3D>,
 }
 
 impl Example for CSGExample {
-    fn new(_ctx: &mut ExampleContext) -> eyre::Result<Self> {
+    fn new(ctx: &mut ExampleContext) -> eyre::Result<Self> {
         let csg = Csg::subtract(
             &Csg::cube(Vector(1., 1., 1.), true),
             &Csg::cylinder(Vector(-1., 0., 0.), Vector(1., 0., 0.), 0.5, 8),
@@ -30,7 +31,8 @@ impl Example for CSGExample {
                     }
                 })
             })
-            .collect();
+            .collect::<Vec<_>>();
+        let vertices = VertexMesh::with_data(&mut ctx.ctx, &vertices)?;
 
         Ok(Self { vertices })
     }
@@ -47,7 +49,13 @@ impl Example for CSGExample {
             Rad(time.as_secs_f32()),
             Rad(time.as_secs_f32().sin() * 3.14),
         );
-        dl.draw_with_transform(self.vertices.clone(), transform);
+        let geometry = solstice::Geometry {
+            mesh: &self.vertices,
+            draw_range: 0..self.vertices.len(),
+            draw_mode: solstice::DrawMode::Triangles,
+            instance_count: 1,
+        };
+        dl.draw_with_transform(geometry, transform);
 
         ctx.gfx.process(&mut ctx.ctx, &dl);
     }
