@@ -1631,7 +1631,7 @@ fn prepare_draw<'a, S: shader::Shader + ?Sized>(
     (desired_attribute_state, attributes)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Geometry<M> {
     pub mesh: M,
     pub draw_range: std::ops::Range<usize>,
