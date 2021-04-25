@@ -34,7 +34,7 @@ impl<'a> From<&'a [Vertex3D]> for Geometry<'a, Vertex3D> {
 
 impl<'a, G> Draw<Vertex3D, G> for DrawList<'a>
 where
-    G: Into<Geometry<'a, Vertex3D>>,
+    G: crate::GeometryKind<'a, Vertex3D> + 'a,
 {
     fn draw(&mut self, geometry: G) {
         self.draw_with_color_and_transform(geometry, self.color, self.transform)
@@ -54,54 +54,8 @@ where
         color: C,
         transform: TX,
     ) {
-        let crate::Geometry { vertices, indices } = geometry.into();
         self.commands.push(Command::Draw(DrawState {
-            data: GeometryVariants::D3(vertices, indices),
-            transform: transform.into(),
-            camera: self.camera,
-            projection_mode: self
-                .projection_mode
-                .unwrap_or(Projection::Perspective(None)),
-            color: color.into(),
-            texture: None,
-            target: self.target.clone(),
-            shader: self.shader.clone(),
-        }))
-    }
-
-    fn stroke(&mut self, geometry: G) {
-        self.stroke_with_color_and_transform(geometry, self.color, self.transform)
-    }
-
-    fn stroke_with_transform<TX: Into<Transform3D>>(&mut self, geometry: G, transform: TX) {
-        self.stroke_with_color_and_transform(geometry, self.color, transform)
-    }
-
-    fn stroke_with_color<C: Into<Color>>(&mut self, geometry: G, color: C) {
-        self.stroke_with_color_and_transform(geometry, color, self.transform)
-    }
-
-    fn stroke_with_color_and_transform<C: Into<Color>, TX: Into<Transform3D>>(
-        &mut self,
-        geometry: G,
-        color: C,
-        transform: TX,
-    ) {
-        let crate::Geometry { vertices, .. } = geometry.into();
-        self.commands.push(Command::Line(DrawState {
-            data: LineState {
-                geometry: vertices
-                    .iter()
-                    .map(|v: &Vertex3D| LineVertex {
-                        position: v.position,
-                        width: 5.0,
-                        color: [1., 1., 1., 1.],
-                    })
-                    .collect::<Vec<_>>()
-                    .into(),
-                is_loop: true,
-                depth_buffer: false,
-            },
+            data: GeometryVariants::D3(geometry.into()),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -145,9 +99,8 @@ where
         C: Into<Color>,
         TX: Into<Transform3D>,
     {
-        let crate::Geometry { vertices, indices } = geometry.into();
         self.commands.push(Command::Draw(DrawState {
-            data: GeometryVariants::D3(vertices, indices),
+            data: GeometryVariants::D3(geometry.into()),
             transform: transform.into(),
             camera: self.camera,
             projection_mode: self
@@ -159,6 +112,55 @@ where
                 key: texture.get_texture_key(),
                 info: texture.get_texture_info(),
             }),
+            target: self.target.clone(),
+            shader: self.shader.clone(),
+        }))
+    }
+}
+impl<'a, G> crate::Stroke<crate::Vertex3D, G> for DrawList<'a>
+where
+    G: Into<Geometry<'a, crate::Vertex3D>>,
+{
+    fn stroke(&mut self, geometry: G) {
+        self.stroke_with_color_and_transform(geometry, self.color, self.transform)
+    }
+
+    fn stroke_with_transform<TX: Into<Transform3D>>(&mut self, geometry: G, transform: TX) {
+        self.stroke_with_color_and_transform(geometry, self.color, transform)
+    }
+
+    fn stroke_with_color<C: Into<Color>>(&mut self, geometry: G, color: C) {
+        self.stroke_with_color_and_transform(geometry, color, self.transform)
+    }
+
+    fn stroke_with_color_and_transform<C: Into<Color>, TX: Into<Transform3D>>(
+        &mut self,
+        geometry: G,
+        color: C,
+        transform: TX,
+    ) {
+        let crate::Geometry { vertices, .. } = geometry.into();
+        self.commands.push(Command::Line(DrawState {
+            data: LineState {
+                geometry: vertices
+                    .iter()
+                    .map(|v: &Vertex3D| LineVertex {
+                        position: v.position,
+                        width: 5.0,
+                        color: [1., 1., 1., 1.],
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+                is_loop: true,
+                depth_buffer: false,
+            },
+            transform: transform.into(),
+            camera: self.camera,
+            projection_mode: self
+                .projection_mode
+                .unwrap_or(Projection::Perspective(None)),
+            color: color.into(),
+            texture: None,
             target: self.target.clone(),
             shader: self.shader.clone(),
         }))

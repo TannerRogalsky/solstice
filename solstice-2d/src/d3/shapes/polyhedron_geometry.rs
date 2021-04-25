@@ -275,10 +275,7 @@ impl From<&Polyhedron> for Geometry<'_, Vertex3D> {
         correct_uvs(&mut vertices);
         correct_seam(&mut vertices);
 
-        Self {
-            vertices: vertices.into(),
-            indices: None,
-        }
+        Self::new::<_, Vec<_>>(vertices, None)
     }
 }
 

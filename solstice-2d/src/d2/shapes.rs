@@ -26,7 +26,7 @@ impl From<Deg> for Rad {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ArcType {
     Pie,
     Open,
@@ -39,7 +39,7 @@ impl Default for ArcType {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialEq)]
 pub struct Arc {
     pub arc_type: ArcType,
     pub x: f32,
@@ -142,7 +142,7 @@ impl SimpleConvexGeometry for Arc {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialEq)]
 pub struct Circle {
     pub x: f32,
     pub y: f32,
@@ -176,7 +176,7 @@ impl Into<Ellipse> for Circle {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Ellipse {
     pub x: f32,
     pub y: f32,
@@ -210,7 +210,7 @@ impl SimpleConvexGeometry for Ellipse {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Rectangle {
     pub x: f32,
     pub y: f32,
@@ -258,8 +258,8 @@ impl From<&Rectangle> for Geometry<'_, Vertex2D> {
         }
 
         Geometry {
-            vertices: vertices(r),
-            indices: Some([0, 1, 2, 0, 3, 2][..].into()),
+            vertices: vertices(r).into(),
+            indices: Some(std::borrow::Cow::Borrowed(&[0u32, 1, 2, 0, 3, 2][..]).into()),
         }
     }
 }
@@ -270,7 +270,7 @@ impl From<Rectangle> for Geometry<'_, Vertex2D> {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct RegularPolygon {
     pub x: f32,
     pub y: f32,
@@ -316,7 +316,7 @@ impl SimpleConvexGeometry for RegularPolygon {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct SimpleConvexPolygon {
     pub x: f32,
     pub y: f32,
@@ -361,10 +361,7 @@ where
         let indices = (1..(vertices.len() as u32).saturating_sub(1))
             .flat_map(|i| std::array::IntoIter::new([0, i, i + 1]))
             .collect::<Vec<_>>();
-        Geometry {
-            vertices: vertices.into(),
-            indices: Some(indices.into()),
-        }
+        Geometry::new(vertices, Some(indices))
     }
 }
 

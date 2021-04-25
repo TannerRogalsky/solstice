@@ -1,6 +1,6 @@
 use crate::d3::Vertex3D;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Plane {
     pub width: f32,
     pub height: f32,

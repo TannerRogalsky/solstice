@@ -103,10 +103,7 @@ impl Sphere {
 
 impl From<&Sphere> for Geometry<'_, Vertex3D> {
     fn from(s: &Sphere) -> Self {
-        Self {
-            vertices: s.vertices().into(),
-            indices: Some(s.indices().into()),
-        }
+        Self::new(s.vertices(), Some(s.indices()))
     }
 }
 

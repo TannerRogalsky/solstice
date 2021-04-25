@@ -2,7 +2,7 @@ use crate::{Geometry, Point3D, Sphere, Vertex3D};
 
 /// Differs from a Sphere in that when "open" on an axis, additional geometry si generated creating
 /// sides connected to the centroid.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Arc3D(pub Sphere);
 
 impl Arc3D {

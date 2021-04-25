@@ -40,11 +40,15 @@ impl std::ops::Drop for GraphicsLock<'_, '_> {
     }
 }
 
-pub struct Graphics {
+struct GeometryBuffers {
     mesh3d: MappedIndexedMesh<Vertex3D, u32>,
     mesh3d_unindexed: MappedVertexMesh<Vertex3D>,
     mesh2d: MappedIndexedMesh<Vertex2D, u32>,
     mesh2d_unindexed: MappedVertexMesh<Vertex2D>,
+}
+
+pub struct Graphics {
+    meshes: GeometryBuffers,
     line_workspace: LineWorkspace,
     default_shader: Shader,
     default_texture: Image,
@@ -69,10 +73,12 @@ impl Graphics {
         let text_shader = Shader::with((text::DEFAULT_VERT, text::DEFAULT_FRAG), ctx)?;
 
         Ok(Self {
-            mesh3d,
-            mesh3d_unindexed,
-            mesh2d,
-            mesh2d_unindexed,
+            meshes: GeometryBuffers {
+                mesh3d,
+                mesh3d_unindexed,
+                mesh2d,
+                mesh2d_unindexed,
+            },
             line_workspace,
             default_shader,
             default_texture,
@@ -144,17 +150,7 @@ impl Graphics {
                     };
 
                     match geometry {
-                        GeometryVariants::D2(vertices, indices) => {
-                            let transform_verts = |v: &Vertex2D| -> Vertex2D {
-                                let [x, y] = v.position;
-                                let [x, y, _] = transform.transform_point(x, y, 0.);
-                                Vertex2D {
-                                    position: [x, y],
-                                    color: (*color).into(),
-                                    uv: v.uv,
-                                }
-                            };
-
+                        GeometryVariants::D2(geometry) => {
                             let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
                             let viewport = target.as_ref().map_or(self.viewport, canvas_bounds);
@@ -170,11 +166,9 @@ impl Graphics {
                             );
                             shader.send_uniform(
                                 "uModel",
-                                solstice::shader::RawUniformValue::Mat4(
-                                    Transform2D::default().into(),
-                                ),
+                                solstice::shader::RawUniformValue::Mat4(transform.into()),
                             );
-                            shader.set_color(Color::default());
+                            shader.set_color(*color);
                             match texture.as_ref() {
                                 None => shader.bind_texture(&self.default_texture),
                                 Some(texture) => shader.bind_texture(texture),
@@ -193,34 +187,9 @@ impl Graphics {
                                 framebuffer: target.as_ref().map(|c| &c.inner),
                                 ..solstice::PipelineSettings::default()
                             };
-                            let vertices = vertices.iter().map(transform_verts).collect::<Vec<_>>();
-                            match &indices {
-                                None => {
-                                    self.mesh2d_unindexed.set_vertices(&vertices, 0);
-                                    let mesh = self.mesh2d_unindexed.unmap(ctx);
-                                    let geometry = solstice::Geometry {
-                                        mesh,
-                                        draw_range: 0..vertices.len(),
-                                        draw_mode: solstice::DrawMode::Triangles,
-                                        instance_count: 1,
-                                    };
-                                    solstice::Renderer::draw(ctx, shader, &geometry, settings);
-                                }
-                                Some(indices) => {
-                                    self.mesh2d.set_vertices(&vertices, 0);
-                                    self.mesh2d.set_indices(&indices, 0);
-                                    let mesh = self.mesh2d.unmap(ctx);
-                                    let geometry = solstice::Geometry {
-                                        mesh,
-                                        draw_range: 0..indices.len(),
-                                        draw_mode: solstice::DrawMode::Triangles,
-                                        instance_count: 1,
-                                    };
-                                    solstice::Renderer::draw(ctx, shader, &geometry, settings);
-                                }
-                            }
+                            geometry.draw(&mut self.meshes, ctx, shader, settings);
                         }
-                        GeometryVariants::D3(vertices, indices) => {
+                        GeometryVariants::D3(geometry) => {
                             let mut shader = shader.clone();
                             let shader = shader.as_mut().unwrap_or(&mut self.default_shader);
                             let viewport = target.as_ref().map_or(self.viewport, canvas_bounds);
@@ -257,31 +226,7 @@ impl Graphics {
                                 framebuffer: target.as_ref().map(|c| &c.inner),
                                 ..solstice::PipelineSettings::default()
                             };
-                            match &indices {
-                                None => {
-                                    self.mesh3d_unindexed.set_vertices(&vertices, 0);
-                                    let mesh = self.mesh3d_unindexed.unmap(ctx);
-                                    let geometry = solstice::Geometry {
-                                        mesh,
-                                        draw_range: 0..vertices.len(),
-                                        draw_mode: solstice::DrawMode::Triangles,
-                                        instance_count: 1,
-                                    };
-                                    solstice::Renderer::draw(ctx, shader, &geometry, settings);
-                                }
-                                Some(indices) => {
-                                    self.mesh3d.set_vertices(&vertices, 0);
-                                    self.mesh3d.set_indices(&indices, 0);
-                                    let mesh = self.mesh3d.unmap(ctx);
-                                    let geometry = solstice::Geometry {
-                                        mesh,
-                                        draw_range: 0..indices.len(),
-                                        draw_mode: solstice::DrawMode::Triangles,
-                                        instance_count: 1,
-                                    };
-                                    solstice::Renderer::draw(ctx, shader, &geometry, settings);
-                                }
-                            }
+                            geometry.draw(&mut self.meshes, ctx, shader, settings);
                         }
                     };
                 }
@@ -457,26 +402,52 @@ impl Graphics {
     }
 }
 
-#[derive(Clone)]
-pub struct Geometry<'a, V>
-where
-    [V]: std::borrow::ToOwned,
-{
-    vertices: std::borrow::Cow<'a, [V]>,
-    indices: Option<std::borrow::Cow<'a, [u32]>>,
+#[derive(Debug, Clone, PartialEq)]
+enum MaybeOwned<'a, T> {
+    Borrowed(&'a [T]),
+    Owned(Vec<T>),
 }
 
-impl<'a, V> Geometry<'a, V>
+impl<'a, T> std::ops::Deref for MaybeOwned<'a, T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            MaybeOwned::Borrowed(v) => v,
+            MaybeOwned::Owned(v) => v,
+        }
+    }
+}
+
+impl<'a, T> From<std::borrow::Cow<'a, [T]>> for MaybeOwned<'a, T>
 where
-    [V]: std::borrow::ToOwned,
+    [T]: std::borrow::ToOwned<Owned = Vec<T>>,
 {
+    fn from(v: std::borrow::Cow<'a, [T]>) -> Self {
+        match v {
+            std::borrow::Cow::Borrowed(v) => MaybeOwned::Borrowed(v),
+            std::borrow::Cow::Owned(v) => MaybeOwned::Owned(v),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Geometry<'a, V> {
+    vertices: MaybeOwned<'a, V>,
+    indices: Option<MaybeOwned<'a, u32>>,
+}
+
+impl<'a, V> Geometry<'a, V> {
     pub fn new<IV: Into<std::borrow::Cow<'a, [V]>>, II: Into<std::borrow::Cow<'a, [u32]>>>(
         vertices: IV,
         indices: Option<II>,
-    ) -> Self {
+    ) -> Self
+    where
+        [V]: std::borrow::ToOwned<Owned = Vec<V>>,
+    {
         Self {
-            vertices: vertices.into(),
-            indices: indices.map(Into::into),
+            vertices: vertices.into().into(),
+            indices: indices.map(Into::into).map(Into::into),
         }
     }
 }
@@ -486,15 +457,6 @@ pub trait Draw<V: solstice::vertex::Vertex, G> {
     fn draw_with_transform<TX: Into<d3::Transform3D>>(&mut self, geometry: G, transform: TX);
     fn draw_with_color<C: Into<Color>>(&mut self, geometry: G, color: C);
     fn draw_with_color_and_transform<C: Into<Color>, TX: Into<d3::Transform3D>>(
-        &mut self,
-        geometry: G,
-        color: C,
-        transform: TX,
-    );
-    fn stroke(&mut self, geometry: G);
-    fn stroke_with_transform<TX: Into<d3::Transform3D>>(&mut self, geometry: G, transform: TX);
-    fn stroke_with_color<C: Into<Color>>(&mut self, geometry: G, color: C);
-    fn stroke_with_color_and_transform<C: Into<Color>, TX: Into<d3::Transform3D>>(
         &mut self,
         geometry: G,
         color: C,
@@ -520,6 +482,17 @@ pub trait Draw<V: solstice::vertex::Vertex, G> {
         C: Into<Color>,
         TX: Into<d3::Transform3D>;
 }
+pub trait Stroke<V: solstice::vertex::Vertex, G> {
+    fn stroke(&mut self, geometry: G);
+    fn stroke_with_transform<TX: Into<d3::Transform3D>>(&mut self, geometry: G, transform: TX);
+    fn stroke_with_color<C: Into<Color>>(&mut self, geometry: G, color: C);
+    fn stroke_with_color_and_transform<C: Into<Color>, TX: Into<d3::Transform3D>>(
+        &mut self,
+        geometry: G,
+        color: C,
+        transform: TX,
+    );
+}
 
 #[derive(PartialEq, Clone, Debug)]
 struct TextureCache {
@@ -542,16 +515,199 @@ impl solstice::texture::Texture for &TextureCache {
     }
 }
 
+trait WriteAndDrawBuffer {
+    fn draw<S>(
+        self,
+        meshes: &mut GeometryBuffers,
+        ctx: &mut Context,
+        shader: &S,
+        settings: solstice::PipelineSettings,
+    ) where
+        S: solstice::shader::Shader;
+}
+
+impl WriteAndDrawBuffer for &Geometry<'_, Vertex2D> {
+    fn draw<S>(
+        self,
+        meshes: &mut GeometryBuffers,
+        ctx: &mut Context,
+        shader: &S,
+        settings: solstice::PipelineSettings,
+    ) where
+        S: solstice::shader::Shader,
+    {
+        match &self.indices {
+            None => {
+                meshes.mesh2d_unindexed.set_vertices(&self.vertices, 0);
+                let mesh = meshes.mesh2d_unindexed.unmap(ctx);
+                let geometry = solstice::Geometry {
+                    mesh,
+                    draw_range: 0..self.vertices.len(),
+                    draw_mode: solstice::DrawMode::Triangles,
+                    instance_count: 1,
+                };
+                solstice::Renderer::draw(ctx, shader, &geometry, settings);
+            }
+            Some(indices) => {
+                meshes.mesh2d.set_vertices(&self.vertices, 0);
+                meshes.mesh2d.set_indices(&indices, 0);
+                let mesh = meshes.mesh2d.unmap(ctx);
+                let geometry = solstice::Geometry {
+                    mesh,
+                    draw_range: 0..indices.len(),
+                    draw_mode: solstice::DrawMode::Triangles,
+                    instance_count: 1,
+                };
+                solstice::Renderer::draw(ctx, shader, &geometry, settings);
+            }
+        }
+    }
+}
+
+impl WriteAndDrawBuffer for &Geometry<'_, Vertex3D> {
+    fn draw<S>(
+        self,
+        meshes: &mut GeometryBuffers,
+        ctx: &mut Context,
+        shader: &S,
+        settings: solstice::PipelineSettings,
+    ) where
+        S: solstice::shader::Shader,
+    {
+        match &self.indices {
+            None => {
+                meshes.mesh3d_unindexed.set_vertices(&self.vertices, 0);
+                let mesh = meshes.mesh3d_unindexed.unmap(ctx);
+                let geometry = solstice::Geometry {
+                    mesh,
+                    draw_range: 0..self.vertices.len(),
+                    draw_mode: solstice::DrawMode::Triangles,
+                    instance_count: 1,
+                };
+                solstice::Renderer::draw(ctx, shader, &geometry, settings);
+            }
+            Some(indices) => {
+                meshes.mesh3d.set_vertices(&self.vertices, 0);
+                meshes.mesh3d.set_indices(&indices, 0);
+                let mesh = meshes.mesh3d.unmap(ctx);
+                let geometry = solstice::Geometry {
+                    mesh,
+                    draw_range: 0..indices.len(),
+                    draw_mode: solstice::DrawMode::Triangles,
+                    instance_count: 1,
+                };
+                solstice::Renderer::draw(ctx, shader, &geometry, settings);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum MeshVariant<'a, V>
+where
+    V: solstice::vertex::Vertex + 'a,
+{
+    Data(Geometry<'a, V>),
+    VertexMesh(solstice::Geometry<&'a solstice::mesh::VertexMesh<V>>),
+    IndexedMesh(solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u32>>),
+    // MappedVertexMesh(solstice::Geometry<solstice::mesh::MappedVertexMesh<V>>),
+    // MappedIndexedMesh(solstice::Geometry<solstice::mesh::MappedIndexedMesh<V, u32>>),
+    // MultiMesh(solstice::Geometry<solstice::mesh::MultiMesh<'a>>),
+}
+
+impl<'a, V> MeshVariant<'a, V>
+where
+    V: solstice::vertex::Vertex,
+{
+    fn draw<S>(
+        &'a self,
+        meshes: &mut GeometryBuffers,
+        ctx: &mut Context,
+        shader: &S,
+        settings: solstice::PipelineSettings,
+    ) where
+        S: solstice::shader::Shader,
+        &'a Geometry<'a, V>: WriteAndDrawBuffer,
+    {
+        use solstice::Renderer;
+        match self {
+            MeshVariant::Data(data) => data.draw(meshes, ctx, shader, settings),
+            MeshVariant::VertexMesh(geometry) => ctx.draw(shader, &geometry, settings),
+            MeshVariant::IndexedMesh(geometry) => ctx.draw(shader, &geometry, settings),
+            // MeshVariant::MappedVertexMesh(mut geometry) => {
+            //     let mesh = geometry.mesh.unmap(ctx);
+            //     ctx.draw(
+            //         shader,
+            //         &solstice::Geometry {
+            //             mesh,
+            //             draw_range: geometry.draw_range,
+            //             draw_mode: geometry.draw_mode,
+            //             instance_count: geometry.instance_count,
+            //         },
+            //         settings,
+            //     );
+            // }
+            // MeshVariant::MappedIndexedMesh(mut geometry) => {
+            //     let mesh = geometry.mesh.unmap(ctx);
+            //     ctx.draw(
+            //         shader,
+            //         &solstice::Geometry {
+            //             mesh,
+            //             draw_range: geometry.draw_range,
+            //             draw_mode: geometry.draw_mode,
+            //             instance_count: geometry.instance_count,
+            //         },
+            //         settings,
+            //     );
+            // }
+            // MeshVariant::MultiMesh(geometry) => ctx.draw(shader, &geometry, settings),
+        }
+    }
+}
+
+pub trait GeometryKind<'a, V>: Sized + std::cmp::PartialEq + Into<MeshVariant<'a, V>>
+where
+    V: solstice::vertex::Vertex + 'a,
+{
+}
+impl<'a, V, T> GeometryKind<'a, V> for T
+where
+    T: Sized + std::cmp::PartialEq + Into<MeshVariant<'a, V>>,
+    V: solstice::vertex::Vertex + 'a,
+{
+}
+
 #[derive(Clone, Debug)]
 pub enum GeometryVariants<'a> {
-    D2(
-        std::borrow::Cow<'a, [d2::Vertex2D]>,
-        Option<std::borrow::Cow<'a, [u32]>>,
-    ),
-    D3(
-        std::borrow::Cow<'a, [d3::Vertex3D]>,
-        Option<std::borrow::Cow<'a, [u32]>>,
-    ),
+    D2(MeshVariant<'a, Vertex2D>),
+    D3(MeshVariant<'a, Vertex3D>),
+}
+
+impl<'a, T> From<T> for MeshVariant<'a, Vertex3D>
+where
+    T: Into<Geometry<'a, Vertex3D>>,
+{
+    fn from(data: T) -> Self {
+        Self::Data(data.into())
+    }
+}
+
+impl<'a, T> From<T> for MeshVariant<'a, Vertex2D>
+where
+    T: Into<Geometry<'a, Vertex2D>>,
+{
+    fn from(data: T) -> Self {
+        Self::Data(data.into())
+    }
+}
+
+impl<'a, V> From<solstice::Geometry<&'a solstice::mesh::VertexMesh<V>>> for MeshVariant<'a, V>
+where
+    V: solstice::vertex::Vertex,
+{
+    fn from(v: solstice::Geometry<&'a solstice::mesh::VertexMesh<V>>) -> Self {
+        Self::VertexMesh(v)
+    }
 }
 
 #[derive(Clone, Debug)]
