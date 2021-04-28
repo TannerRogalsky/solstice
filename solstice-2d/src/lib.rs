@@ -98,7 +98,7 @@ impl Graphics {
         }
     }
 
-    pub fn add_font(&mut self, font_data: glyph_brush::ab_glyph::FontVec) -> glyph_brush::FontId {
+    pub fn add_font(&mut self, font_data: text::FontVec) -> glyph_brush::FontId {
         self.text_workspace.add_font(font_data)
     }
 

@@ -1,4 +1,4 @@
-use glyph_brush::ab_glyph::{point, FontVec};
+use glyph_brush::ab_glyph::{point, FontVec as ABFontVec};
 use glyph_brush::{BrushAction, BrushError, FontId};
 use solstice::image::{Image, Settings};
 use solstice::mesh::IndexedMesh;
@@ -6,10 +6,28 @@ use solstice::quad_batch::*;
 use solstice::texture::*;
 use solstice::Context;
 
+pub struct FontVec(ABFontVec);
+
+impl std::ops::Deref for FontVec {
+    type Target = ABFontVec;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::convert::TryInto<FontVec> for Vec<u8> {
+    type Error = glyph_brush::ab_glyph::InvalidFont;
+
+    fn try_into(self) -> Result<FontVec, Self::Error> {
+        Ok(FontVec(ABFontVec::try_from_vec(self)?))
+    }
+}
+
 pub struct Text {
     quad_batch: QuadBatch<super::Vertex2D>,
     font_texture: Image,
-    glyph_brush: glyph_brush::GlyphBrush<Quad<super::Vertex2D>, glyph_brush::Extra, FontVec>,
+    glyph_brush: glyph_brush::GlyphBrush<Quad<super::Vertex2D>, glyph_brush::Extra, ABFontVec>,
 }
 
 pub const DEFAULT_VERT: &str = r#"
@@ -62,7 +80,7 @@ impl Text {
     }
 
     pub fn add_font(&mut self, font_data: FontVec) -> FontId {
-        self.glyph_brush.add_font(font_data)
+        self.glyph_brush.add_font(font_data.0)
     }
 
     pub fn set_text(

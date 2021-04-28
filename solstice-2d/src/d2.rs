@@ -5,7 +5,7 @@ mod transforms;
 mod vertex;
 
 pub use canvas::Canvas;
-pub use glyph_brush::{ab_glyph::FontVec, FontId};
+pub use glyph_brush::FontId;
 pub use shapes::*;
 pub use transforms::*;
 pub use vertex::{Point, Vertex2D};
