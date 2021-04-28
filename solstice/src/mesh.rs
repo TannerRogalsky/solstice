@@ -306,6 +306,10 @@ where
     pub fn set_draw_mode(&mut self, draw_mode: super::DrawMode) {
         self.mesh.set_draw_mode(draw_mode)
     }
+
+    pub fn len(&self) -> usize {
+        self.ibo.size() / std::mem::size_of::<I>()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -395,7 +399,7 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AttachedAttributes<'a> {
     pub buffer: &'a Buffer,
     pub formats: &'a [VertexFormat],
@@ -516,7 +520,7 @@ impl<V: Vertex, I: Index> Mesh for &IndexedMesh<V, I> {
     }
 }
 
-// TODO: Redo this but without the trait: implement behaviour for specific structs
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MultiMesh<'a> {
     ibo: Option<(&'a Buffer, u32)>,
     attachments: Vec<AttachedAttributes<'a>>,
@@ -574,6 +578,22 @@ impl<'a> Mesh for MultiMesh<'a> {
                 }
             }
         }
+    }
+}
+
+impl Mesh for &MultiMesh<'_> {
+    fn attachments(&self) -> Vec<AttachedAttributes> {
+        MultiMesh::attachments(self)
+    }
+
+    fn draw(
+        &self,
+        ctx: &mut Context,
+        draw_range: Range<usize>,
+        draw_mode: DrawMode,
+        instance_count: usize,
+    ) {
+        MultiMesh::draw(self, ctx, draw_range, draw_mode, instance_count)
     }
 }
 

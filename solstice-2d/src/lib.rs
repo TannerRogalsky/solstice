@@ -605,14 +605,12 @@ impl WriteAndDrawBuffer for &Geometry<'_, Vertex3D> {
 #[derive(Debug, Clone)]
 pub enum MeshVariant<'a, V>
 where
-    V: solstice::vertex::Vertex + 'a,
+    V: solstice::vertex::Vertex,
 {
     Data(Geometry<'a, V>),
     VertexMesh(solstice::Geometry<&'a solstice::mesh::VertexMesh<V>>),
     IndexedMesh(solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u32>>),
-    // MappedVertexMesh(solstice::Geometry<solstice::mesh::MappedVertexMesh<V>>),
-    // MappedIndexedMesh(solstice::Geometry<solstice::mesh::MappedIndexedMesh<V, u32>>),
-    // MultiMesh(solstice::Geometry<solstice::mesh::MultiMesh<'a>>),
+    MultiMesh(solstice::Geometry<&'a solstice::mesh::MultiMesh<'a>>),
 }
 
 impl<'a, V> MeshVariant<'a, V>
@@ -634,46 +632,20 @@ where
             MeshVariant::Data(data) => data.draw(meshes, ctx, shader, settings),
             MeshVariant::VertexMesh(geometry) => ctx.draw(shader, &geometry, settings),
             MeshVariant::IndexedMesh(geometry) => ctx.draw(shader, &geometry, settings),
-            // MeshVariant::MappedVertexMesh(mut geometry) => {
-            //     let mesh = geometry.mesh.unmap(ctx);
-            //     ctx.draw(
-            //         shader,
-            //         &solstice::Geometry {
-            //             mesh,
-            //             draw_range: geometry.draw_range,
-            //             draw_mode: geometry.draw_mode,
-            //             instance_count: geometry.instance_count,
-            //         },
-            //         settings,
-            //     );
-            // }
-            // MeshVariant::MappedIndexedMesh(mut geometry) => {
-            //     let mesh = geometry.mesh.unmap(ctx);
-            //     ctx.draw(
-            //         shader,
-            //         &solstice::Geometry {
-            //             mesh,
-            //             draw_range: geometry.draw_range,
-            //             draw_mode: geometry.draw_mode,
-            //             instance_count: geometry.instance_count,
-            //         },
-            //         settings,
-            //     );
-            // }
-            // MeshVariant::MultiMesh(geometry) => ctx.draw(shader, &geometry, settings),
+            MeshVariant::MultiMesh(geometry) => ctx.draw(shader, &geometry, settings),
         }
     }
 }
 
 pub trait GeometryKind<'a, V>: Sized + std::cmp::PartialEq + Into<MeshVariant<'a, V>>
 where
-    V: solstice::vertex::Vertex + 'a,
+    V: solstice::vertex::Vertex,
 {
 }
 impl<'a, V, T> GeometryKind<'a, V> for T
 where
     T: Sized + std::cmp::PartialEq + Into<MeshVariant<'a, V>>,
-    V: solstice::vertex::Vertex + 'a,
+    V: solstice::vertex::Vertex,
 {
 }
 
@@ -707,6 +679,24 @@ where
 {
     fn from(v: solstice::Geometry<&'a solstice::mesh::VertexMesh<V>>) -> Self {
         Self::VertexMesh(v)
+    }
+}
+
+impl<'a, V> From<solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u32>>> for MeshVariant<'a, V>
+where
+    V: solstice::vertex::Vertex,
+{
+    fn from(v: solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u32>>) -> Self {
+        Self::IndexedMesh(v)
+    }
+}
+
+impl<'a, V> From<solstice::Geometry<&'a solstice::mesh::MultiMesh<'a>>> for MeshVariant<'a, V>
+where
+    V: solstice::vertex::Vertex,
+{
+    fn from(v: solstice::Geometry<&'a solstice::mesh::MultiMesh<'a>>) -> Self {
+        Self::MultiMesh(v)
     }
 }
 

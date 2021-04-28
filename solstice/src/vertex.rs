@@ -66,7 +66,7 @@ impl AttributeType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct VertexFormat {
     pub name: &'static str,
     pub offset: usize,

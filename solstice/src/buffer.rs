@@ -44,7 +44,7 @@ impl Usage {
 /// internally and allow the use of more types and structures.
 ///
 /// This buffer is not resizable. All operations are sized in bytes.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Buffer {
     size: usize,
     handle: BufferKey,
