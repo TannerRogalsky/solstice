@@ -589,8 +589,8 @@ impl Mesh for &MultiMesh<'_> {
     fn draw(
         &self,
         ctx: &mut Context,
-        draw_range: Range<usize>,
-        draw_mode: DrawMode,
+        draw_range: std::ops::Range<usize>,
+        draw_mode: crate::DrawMode,
         instance_count: usize,
     ) {
         MultiMesh::draw(self, ctx, draw_range, draw_mode, instance_count)
