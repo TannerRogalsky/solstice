@@ -11,7 +11,7 @@ description = "Easy, cross-platform 2D graphics."
 
 [dependencies]
 #solstice = { features = ["derive"], path = "../solstice" }
-solstice = { version = "0.1.19", features = ["derive"] }
+solstice = { version = "^0.1", features = ["derive"] }
 mint = "0.5"
 ordered-float = "2.1"
 bytemuck = { version = "1.5", features = ["derive"] }

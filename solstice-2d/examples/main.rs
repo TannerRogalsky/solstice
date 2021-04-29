@@ -65,14 +65,14 @@ impl Example for Main {
         let deja_vu_sans_font = {
             let path = resources.join("DejaVuSans.ttf");
             let font_data = std::fs::read(path).unwrap();
-            let font = glyph_brush::ab_glyph::FontVec::try_from_vec(font_data).unwrap();
+            let font = std::convert::TryInto::try_into(font_data).unwrap();
             ctx.gfx.add_font(font)
         };
 
         let pixel_font = {
             let path = resources.join("04b03.TTF");
             let font_data = std::fs::read(path).unwrap();
-            let font = glyph_brush::ab_glyph::FontVec::try_from_vec(font_data).unwrap();
+            let font = std::convert::TryInto::try_into(font_data).unwrap();
             ctx.gfx.add_font(font)
         };
 
