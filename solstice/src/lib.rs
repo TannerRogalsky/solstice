@@ -502,7 +502,7 @@ impl Context {
         }
     }
 
-    pub fn unmap_buffer(&mut self, map: &mut buffer::MappedBuffer) {
+    pub fn unmap_buffer(&mut self, map: &buffer::MappedBuffer) {
         let buffer = map.inner();
         self.bind_buffer(buffer.handle(), buffer.buffer_type());
         if self.buffers.get(buffer.handle()).is_some() {
@@ -942,7 +942,7 @@ impl Context {
     }
 
     pub fn renderbuffer_storage(&mut self, format: PixelFormat, width: i32, height: i32) {
-        let gl_format = gl::pixel_format::to_gl(format, &self.version);
+        let gl_format = gl::pixel_format::to_gl(format, &self.version, true);
         unsafe {
             self.ctx
                 .renderbuffer_storage(glow::RENDERBUFFER, gl_format.internal, width, height)
@@ -1194,7 +1194,8 @@ impl Context {
         format: PixelFormat,
         data: &mut [u8],
     ) {
-        let gl::TextureFormat { external, ty, .. } = gl::pixel_format::to_gl(format, &self.version);
+        let gl::TextureFormat { external, ty, .. } =
+            gl::pixel_format::to_gl(format, &self.version, false);
         unsafe {
             self.ctx.read_pixels(
                 x,
@@ -1297,7 +1298,7 @@ impl texture::TextureUpdate for Context {
         y_offset: u32,
     ) {
         let gl::TextureFormat { external, ty, .. } =
-            gl::pixel_format::to_gl(texture.get_format(), &self.version);
+            gl::pixel_format::to_gl(texture.get_format(), &self.version, false);
         let width = texture.width();
         let height = texture.height();
         let gl_target = gl::texture::to_gl(texture_type);
@@ -1332,7 +1333,7 @@ impl texture::TextureUpdate for Context {
             external,
             ty,
             swizzle,
-        } = gl::pixel_format::to_gl(texture.get_format(), &self.version);
+        } = gl::pixel_format::to_gl(texture.get_format(), &self.version, false);
         let width = texture.width();
         let height = texture.height();
         let gl_target = gl::texture::to_gl(texture_type);
@@ -1377,7 +1378,7 @@ impl texture::TextureUpdate for Context {
             external,
             ty,
             swizzle,
-        } = gl::pixel_format::to_gl(texture_info.get_format(), &self.version);
+        } = gl::pixel_format::to_gl(texture_info.get_format(), &self.version, false);
         let gl_target = gl::texture::to_gl(texture.get_texture_type());
         self.bind_texture_to_unit(
             texture.get_texture_type(),
@@ -1515,7 +1516,7 @@ impl Renderer for Context {
         let mut clear_bits = 0;
 
         if let Some(color) = color {
-            let Color {
+            let Color::<f32> {
                 red,
                 blue,
                 green,

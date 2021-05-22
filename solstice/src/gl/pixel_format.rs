@@ -42,7 +42,11 @@ pub fn color_components(format: PixelFormat) -> usize {
     }
 }
 
-pub fn to_gl(format: PixelFormat, version: &crate::GLVersion) -> super::TextureFormat {
+pub fn to_gl(
+    format: PixelFormat,
+    version: &crate::GLVersion,
+    is_renderbuffer: bool,
+) -> super::TextureFormat {
     use super::TextureFormat as TF;
     let format = match format {
         PixelFormat::Unknown => panic!("Unknown pixel format!"),
@@ -117,7 +121,7 @@ pub fn to_gl(format: PixelFormat, version: &crate::GLVersion) -> super::TextureF
             .into(),
     };
 
-    if version.gles {
+    if version.gles && !is_renderbuffer {
         TF {
             internal: format.external,
             ..format
