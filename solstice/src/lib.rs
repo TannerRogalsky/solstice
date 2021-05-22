@@ -1683,24 +1683,24 @@ pub struct Color<T> {
     pub alpha: T,
 }
 
-impl Into<Color<ClampedF32>> for Color<f32> {
-    fn into(self) -> Color<ClampedF32> {
-        Color::<ClampedF32> {
-            red: self.red.into(),
-            blue: self.blue.into(),
-            green: self.green.into(),
-            alpha: self.alpha.into(),
+impl From<Color<f32>> for Color<ClampedF32> {
+    fn from(c: Color<f32>) -> Self {
+        Self {
+            red: c.red.into(),
+            blue: c.blue.into(),
+            green: c.green.into(),
+            alpha: c.alpha.into()
         }
     }
 }
 
-impl Into<Color<f32>> for Color<ClampedF32> {
-    fn into(self) -> Color<f32> {
-        Color::<f32> {
-            red: self.red.0,
-            blue: self.blue.0,
-            green: self.green.0,
-            alpha: self.alpha.0,
+impl From<Color<ClampedF32>> for Color<f32> {
+    fn from(c: Color<ClampedF32>) -> Self {
+        Self {
+            red: c.red.0,
+            blue: c.blue.0,
+            green: c.green.0,
+            alpha: c.alpha.0
         }
     }
 }

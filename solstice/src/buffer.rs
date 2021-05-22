@@ -7,11 +7,11 @@ pub enum BufferType {
     Index,
 }
 
-impl Into<u32> for BufferType {
-    fn into(self) -> u32 {
-        match self {
+impl From<BufferType> for u32 {
+    fn from(ty: BufferType) -> Self {
+        match ty {
             BufferType::Vertex => glow::ARRAY_BUFFER,
-            BufferType::Index => glow::ELEMENT_ARRAY_BUFFER,
+            BufferType::Index => glow::ELEMENT_ARRAY_BUFFER
         }
     }
 }
