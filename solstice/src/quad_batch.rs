@@ -147,8 +147,13 @@ where
     }
 
     pub fn unmap(&mut self, ctx: &mut Context) -> super::Geometry<&IndexedMesh<T, u16>> {
+        self.mesh.unmap(ctx);
+        self.geometry()
+    }
+
+    pub fn geometry(&self) -> super::Geometry<&IndexedMesh<T, u16>> {
         let draw_range = self.mesh.draw_range();
-        let mesh = self.mesh.unmap(ctx);
+        let mesh = self.mesh.inner();
         super::Geometry {
             mesh,
             draw_range,

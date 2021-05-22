@@ -204,6 +204,10 @@ where
 
     pub fn unmap(&mut self, ctx: &mut super::Context) -> &VertexMesh<V> {
         self.memory_map.unmap(ctx);
+        self.inner()
+    }
+
+    pub fn inner(&self) -> &VertexMesh<V> {
         &self.inner
     }
 }
@@ -395,6 +399,10 @@ where
     pub fn unmap(&mut self, ctx: &mut Context) -> &IndexedMesh<V, I> {
         self.vbo.unmap(ctx);
         self.ibo.unmap(ctx);
+        self.inner()
+    }
+
+    pub fn inner(&self) -> &IndexedMesh<V, I> {
         &self.inner
     }
 }
