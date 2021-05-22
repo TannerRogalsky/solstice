@@ -624,6 +624,7 @@ where
     Data(Geometry<'a, V>),
     VertexMesh(solstice::Geometry<&'a solstice::mesh::VertexMesh<V>>),
     IndexedMesh(solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u32>>),
+    IndexedMeshU16(solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u16>>),
     MultiMesh(solstice::Geometry<&'a solstice::mesh::MultiMesh<'a>>),
 }
 
@@ -644,8 +645,9 @@ where
         use solstice::Renderer;
         match self {
             MeshVariant::Data(data) => data.draw(meshes, ctx, shader, settings),
-            MeshVariant::VertexMesh(geometry) => ctx.draw(shader, &geometry, settings),
-            MeshVariant::IndexedMesh(geometry) => ctx.draw(shader, &geometry, settings),
+            MeshVariant::VertexMesh(geometry) => ctx.draw(shader, geometry, settings),
+            MeshVariant::IndexedMesh(geometry) => ctx.draw(shader, geometry, settings),
+            MeshVariant::IndexedMeshU16(geometry) => ctx.draw(shader, geometry, settings),
             MeshVariant::MultiMesh(geometry) => ctx.draw(shader, &geometry, settings),
         }
     }
@@ -702,6 +704,15 @@ where
 {
     fn from(v: solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u32>>) -> Self {
         Self::IndexedMesh(v)
+    }
+}
+
+impl<'a, V> From<solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u16>>> for MeshVariant<'a, V>
+where
+    V: solstice::vertex::Vertex,
+{
+    fn from(v: solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u16>>) -> Self {
+        Self::IndexedMeshU16(v)
     }
 }
 
