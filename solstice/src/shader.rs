@@ -48,11 +48,11 @@ macro_rules! raw_uniform_conv {
             }
         }
 
-        impl std::convert::TryInto<$from> for RawUniformValue {
+        impl std::convert::TryFrom<RawUniformValue> for $from {
             type Error = &'static str;
 
-            fn try_into(self) -> Result<$from, Self::Error> {
-                match self {
+            fn try_from(value: RawUniformValue) -> Result<Self, Self::Error> {
+                match value {
                     RawUniformValue::$to(v) => Ok(v),
                     _ => Err("RawUniformValue::$to cannot be converted to $from."),
                 }

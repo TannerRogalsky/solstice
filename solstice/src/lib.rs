@@ -1690,7 +1690,7 @@ impl From<Color<f32>> for Color<ClampedF32> {
             red: c.red.into(),
             blue: c.blue.into(),
             green: c.green.into(),
-            alpha: c.alpha.into()
+            alpha: c.alpha.into(),
         }
     }
 }
@@ -1701,7 +1701,7 @@ impl From<Color<ClampedF32>> for Color<f32> {
             red: c.red.0,
             blue: c.blue.0,
             green: c.green.0,
-            alpha: c.alpha.0
+            alpha: c.alpha.0,
         }
     }
 }

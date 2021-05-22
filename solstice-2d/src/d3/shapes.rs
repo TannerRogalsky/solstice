@@ -51,14 +51,14 @@ impl Point3D {
     }
 }
 
-impl Into<[f32; 3]> for Point3D {
-    fn into(self) -> [f32; 3] {
-        [self.x, self.y, self.z]
-    }
-}
-
 impl From<[f32; 3]> for Point3D {
     fn from([x, y, z]: [f32; 3]) -> Self {
         Self { x, y, z }
+    }
+}
+
+impl From<Point3D> for [f32; 3] {
+    fn from(p: Point3D) -> Self {
+        [p.x, p.y, p.z]
     }
 }

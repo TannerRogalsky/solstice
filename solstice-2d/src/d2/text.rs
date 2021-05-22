@@ -16,11 +16,11 @@ impl std::ops::Deref for FontVec {
     }
 }
 
-impl std::convert::TryInto<FontVec> for Vec<u8> {
+impl std::convert::TryFrom<Vec<u8>> for FontVec {
     type Error = glyph_brush::ab_glyph::InvalidFont;
 
-    fn try_into(self) -> Result<FontVec, Self::Error> {
-        Ok(FontVec(ABFontVec::try_from_vec(self)?))
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        Ok(Self(ABFontVec::try_from_vec(value)?))
     }
 }
 

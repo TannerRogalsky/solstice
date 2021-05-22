@@ -101,12 +101,9 @@ where
     }
 }
 
-impl Into<mint::Point2<f32>> for Point {
-    fn into(self) -> mint::Point2<f32> {
-        mint::Point2 {
-            x: self.x,
-            y: self.y,
-        }
+impl From<Point> for mint::Point2<f32> {
+    fn from(p: Point) -> Self {
+        Self { x: p.x, y: p.y }
     }
 }
 

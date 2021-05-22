@@ -75,11 +75,11 @@ impl std::ops::MulAssign for Transform2D {
     }
 }
 
-impl Into<mint::ColumnMatrix3<f32>> for Transform2D {
-    fn into(self) -> mint::ColumnMatrix3<f32> {
-        self.isometry
+impl From<Transform2D> for mint::ColumnMatrix3<f32> {
+    fn from(t: Transform2D) -> Self {
+        t.isometry
             .to_homogeneous()
-            .prepend_nonuniform_scaling(&self.scale)
+            .prepend_nonuniform_scaling(&t.scale)
             .into()
     }
 }

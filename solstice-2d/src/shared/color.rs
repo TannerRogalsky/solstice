@@ -28,9 +28,9 @@ impl Default for Color {
     }
 }
 
-impl Into<[f32; 4]> for Color {
-    fn into(self) -> [f32; 4] {
-        [self.red, self.green, self.blue, self.alpha]
+impl From<Color> for [f32; 4] {
+    fn from(c: Color) -> Self {
+        [c.red, c.green, c.blue, c.alpha]
     }
 }
 
@@ -45,24 +45,24 @@ impl From<[f32; 4]> for Color {
     }
 }
 
-impl Into<solstice::Color<solstice::ClampedF32>> for Color {
-    fn into(self) -> solstice::Color<solstice::ClampedF32> {
-        solstice::Color {
-            red: self.red.into(),
-            blue: self.blue.into(),
-            green: self.green.into(),
-            alpha: self.alpha.into(),
+impl From<Color> for solstice::Color<solstice::ClampedF32> {
+    fn from(c: Color) -> Self {
+        Self {
+            red: c.red.into(),
+            blue: c.blue.into(),
+            green: c.green.into(),
+            alpha: c.alpha.into(),
         }
     }
 }
 
-impl Into<mint::Vector4<f32>> for Color {
-    fn into(self) -> mint::Vector4<f32> {
-        mint::Vector4 {
-            x: self.red,
-            y: self.green,
-            z: self.blue,
-            w: self.alpha,
+impl From<Color> for mint::Vector4<f32> {
+    fn from(c: Color) -> Self {
+        Self {
+            x: c.red,
+            y: c.blue,
+            z: c.green,
+            w: c.alpha,
         }
     }
 }

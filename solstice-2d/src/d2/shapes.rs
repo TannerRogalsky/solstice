@@ -164,14 +164,14 @@ impl SimpleConvexGeometry for Circle {
     }
 }
 
-impl Into<Ellipse> for Circle {
-    fn into(self) -> Ellipse {
-        Ellipse {
-            x: self.x,
-            y: self.y,
-            radius_x: self.radius,
-            radius_y: self.radius,
-            segments: self.segments,
+impl From<Circle> for Ellipse {
+    fn from(c: Circle) -> Self {
+        Self {
+            x: c.x,
+            y: c.y,
+            radius_x: c.radius,
+            radius_y: c.radius,
+            segments: c.segments,
         }
     }
 }
@@ -185,14 +185,14 @@ pub struct Ellipse {
     pub segments: u32,
 }
 
-impl Into<SimpleConvexPolygon> for Ellipse {
-    fn into(self) -> SimpleConvexPolygon {
-        SimpleConvexPolygon {
-            x: self.x,
-            y: self.y,
-            vertex_count: self.segments,
-            radius_x: self.radius_x,
-            radius_y: self.radius_y,
+impl From<Ellipse> for SimpleConvexPolygon {
+    fn from(e: Ellipse) -> Self {
+        Self {
+            x: e.x,
+            y: e.y,
+            vertex_count: e.segments,
+            radius_x: e.radius_x,
+            radius_y: e.radius_y,
         }
     }
 }
