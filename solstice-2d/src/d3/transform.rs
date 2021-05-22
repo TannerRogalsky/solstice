@@ -24,7 +24,12 @@ impl Transform3D {
         }
     }
 
-    pub fn rotation<R: Into<Rad>>(roll: R, pitch: R, yaw: R) -> Self {
+    pub fn rotation<R, P, Y>(roll: R, pitch: P, yaw: Y) -> Self
+    where
+        R: Into<Rad>,
+        P: Into<Rad>,
+        Y: Into<Rad>,
+    {
         Self {
             isometry: Isometry3::from_parts(
                 Translation3::new(0., 0., 0.),
@@ -39,6 +44,12 @@ impl Transform3D {
             scale: Vector3::new(x, y, z),
             ..Default::default()
         }
+    }
+
+    pub fn lerp_slerp(&self, other: &Self, t: f32) -> Self {
+        let isometry = self.isometry.lerp_slerp(&other.isometry, t);
+        let scale = self.scale.lerp(&other.scale, t);
+        Self { isometry, scale }
     }
 
     pub fn transform_point(&self, x: f32, y: f32, z: f32) -> [f32; 3] {

@@ -2,8 +2,8 @@ use nalgebra::{Isometry2, Vector2};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Transform2D {
-    isometry: Isometry2<f32>,
-    scale: Vector2<f32>,
+    pub isometry: Isometry2<f32>,
+    pub scale: Vector2<f32>,
 }
 
 impl Default for Transform2D {
@@ -37,6 +37,12 @@ impl Transform2D {
         }
     }
 
+    pub fn lerp_slerp(&self, other: &Self, t: f32) -> Self {
+        let isometry = self.isometry.lerp_slerp(&other.isometry, t);
+        let scale = self.scale.lerp(&other.scale, t);
+        Self { isometry, scale }
+    }
+
     pub fn transform_point(&self, x: f32, y: f32) -> [f32; 2] {
         let p = nalgebra::Point2::new(x * self.scale.x, y * self.scale.y);
         let p = self.isometry.transform_point(&p);
@@ -48,8 +54,16 @@ impl std::ops::Mul for Transform2D {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
+        let t = self
+            .isometry
+            .rotation
+            .transform_vector(&rhs.isometry.translation.vector.component_mul(&self.scale))
+            + self.isometry.translation.vector;
         Self {
-            isometry: self.isometry * rhs.isometry,
+            isometry: Isometry2::from_parts(
+                t.into(),
+                self.isometry.rotation * rhs.isometry.rotation,
+            ),
             scale: self.scale.component_mul(&rhs.scale),
         }
     }
