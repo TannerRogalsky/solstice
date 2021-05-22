@@ -198,7 +198,7 @@ impl LineWorkspace {
         use solstice::mesh::*;
 
         let mesh = self.positions.unmap(ctx);
-        let instance_count = self.offset as u32 - 1;
+        let instance_count = (self.offset as u32).saturating_sub(1);
         self.offset = 0;
 
         let draw_range = 0..(self.segment_geometry.len());
