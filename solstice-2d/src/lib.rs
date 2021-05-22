@@ -20,6 +20,16 @@ pub struct GraphicsLock<'a, 'b> {
     dl: DrawList<'b>,
 }
 
+impl GraphicsLock<'_, '_> {
+    pub fn ctx_mut(&mut self) -> &mut Context {
+        self.ctx
+    }
+
+    pub fn gfx(&self) -> &Graphics {
+        self.gfx
+    }
+}
+
 impl<'b> std::ops::Deref for GraphicsLock<'_, 'b> {
     type Target = DrawList<'b>;
 
@@ -117,6 +127,10 @@ impl Graphics {
 
     pub fn set_viewport(&mut self, viewport: solstice::viewport::Viewport<i32>) {
         self.viewport = viewport;
+    }
+
+    pub fn viewport(&self) -> &solstice::viewport::Viewport<i32> {
+        &self.viewport
     }
 
     pub fn set_scissor(&mut self, scissor: Option<solstice::viewport::Viewport<i32>>) {
