@@ -92,7 +92,7 @@ pub struct Shader {
     color_location: Option<UniformLocation>,
     color_cache: mint::Vector4<f32>,
     resolution_location: Option<UniformLocation>,
-    resolution_cache: mint::Vector2<f32>,
+    resolution_cache: mint::Vector4<f32>,
 
     textures: [TextureCache; MAX_TEXTURE_UNITS],
 
@@ -131,6 +131,8 @@ fn shader_src(src: ShaderSource) -> String {
 varying vec4 vColor;
 varying vec2 vUV;
 
+uniform SOLSTICE_HIGHP_OR_MEDIUMP vec4 uResolution;
+
 #ifdef VERTEX
 attribute vec4 position;
 attribute vec4 color;
@@ -157,7 +159,8 @@ uniform vec4 uColor;
 {fragment}
 
 void main() {{
-    fragColor = effect(uColor * vColor, tex0, vUV, vUV);
+    vec2 screen = vec2(gl_FragCoord.x, (gl_FragCoord.y * uResolution.z) + uResolution.w);
+    fragColor = effect(uColor * vColor, tex0, vUV, screen);
 }}
 #endif",
         vertex = src.vertex,
@@ -245,7 +248,12 @@ impl Shader {
             color_location,
             color_cache: white,
             resolution_location,
-            resolution_cache: mint::Vector2 { x: 0f32, y: 0f32 },
+            resolution_cache: mint::Vector4 {
+                x: 0f32,
+                y: 0.,
+                z: 0.,
+                w: 0.,
+            },
             textures,
             other_uniforms: Default::default(),
         })
@@ -289,7 +297,6 @@ impl Shader {
                     near: 0.0,
                     far: FAR_PLANE,
                 });
-                self.resolution_cache = [right - left, top - bottom].into();
                 ortho(left, right, bottom, top, near, far).into()
             }
             Projection::Perspective(projection) => {
@@ -309,11 +316,20 @@ impl Shader {
                     near: 0.1,
                     far: FAR_PLANE,
                 });
-                self.resolution_cache =
-                    [viewport.x + viewport.width, viewport.y + viewport.height].into();
                 nalgebra::Matrix4::new_perspective(aspect, fovy, near, far).into()
             }
         };
+
+        self.resolution_cache.x = viewport.width;
+        self.resolution_cache.y = viewport.height;
+        if invert_y {
+            self.resolution_cache.z = 1.;
+            self.resolution_cache.w = 0.;
+        } else {
+            self.resolution_cache.z = -1.;
+            self.resolution_cache.w = viewport.height;
+        }
+
         self.projection_cache = projection_cache;
     }
 
@@ -337,8 +353,7 @@ impl Shader {
     }
 
     pub fn bind_texture<T: solstice::texture::Texture>(&mut self, texture: T) {
-        self.textures[0].key = texture.get_texture_key();
-        self.textures[0].ty = texture.get_texture_type();
+        self.bind_texture_at_location(texture, 0);
     }
 
     pub fn bind_texture_at_location<T: solstice::texture::Texture>(
@@ -392,7 +407,7 @@ impl Shader {
         if let Some(u) = self.resolution_location.as_ref() {
             ctx.set_uniform_by_location(
                 u,
-                &solstice::shader::RawUniformValue::Vec2(self.resolution_cache),
+                &solstice::shader::RawUniformValue::Vec4(self.resolution_cache),
             );
         }
         ctx.set_uniform_by_location(&self.projection_location, &Mat4(self.projection_cache));
