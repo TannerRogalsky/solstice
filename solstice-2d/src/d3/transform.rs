@@ -58,6 +58,12 @@ impl Transform3D {
         [p.x, p.y, p.z]
     }
 
+    pub fn inverse_transform_point(&self, x: f32, y: f32, z: f32) -> [f32; 3] {
+        let p = nalgebra::Point3::new(x * self.scale.x, y * self.scale.y, z * self.scale.z);
+        let p = self.isometry.inverse_transform_point(&p);
+        [p.x, p.y, p.z]
+    }
+
     pub fn look_at(x: f32, y: f32, z: f32) -> Self {
         let eye = nalgebra::Point3::new(0., 0., 0.);
         let target = nalgebra::Point3::new(x, y, z);
