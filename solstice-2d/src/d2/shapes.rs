@@ -2,7 +2,6 @@ use crate::{
     d2::{SimpleConvexGeometry, Vertex2D},
     Geometry,
 };
-use std::borrow::Cow;
 
 /// An angle, in radians.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
@@ -227,40 +226,56 @@ impl Rectangle {
             height,
         }
     }
+
+    pub fn vertices(&self) -> Vec<Vertex2D> {
+        vec![
+            Vertex2D {
+                position: [self.x, self.y],
+                uv: [0., 0.],
+                ..Default::default()
+            },
+            Vertex2D {
+                position: [self.x, self.y + self.height],
+                uv: [0., 1.],
+                ..Default::default()
+            },
+            Vertex2D {
+                position: [self.x + self.width, self.y + self.height],
+                uv: [1., 1.],
+                ..Default::default()
+            },
+            Vertex2D {
+                position: [self.x + self.width, self.y],
+                uv: [1., 0.],
+                ..Default::default()
+            },
+        ]
+    }
+}
+
+impl From<Rectangle> for solstice::quad_batch::Quad<Vertex2D> {
+    fn from(r: Rectangle) -> Self {
+        use solstice::{quad_batch::Quad, viewport::Viewport};
+        let positions = Quad::from(Viewport::new(r.x, r.y, r.width, r.height));
+        let uvs = Quad::from(Viewport::new(0., 0., 1., 1.));
+        positions.zip(uvs).map(|((x, y), (s, t))| Vertex2D {
+            position: [x, y],
+            uv: [s, t],
+            ..Default::default()
+        })
+    }
+}
+
+impl From<Rectangle> for solstice::quad_batch::Quad<(f32, f32)> {
+    fn from(r: Rectangle) -> Self {
+        use solstice::{quad_batch::Quad, viewport::Viewport};
+        Quad::from(Viewport::new(r.x, r.y, r.width, r.height))
+    }
 }
 
 impl From<&Rectangle> for Geometry<'_, Vertex2D> {
     fn from(r: &Rectangle) -> Self {
-        fn vertices(rect: &Rectangle) -> Cow<'static, [Vertex2D]> {
-            vec![
-                Vertex2D {
-                    position: [rect.x, rect.y],
-                    uv: [0., 0.],
-                    ..Default::default()
-                },
-                Vertex2D {
-                    position: [rect.x, rect.y + rect.height],
-                    uv: [0., 1.],
-                    ..Default::default()
-                },
-                Vertex2D {
-                    position: [rect.x + rect.width, rect.y + rect.height],
-                    uv: [1., 1.],
-                    ..Default::default()
-                },
-                Vertex2D {
-                    position: [rect.x + rect.width, rect.y],
-                    uv: [1., 0.],
-                    ..Default::default()
-                },
-            ]
-            .into()
-        }
-
-        Geometry {
-            vertices: vertices(r).into(),
-            indices: Some(std::borrow::Cow::Borrowed(&[0u32, 1, 2, 0, 3, 2][..]).into()),
-        }
+        Geometry::new(r.vertices(), Some(&[0u32, 1, 2, 0, 3, 2][..]))
     }
 }
 

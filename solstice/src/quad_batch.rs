@@ -53,11 +53,16 @@ where
         let top_right = (x + width, y);
         let bottom_right = (x + width, y + height);
         Quad {
-            vertices: [top_left, bottom_left, top_right, bottom_right],
+            vertices: [top_left, bottom_left, bottom_right, top_right],
         }
     }
 }
 
+pub const INDICES: [u16; 6] = [0, 1, 3, 1, 2, 3];
+
+/// 0---3
+/// | / |
+/// 1---2
 #[derive(Debug)]
 pub struct QuadBatch<T> {
     mesh: MappedIndexedMesh<T, u16>,
@@ -74,18 +79,10 @@ where
         let index_capacity = capacity * 6;
 
         let indices = {
-            // 0---2
-            // | / |
-            // 1---3
             let mut indices: Vec<u16> = Vec::with_capacity(index_capacity);
             for i in 0..capacity {
                 let vi = (i * 4) as u16;
-                indices.push(vi);
-                indices.push(vi + 1);
-                indices.push(vi + 2);
-                indices.push(vi + 2);
-                indices.push(vi + 1);
-                indices.push(vi + 3);
+                indices.extend(std::array::IntoIter::new(INDICES).map(|i| vi + i));
             }
             indices
         };
