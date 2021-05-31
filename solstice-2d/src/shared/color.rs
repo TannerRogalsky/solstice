@@ -60,8 +60,8 @@ impl From<Color> for mint::Vector4<f32> {
     fn from(c: Color) -> Self {
         Self {
             x: c.red,
-            y: c.blue,
-            z: c.green,
+            y: c.green,
+            z: c.blue,
             w: c.alpha,
         }
     }
