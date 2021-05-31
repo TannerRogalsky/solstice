@@ -15,6 +15,15 @@ impl Color {
             alpha,
         }
     }
+
+    pub fn from_bytes(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
+        Self {
+            red: red as f32 / u8::MAX as f32,
+            green: green as f32 / u8::MAX as f32,
+            blue: blue as f32 / u8::MAX as f32,
+            alpha: alpha as f32 / u8::MAX as f32,
+        }
+    }
 }
 
 impl Default for Color {
