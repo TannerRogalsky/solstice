@@ -13,7 +13,7 @@ description = "Easy, cross-platform 2D graphics."
 #solstice = { features = ["derive"], path = "../solstice" }
 solstice = { version = "^0.1-alpha.0", features = ["derive"] }
 mint = "0.5"
-ordered-float = "2.1"
+ordered-float = { version = "2.1", default-features = false }
 bytemuck = { version = "1.5", features = ["derive"] }
 
 glyph_brush = "0.7"
