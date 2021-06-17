@@ -446,18 +446,19 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Geometry<'a, V> {
+pub struct Geometry<'a, V, I = u32> {
     vertices: MaybeOwned<'a, V>,
-    indices: Option<MaybeOwned<'a, u32>>,
+    indices: Option<MaybeOwned<'a, I>>,
 }
 
-impl<'a, V> Geometry<'a, V> {
-    pub fn new<IV: Into<std::borrow::Cow<'a, [V]>>, II: Into<std::borrow::Cow<'a, [u32]>>>(
+impl<'a, V, I> Geometry<'a, V, I> {
+    pub fn new<IV: Into<std::borrow::Cow<'a, [V]>>, II: Into<std::borrow::Cow<'a, [I]>>>(
         vertices: IV,
         indices: Option<II>,
     ) -> Self
     where
         [V]: std::borrow::ToOwned<Owned = Vec<V>>,
+        [I]: std::borrow::ToOwned<Owned = Vec<I>>,
     {
         Self {
             vertices: vertices.into().into(),
