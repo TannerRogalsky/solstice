@@ -285,6 +285,21 @@ impl From<Rectangle> for Geometry<'_, Vertex2D> {
     }
 }
 
+impl From<solstice::quad_batch::Quad<Vertex2D>> for Geometry<'_, Vertex2D> {
+    fn from(quad: solstice::quad_batch::Quad<Vertex2D>) -> Self {
+        Geometry::new(
+            quad.vertices.to_vec(),
+            Some(
+                solstice::quad_batch::INDICES[..]
+                    .iter()
+                    .copied()
+                    .map(|i| i as u32)
+                    .collect::<Vec<_>>(),
+            ),
+        )
+    }
+}
+
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct RegularPolygon {
     pub x: f32,
