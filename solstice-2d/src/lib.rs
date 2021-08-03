@@ -331,6 +331,7 @@ impl Graphics {
                                 font_id,
                                 scale,
                                 bounds,
+                                layout,
                             },
                         transform,
                         camera,
@@ -351,6 +352,7 @@ impl Graphics {
                             },
                         },
                         *bounds,
+                        layout.into(),
                         ctx,
                     );
 
@@ -745,12 +747,85 @@ pub struct LineState<'a> {
     depth_buffer: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HorizontalAlign {
+    Left,
+    Center,
+    Right,
+}
+
+impl From<&HorizontalAlign> for glyph_brush::HorizontalAlign {
+    fn from(align: &HorizontalAlign) -> Self {
+        match align {
+            HorizontalAlign::Left => glyph_brush::HorizontalAlign::Left,
+            HorizontalAlign::Center => glyph_brush::HorizontalAlign::Center,
+            HorizontalAlign::Right => glyph_brush::HorizontalAlign::Right,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum VerticalAlign {
+    Top,
+    Center,
+    Bottom,
+}
+
+impl From<&VerticalAlign> for glyph_brush::VerticalAlign {
+    fn from(align: &VerticalAlign) -> Self {
+        match align {
+            VerticalAlign::Top => glyph_brush::VerticalAlign::Top,
+            VerticalAlign::Center => glyph_brush::VerticalAlign::Center,
+            VerticalAlign::Bottom => glyph_brush::VerticalAlign::Bottom,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PrintLayout {
+    SingleLine {
+        h_align: HorizontalAlign,
+        v_align: VerticalAlign,
+    },
+    Wrap {
+        h_align: HorizontalAlign,
+        v_align: VerticalAlign,
+    },
+}
+
+impl std::default::Default for PrintLayout {
+    fn default() -> Self {
+        PrintLayout::Wrap {
+            h_align: HorizontalAlign::Left,
+            v_align: VerticalAlign::Top,
+        }
+    }
+}
+
+impl From<&PrintLayout> for glyph_brush::Layout<glyph_brush::BuiltInLineBreaker> {
+    fn from(layout: &PrintLayout) -> Self {
+        match layout {
+            PrintLayout::SingleLine { h_align, v_align } => glyph_brush::Layout::SingleLine {
+                line_breaker: glyph_brush::BuiltInLineBreaker::default(),
+                h_align: h_align.into(),
+                v_align: v_align.into(),
+            },
+            PrintLayout::Wrap { h_align, v_align } => glyph_brush::Layout::Wrap {
+                line_breaker: glyph_brush::BuiltInLineBreaker::default(),
+                h_align: h_align.into(),
+                v_align: v_align.into(),
+            },
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PrintState<'a> {
     text: std::borrow::Cow<'a, str>,
     font_id: glyph_brush::FontId,
     scale: f32,
     bounds: d2::Rectangle,
+    layout: PrintLayout,
 }
 
 #[derive(Clone, Debug)]
@@ -788,6 +863,38 @@ impl<'a> DrawList<'a> {
                 font_id,
                 scale,
                 bounds,
+                layout: Default::default(),
+            },
+            transform: self.transform,
+            camera: self.camera,
+            projection_mode: self
+                .projection_mode
+                .unwrap_or(Projection::Orthographic(None)),
+            color: self.color,
+            texture: None,
+            target: self.target.clone(),
+            shader: self.shader.clone(),
+        });
+        self.commands.push(command);
+    }
+
+    pub fn print_with_layout<T>(
+        &mut self,
+        text: T,
+        font_id: glyph_brush::FontId,
+        scale: f32,
+        bounds: Rectangle,
+        layout: PrintLayout,
+    ) where
+        T: Into<std::borrow::Cow<'a, str>>,
+    {
+        let command = Command::Print(DrawState {
+            data: PrintState {
+                text: text.into(),
+                font_id,
+                scale,
+                bounds,
+                layout,
             },
             transform: self.transform,
             camera: self.camera,

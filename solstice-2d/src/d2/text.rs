@@ -87,13 +87,14 @@ impl Text {
         &mut self,
         text: glyph_brush::Text,
         bounds: super::Rectangle,
+        layout: glyph_brush::Layout<glyph_brush::BuiltInLineBreaker>,
         ctx: &mut Context,
     ) {
         self.glyph_brush.queue(glyph_brush::Section {
             text: vec![text],
             screen_position: (bounds.x, bounds.y),
             bounds: (bounds.width, bounds.height),
-            layout: glyph_brush::Layout::default(),
+            layout,
         });
         self.update(ctx);
     }
