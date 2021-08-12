@@ -180,7 +180,7 @@ impl Graphics {
                             );
                             shader.send_uniform(
                                 "uModel",
-                                solstice::shader::RawUniformValue::Mat4(transform.into()),
+                                solstice::shader::RawUniformValue::Mat4(*transform),
                             );
                             shader.set_color(*color);
                             match texture.as_ref() {
@@ -219,7 +219,7 @@ impl Graphics {
                             );
                             shader.send_uniform(
                                 "uModel",
-                                solstice::shader::RawUniformValue::Mat4(transform.into()),
+                                solstice::shader::RawUniformValue::Mat4(*transform),
                             );
                             shader.set_color(draw_state.color);
                             match texture.as_ref() {
@@ -288,7 +288,7 @@ impl Graphics {
                     );
                     shader.send_uniform(
                         "uModel",
-                        solstice::shader::RawUniformValue::Mat4(transform.into()),
+                        solstice::shader::RawUniformValue::Mat4(*transform),
                     );
                     match texture.as_ref() {
                         None => shader.bind_texture(&self.default_texture),
@@ -378,7 +378,7 @@ impl Graphics {
                     );
                     shader.send_uniform(
                         "uModel",
-                        solstice::shader::RawUniformValue::Mat4(transform.into()),
+                        solstice::shader::RawUniformValue::Mat4(*transform),
                     );
                     shader.set_color(Color::new(1., 1., 1., 1.));
                     shader.activate(ctx);
@@ -471,14 +471,14 @@ impl<'a, V, I> Geometry<'a, V, I> {
 
 pub trait Draw<V: solstice::vertex::Vertex, G> {
     fn draw(&mut self, geometry: G);
-    fn draw_with_transform<TX: Into<d3::Transform3D>>(&mut self, geometry: G, transform: TX);
+    fn draw_with_transform<TX>(&mut self, geometry: G, transform: TX)
+    where
+        TX: Into<mint::ColumnMatrix4<f32>>;
     fn draw_with_color<C: Into<Color>>(&mut self, geometry: G, color: C);
-    fn draw_with_color_and_transform<C: Into<Color>, TX: Into<d3::Transform3D>>(
-        &mut self,
-        geometry: G,
-        color: C,
-        transform: TX,
-    );
+    fn draw_with_color_and_transform<C, TX>(&mut self, geometry: G, color: C, transform: TX)
+    where
+        C: Into<Color>,
+        TX: Into<mint::ColumnMatrix4<f32>>;
     fn image<T: Texture>(&mut self, geometry: G, texture: T);
     fn image_with_color<T, C>(&mut self, geometry: G, texture: T, color: C)
     where
@@ -487,7 +487,7 @@ pub trait Draw<V: solstice::vertex::Vertex, G> {
     fn image_with_transform<T, TX>(&mut self, geometry: G, texture: T, transform: TX)
     where
         T: Texture,
-        TX: Into<d3::Transform3D>;
+        TX: Into<mint::ColumnMatrix4<f32>>;
     fn image_with_color_and_transform<T, C, TX>(
         &mut self,
         geometry: G,
@@ -497,18 +497,18 @@ pub trait Draw<V: solstice::vertex::Vertex, G> {
     ) where
         T: Texture,
         C: Into<Color>,
-        TX: Into<d3::Transform3D>;
+        TX: Into<mint::ColumnMatrix4<f32>>;
 }
 pub trait Stroke<V: solstice::vertex::Vertex, G> {
     fn stroke(&mut self, geometry: G);
-    fn stroke_with_transform<TX: Into<d3::Transform3D>>(&mut self, geometry: G, transform: TX);
+    fn stroke_with_transform<TX>(&mut self, geometry: G, transform: TX)
+    where
+        TX: Into<mint::ColumnMatrix4<f32>>;
     fn stroke_with_color<C: Into<Color>>(&mut self, geometry: G, color: C);
-    fn stroke_with_color_and_transform<C: Into<Color>, TX: Into<d3::Transform3D>>(
-        &mut self,
-        geometry: G,
-        color: C,
-        transform: TX,
-    );
+    fn stroke_with_color_and_transform<C, TX>(&mut self, geometry: G, color: C, transform: TX)
+    where
+        C: Into<Color>,
+        TX: Into<mint::ColumnMatrix4<f32>>;
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -731,7 +731,7 @@ where
 #[derive(Clone, Debug)]
 pub struct DrawState<T> {
     data: T,
-    transform: Transform3D,
+    transform: mint::ColumnMatrix4<f32>,
     camera: Transform3D,
     projection_mode: Projection,
     color: Color,
@@ -865,7 +865,7 @@ impl<'a> DrawList<'a> {
                 bounds,
                 layout: Default::default(),
             },
-            transform: self.transform,
+            transform: self.transform.into(),
             camera: self.camera,
             projection_mode: self
                 .projection_mode
@@ -896,7 +896,7 @@ impl<'a> DrawList<'a> {
                 bounds,
                 layout,
             },
-            transform: self.transform,
+            transform: self.transform.into(),
             camera: self.camera,
             projection_mode: self
                 .projection_mode
@@ -919,7 +919,7 @@ impl<'a> DrawList<'a> {
                 is_loop: false,
                 depth_buffer: false,
             },
-            transform: self.transform,
+            transform: self.transform.into(),
             camera: self.camera,
             projection_mode: self
                 .projection_mode
@@ -942,7 +942,7 @@ impl<'a> DrawList<'a> {
                 is_loop: false,
                 depth_buffer: true,
             },
-            transform: self.transform,
+            transform: self.transform.into(),
             camera: self.camera,
             projection_mode: self
                 .projection_mode

@@ -40,7 +40,10 @@ where
         self.draw_with_color_and_transform(geometry, self.color, self.transform)
     }
 
-    fn draw_with_transform<TX: Into<Transform3D>>(&mut self, geometry: G, transform: TX) {
+    fn draw_with_transform<TX>(&mut self, geometry: G, transform: TX)
+    where
+        TX: Into<mint::ColumnMatrix4<f32>>,
+    {
         self.draw_with_color_and_transform(geometry, self.color, transform)
     }
 
@@ -48,12 +51,11 @@ where
         self.draw_with_color_and_transform(geometry, color, self.transform)
     }
 
-    fn draw_with_color_and_transform<C: Into<Color>, TX: Into<Transform3D>>(
-        &mut self,
-        geometry: G,
-        color: C,
-        transform: TX,
-    ) {
+    fn draw_with_color_and_transform<C, TX>(&mut self, geometry: G, color: C, transform: TX)
+    where
+        C: Into<Color>,
+        TX: Into<mint::ColumnMatrix4<f32>>,
+    {
         self.commands.push(Command::Draw(DrawState {
             data: GeometryVariants::D3(geometry.into()),
             transform: transform.into(),
@@ -83,7 +85,7 @@ where
     fn image_with_transform<T, TX>(&mut self, geometry: G, texture: T, transform: TX)
     where
         T: Texture,
-        TX: Into<Transform3D>,
+        TX: Into<mint::ColumnMatrix4<f32>>,
     {
         self.image_with_color_and_transform(geometry, texture, self.color, transform)
     }
@@ -97,7 +99,7 @@ where
     ) where
         T: Texture,
         C: Into<Color>,
-        TX: Into<Transform3D>,
+        TX: Into<mint::ColumnMatrix4<f32>>,
     {
         self.commands.push(Command::Draw(DrawState {
             data: GeometryVariants::D3(geometry.into()),
@@ -125,7 +127,10 @@ where
         self.stroke_with_color_and_transform(geometry, self.color, self.transform)
     }
 
-    fn stroke_with_transform<TX: Into<Transform3D>>(&mut self, geometry: G, transform: TX) {
+    fn stroke_with_transform<TX>(&mut self, geometry: G, transform: TX)
+    where
+        TX: Into<mint::ColumnMatrix4<f32>>,
+    {
         self.stroke_with_color_and_transform(geometry, self.color, transform)
     }
 
@@ -133,12 +138,11 @@ where
         self.stroke_with_color_and_transform(geometry, color, self.transform)
     }
 
-    fn stroke_with_color_and_transform<C: Into<Color>, TX: Into<Transform3D>>(
-        &mut self,
-        geometry: G,
-        color: C,
-        transform: TX,
-    ) {
+    fn stroke_with_color_and_transform<C, TX>(&mut self, geometry: G, color: C, transform: TX)
+    where
+        C: Into<Color>,
+        TX: Into<mint::ColumnMatrix4<f32>>,
+    {
         let crate::Geometry { vertices, .. } = geometry.into();
         self.commands.push(Command::Line(DrawState {
             data: LineState {
