@@ -1941,6 +1941,7 @@ mod tests {
         }
     }
 
+    #[cfg(target_os = "windows")]
     fn get_headless_context(
         width: u32,
         height: u32,
@@ -1957,6 +1958,7 @@ mod tests {
         )
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn basic() {
         let (ctx, _window) = get_headless_context(100, 100);
@@ -1964,6 +1966,7 @@ mod tests {
         ctx.clear();
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn unused_vertex_attribute() {
         let (ctx, _window) = get_headless_context(100, 100);
@@ -2022,6 +2025,7 @@ void main() {
         );
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn mapped_mesh() {
         let (ctx, _window) = get_headless_context(100, 100);
@@ -2062,6 +2066,7 @@ void main() {
         }
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn mapped_image() {
         use super::PixelFormat;
@@ -2141,6 +2146,7 @@ void main() {
         }
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn quad_batch_test() {
         let (ctx, _window) = get_headless_context(100, 100);
