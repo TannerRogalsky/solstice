@@ -13,11 +13,11 @@ description = "Easy, cross-platform 2D graphics."
 #solstice = { features = ["derive"], path = "../solstice" }
 solstice = { version = "0.1", features = ["derive"] }
 mint = "0.5"
-ordered-float = { version = "2.1", default-features = false }
+ordered-float = { version = "2", default-features = false }
 bytemuck = { version = "1.5", features = ["derive"] }
 
 glyph_brush = "0.7"
-nalgebra = { version = "0.26", features = ["mint"] }
+nalgebra = { version = "0.29", features = ["mint"] }
 
 [dev-dependencies]
 approx = { git = "https://github.com/tannerrogalsky/approx", branch = "array_impl", features = ["array_impl"] }
