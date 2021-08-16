@@ -78,16 +78,15 @@ struct TextureCache {
 
 const MAX_TEXTURE_UNITS: usize = 8;
 
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Shader {
     inner: solstice::shader::DynamicShader,
 
-    projection_location: UniformLocation,
+    projection_location: Option<UniformLocation>,
     projection_cache: mint::ColumnMatrix4<f32>,
-    view_location: UniformLocation,
+    view_location: Option<UniformLocation>,
     view_cache: mint::ColumnMatrix4<f32>,
-    model_location: UniformLocation,
+    model_location: Option<UniformLocation>,
     model_cache: mint::ColumnMatrix4<f32>,
     color_location: Option<UniformLocation>,
     color_cache: mint::Vector4<f32>,
@@ -183,9 +182,9 @@ impl Shader {
         let shader = DynamicShader::new(ctx, vertex.as_str(), fragment.as_str())
             .map_err(ShaderError::GraphicsError)?;
 
-        let projection_location = get_location(&shader, "uProjection")?;
-        let view_location = get_location(&shader, "uView")?;
-        let model_location = get_location(&shader, "uModel")?;
+        let projection_location = get_location(&shader, "uProjection").ok();
+        let view_location = get_location(&shader, "uView").ok();
+        let model_location = get_location(&shader, "uModel").ok();
         let color_location = get_location(&shader, "uColor").ok();
         let resolution_location = get_location(&shader, "uResolution").ok();
         let mut textures = (0..MAX_TEXTURE_UNITS).map(|i| {
@@ -218,18 +217,24 @@ impl Shader {
         let projection_cache = identity;
 
         ctx.use_shader(Some(&shader));
-        ctx.set_uniform_by_location(
-            &projection_location,
-            &solstice::shader::RawUniformValue::Mat4(projection_cache),
-        );
-        ctx.set_uniform_by_location(
-            &view_location,
-            &solstice::shader::RawUniformValue::Mat4(identity),
-        );
-        ctx.set_uniform_by_location(
-            &model_location,
-            &solstice::shader::RawUniformValue::Mat4(identity),
-        );
+        if let Some(projection_location) = &projection_location {
+            ctx.set_uniform_by_location(
+                &projection_location,
+                &solstice::shader::RawUniformValue::Mat4(projection_cache),
+            );
+        }
+        if let Some(view_location) = &view_location {
+            ctx.set_uniform_by_location(
+                &view_location,
+                &solstice::shader::RawUniformValue::Mat4(identity),
+            );
+        }
+        if let Some(model_location) = &model_location {
+            ctx.set_uniform_by_location(
+                &model_location,
+                &solstice::shader::RawUniformValue::Mat4(identity),
+            );
+        }
         if let Some(color_location) = &color_location {
             ctx.set_uniform_by_location(
                 color_location,
@@ -410,7 +415,9 @@ impl Shader {
                 &solstice::shader::RawUniformValue::Vec4(self.resolution_cache),
             );
         }
-        ctx.set_uniform_by_location(&self.projection_location, &Mat4(self.projection_cache));
+        if let Some(projection_location) = &self.projection_location {
+            ctx.set_uniform_by_location(projection_location, &Mat4(self.projection_cache));
+        }
     }
 }
 
