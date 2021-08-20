@@ -174,14 +174,8 @@ impl Graphics {
                                 viewport,
                                 target.is_some(),
                             );
-                            shader.send_uniform(
-                                "uView",
-                                solstice::shader::RawUniformValue::Mat4(camera.into()),
-                            );
-                            shader.send_uniform(
-                                "uModel",
-                                solstice::shader::RawUniformValue::Mat4(*transform),
-                            );
+                            shader.set_view(camera);
+                            shader.set_model(*transform);
                             shader.set_color(*color);
                             match texture.as_ref() {
                                 None => shader.bind_texture(&self.default_texture),
@@ -213,14 +207,8 @@ impl Graphics {
                                 viewport,
                                 target.is_some(),
                             );
-                            shader.send_uniform(
-                                "uView",
-                                solstice::shader::RawUniformValue::Mat4(camera.into()),
-                            );
-                            shader.send_uniform(
-                                "uModel",
-                                solstice::shader::RawUniformValue::Mat4(*transform),
-                            );
+                            shader.set_view(camera);
+                            shader.set_model(*transform);
                             shader.set_color(draw_state.color);
                             match texture.as_ref() {
                                 None => shader.bind_texture(&self.default_texture),
@@ -282,14 +270,8 @@ impl Graphics {
                         viewport,
                         target.is_some(),
                     );
-                    shader.send_uniform(
-                        "uView",
-                        solstice::shader::RawUniformValue::Mat4(camera.into()),
-                    );
-                    shader.send_uniform(
-                        "uModel",
-                        solstice::shader::RawUniformValue::Mat4(*transform),
-                    );
+                    shader.set_view(camera);
+                    shader.set_model(*transform);
                     match texture.as_ref() {
                         None => shader.bind_texture(&self.default_texture),
                         Some(texture) => shader.bind_texture(texture),
@@ -372,14 +354,8 @@ impl Graphics {
                         viewport,
                         target.is_some(),
                     );
-                    shader.send_uniform(
-                        "uView",
-                        solstice::shader::RawUniformValue::Mat4(camera.into()),
-                    );
-                    shader.send_uniform(
-                        "uModel",
-                        solstice::shader::RawUniformValue::Mat4(*transform),
-                    );
+                    shader.set_view(camera);
+                    shader.set_model(*transform);
                     shader.set_color(Color::new(1., 1., 1., 1.));
                     shader.activate(ctx);
 

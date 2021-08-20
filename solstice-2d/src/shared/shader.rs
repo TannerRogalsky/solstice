@@ -88,6 +88,7 @@ pub struct Shader {
     view_cache: mint::ColumnMatrix4<f32>,
     model_location: Option<UniformLocation>,
     model_cache: mint::ColumnMatrix4<f32>,
+    normal_matrix_location: Option<UniformLocation>,
     color_location: Option<UniformLocation>,
     color_cache: mint::Vector4<f32>,
     resolution_location: Option<UniformLocation>,
@@ -141,6 +142,7 @@ attribute vec2 uv;
 uniform mat4 uProjection;
 uniform mat4 uView;
 uniform mat4 uModel;
+uniform mat4 uNormalMatrix;
 
 {vertex}
 
@@ -185,6 +187,7 @@ impl Shader {
         let projection_location = get_location(&shader, "uProjection").ok();
         let view_location = get_location(&shader, "uView").ok();
         let model_location = get_location(&shader, "uModel").ok();
+        let normal_matrix_location = get_location(&shader, "uNormalMatrix").ok();
         let color_location = get_location(&shader, "uColor").ok();
         let resolution_location = get_location(&shader, "uResolution").ok();
         let mut textures = (0..MAX_TEXTURE_UNITS).map(|i| {
@@ -235,6 +238,12 @@ impl Shader {
                 &solstice::shader::RawUniformValue::Mat4(identity),
             );
         }
+        if let Some(normal_location) = &normal_matrix_location {
+            ctx.set_uniform_by_location(
+                &normal_location,
+                &solstice::shader::RawUniformValue::Mat4(identity),
+            );
+        }
         if let Some(color_location) = &color_location {
             ctx.set_uniform_by_location(
                 color_location,
@@ -250,6 +259,7 @@ impl Shader {
             view_cache: identity,
             model_location,
             model_cache: identity,
+            normal_matrix_location,
             color_location,
             color_cache: white,
             resolution_location,
@@ -391,6 +401,14 @@ impl Shader {
         }
     }
 
+    pub fn set_view<V: Into<mint::ColumnMatrix4<f32>>>(&mut self, view: V) {
+        self.view_cache = view.into();
+    }
+
+    pub fn set_model<M: Into<mint::ColumnMatrix4<f32>>>(&mut self, model: M) {
+        self.model_cache = model.into();
+    }
+
     pub fn activate(&mut self, ctx: &mut Context) {
         use solstice::shader::RawUniformValue::{Mat4, SignedInt, Vec4};
         ctx.use_shader(Some(&self.inner));
@@ -417,6 +435,19 @@ impl Shader {
         }
         if let Some(projection_location) = &self.projection_location {
             ctx.set_uniform_by_location(projection_location, &Mat4(self.projection_cache));
+        }
+        if let Some(view_location) = &self.view_location {
+            ctx.set_uniform_by_location(view_location, &Mat4(self.view_cache));
+        }
+        if let Some(model_location) = &self.model_location {
+            ctx.set_uniform_by_location(model_location, &Mat4(self.model_cache));
+        }
+        if let Some(normal_location) = &self.normal_matrix_location {
+            let v = nalgebra::Matrix4::from(self.view_cache) * nalgebra::Matrix4::from(self.model_cache);
+            if let Some(v) = v.try_inverse() {
+                let v = v.transpose();
+                ctx.set_uniform_by_location(normal_location, &Mat4(v.into()))
+            }
         }
     }
 }
