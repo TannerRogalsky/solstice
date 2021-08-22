@@ -824,6 +824,26 @@ pub struct DrawList<'a> {
 }
 
 impl<'a> DrawList<'a> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn new_from_state<'b>(other: &DrawList) -> DrawList<'b> {
+        DrawList {
+            commands: vec![],
+            color: other.color,
+            transform: other.transform,
+            camera: other.camera,
+            projection_mode: other.projection_mode,
+            target: other.target.clone(),
+            shader: other.shader.clone(),
+        }
+    }
+
+    pub fn append(&mut self, other: &mut Self) {
+        self.commands.append(&mut other.commands);
+    }
+
     pub fn clear<C: Into<Color>>(&mut self, color: C) {
         let command = Command::Clear(color.into(), self.target.clone());
         self.commands.push(command)

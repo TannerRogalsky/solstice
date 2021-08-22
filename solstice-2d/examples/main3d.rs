@@ -24,6 +24,37 @@ struct Main {
     shader: solstice_2d::Shader,
 }
 
+impl Main {
+    fn draw_polyhedra(&self, state: &solstice_2d::DrawList, t: f32) -> solstice_2d::DrawList {
+        use solstice_2d::{Draw, Polyhedron};
+
+        let radius = 1.0;
+        let color = [0.2, 0.4, 0.8, 1.0];
+        let rotation = solstice_2d::Transform3D::rotation(
+            solstice_2d::Rad(0.),
+            solstice_2d::Rad(t * std::f32::consts::PI * 2.),
+            solstice_2d::Rad(t * std::f32::consts::PI * 2.),
+        );
+
+        let polyhedra = vec![
+            Polyhedron::tetrahedron(radius, 0),
+            Polyhedron::octahedron(radius, 0),
+            Polyhedron::icosahedron(radius, 0),
+            Polyhedron::dodecahedron(radius, 0),
+        ];
+
+        let mut dl = solstice_2d::DrawList::new_from_state(state);
+        dl.set_shader(Some(self.shader.clone()));
+        let count = polyhedra.len() - 1;
+        for (index, polyhedron) in polyhedra.into_iter().enumerate() {
+            let x = ((index as f32 / count as f32) - 0.5) * 2.0 * radius * 4.0;
+            let tx = solstice_2d::Transform3D::translation(x, 0.0, -4.0) * rotation;
+            dl.image_with_color_and_transform(polyhedron, &self.canvas, color, tx);
+        }
+        dl
+    }
+}
+
 impl Example for Main {
     fn new(ctx: &mut ExampleContext) -> eyre::Result<Self> {
         let canvas = solstice_2d::Canvas::new(&mut ctx.ctx, 720.0, 720.0)?;
@@ -50,12 +81,13 @@ impl Example for Main {
         dl.stroke_with_color_and_transform(bg_shape, [0.0, 0.0, 0.0, 1.0], tx);
 
         {
+            let mut dl2 = DrawList::new_from_state(&dl);
             let (width, height) = self.canvas.dimensions();
             let tx = solstice_2d::Transform2D::translation(width / 2.0, height / 2.0);
             // let tx = tx * solstice_2d::Transform::rotation(Rad(-t * std::f32::consts::PI * 2.0));
-            dl.set_canvas(Some(self.canvas.clone()));
-            dl.clear([1.0, 1.0, 1.0, 1.0]);
-            dl.draw_with_color_and_transform(
+            dl2.set_canvas(Some(self.canvas.clone()));
+            dl2.clear([1.0, 1.0, 1.0, 1.0]);
+            dl2.draw_with_color_and_transform(
                 solstice_2d::RegularPolygon {
                     x: 0.0,
                     y: 0.0,
@@ -65,32 +97,13 @@ impl Example for Main {
                 [0.2, 0.4, 0.8, 1.0],
                 tx,
             );
-            dl.set_canvas(None);
+            dl.append(&mut dl2);
         }
 
-        let radius = 1.0;
-        let color = [0.2, 0.4, 0.8, 1.0];
-        let rotation = Transform3D::rotation(
-            Rad(0.),
-            Rad(t * std::f32::consts::PI * 2.),
-            Rad(t * std::f32::consts::PI * 2.),
-        );
-
-        let polyhedra = vec![
-            Polyhedron::tetrahedron(radius, 0),
-            Polyhedron::octahedron(radius, 0),
-            Polyhedron::icosahedron(radius, 0),
-            Polyhedron::dodecahedron(radius, 0),
-        ];
-
-        dl.set_shader(Some(self.shader.clone()));
-        let count = polyhedra.len() - 1;
-        for (index, polyhedron) in polyhedra.into_iter().enumerate() {
-            let x = ((index as f32 / count as f32) - 0.5) * 2.0 * radius * 4.0;
-            let tx = Transform3D::translation(x, 0.0, -4.0) * rotation;
-            dl.image_with_color_and_transform(polyhedron, &self.canvas, color, tx);
+        {
+            let mut dl2 = self.draw_polyhedra(&dl, t);
+            dl.append(&mut dl2);
         }
-        dl.set_shader(None);
 
         let offset = [0., 0.];
         let dim = [2., 2.];

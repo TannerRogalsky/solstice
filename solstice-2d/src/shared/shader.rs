@@ -443,7 +443,8 @@ impl Shader {
             ctx.set_uniform_by_location(model_location, &Mat4(self.model_cache));
         }
         if let Some(normal_location) = &self.normal_matrix_location {
-            let v = nalgebra::Matrix4::from(self.view_cache) * nalgebra::Matrix4::from(self.model_cache);
+            let v = nalgebra::Matrix4::from(self.view_cache)
+                * nalgebra::Matrix4::from(self.model_cache);
             if let Some(v) = v.try_inverse() {
                 let v = v.transpose();
                 ctx.set_uniform_by_location(normal_location, &Mat4(v.into()))
