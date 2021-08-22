@@ -164,10 +164,10 @@ pub trait SimpleConvexGeometry: std::fmt::Debug {
 macro_rules! impl_array_simple_convex_geom {
     ($ty:ty, $count:expr) => {
         impl SimpleConvexGeometry for [$ty; $count] {
-            type Vertices = std::iter::Map<std::vec::IntoIter<$ty>, fn($ty) -> Vertex2D>;
+            type Vertices = std::iter::Map<std::array::IntoIter<$ty, $count>, fn($ty) -> Vertex2D>;
 
             fn vertices(&self) -> Self::Vertices {
-                self.to_vec().into_iter().map(Into::into)
+                std::array::IntoIter::new(*self).map(Into::into)
             }
 
             fn vertex_count(&self) -> usize {
@@ -176,10 +176,10 @@ macro_rules! impl_array_simple_convex_geom {
         }
 
         impl SimpleConvexGeometry for &[$ty; $count] {
-            type Vertices = std::iter::Map<std::vec::IntoIter<$ty>, fn($ty) -> Vertex2D>;
+            type Vertices = std::iter::Map<std::array::IntoIter<$ty, $count>, fn($ty) -> Vertex2D>;
 
             fn vertices(&self) -> Self::Vertices {
-                self.to_vec().into_iter().map(Into::into)
+                std::array::IntoIter::new(**self).map(Into::into)
             }
 
             fn vertex_count(&self) -> usize {
