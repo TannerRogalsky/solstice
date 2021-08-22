@@ -12,7 +12,7 @@ pub use vertex::{Point, Vertex2D};
 
 use super::{
     Color, Command, Draw, DrawList, DrawState, Geometry, GeometryVariants, LineState, LineVertex,
-    Projection, TextureCache,
+    Projection,
 };
 use solstice::texture::Texture;
 
@@ -21,18 +21,33 @@ where
     G: crate::GeometryKind<'a, crate::Vertex2D> + 'a,
 {
     fn draw(&mut self, geometry: G) {
-        self.draw_with_color_and_transform(geometry, self.color, self.transform)
+        self.push_draw(
+            GeometryVariants::D2(geometry.into()),
+            self.color,
+            self.transform,
+            None,
+        );
     }
 
     fn draw_with_transform<TX>(&mut self, geometry: G, transform: TX)
     where
         TX: Into<mint::ColumnMatrix4<f32>>,
     {
-        self.draw_with_color_and_transform(geometry, self.color, transform)
+        self.push_draw(
+            GeometryVariants::D2(geometry.into()),
+            self.color,
+            transform.into(),
+            None,
+        );
     }
 
     fn draw_with_color<C: Into<Color>>(&mut self, geometry: G, color: C) {
-        self.draw_with_color_and_transform(geometry, color, self.transform)
+        self.push_draw(
+            GeometryVariants::D2(geometry.into()),
+            color.into(),
+            self.transform,
+            None,
+        );
     }
 
     fn draw_with_color_and_transform<C, TX>(&mut self, geometry: G, color: C, transform: TX)
@@ -40,22 +55,21 @@ where
         C: Into<Color>,
         TX: Into<mint::ColumnMatrix4<f32>>,
     {
-        self.commands.push(Command::Draw(DrawState {
-            data: GeometryVariants::D2(geometry.into()),
-            transform: transform.into(),
-            camera: self.camera,
-            projection_mode: self
-                .projection_mode
-                .unwrap_or(Projection::Orthographic(None)),
-            color: color.into(),
-            texture: None,
-            target: self.target.clone(),
-            shader: self.shader.clone(),
-        }))
+        self.push_draw(
+            GeometryVariants::D2(geometry.into()),
+            color.into(),
+            transform.into(),
+            None,
+        );
     }
 
     fn image<T: Texture>(&mut self, geometry: G, texture: T) {
-        self.image_with_color_and_transform(geometry, texture, self.color, self.transform)
+        self.push_draw(
+            GeometryVariants::D2(geometry.into()),
+            self.color,
+            self.transform,
+            Some(texture.into()),
+        );
     }
 
     fn image_with_color<T, C>(&mut self, geometry: G, texture: T, color: C)
@@ -63,7 +77,12 @@ where
         T: Texture,
         C: Into<Color>,
     {
-        self.image_with_color_and_transform(geometry, texture, color, self.transform)
+        self.push_draw(
+            GeometryVariants::D2(geometry.into()),
+            color.into(),
+            self.transform,
+            Some(texture.into()),
+        );
     }
 
     fn image_with_transform<T, TX>(&mut self, geometry: G, texture: T, transform: TX)
@@ -71,7 +90,12 @@ where
         T: Texture,
         TX: Into<mint::ColumnMatrix4<f32>>,
     {
-        self.image_with_color_and_transform(geometry, texture, self.color, transform)
+        self.push_draw(
+            GeometryVariants::D2(geometry.into()),
+            self.color,
+            transform.into(),
+            Some(texture.into()),
+        );
     }
 
     fn image_with_color_and_transform<T, C, TX>(
@@ -85,22 +109,12 @@ where
         C: Into<Color>,
         TX: Into<mint::ColumnMatrix4<f32>>,
     {
-        self.commands.push(Command::Draw(DrawState {
-            data: GeometryVariants::D2(geometry.into()),
-            transform: transform.into(),
-            camera: self.camera,
-            projection_mode: self
-                .projection_mode
-                .unwrap_or(Projection::Orthographic(None)),
-            color: color.into(),
-            texture: Some(TextureCache {
-                ty: texture.get_texture_type(),
-                key: texture.get_texture_key(),
-                info: texture.get_texture_info(),
-            }),
-            target: self.target.clone(),
-            shader: self.shader.clone(),
-        }))
+        self.push_draw(
+            GeometryVariants::D2(geometry.into()),
+            color.into(),
+            transform.into(),
+            Some(texture.into()),
+        );
     }
 }
 impl<'a, G> crate::Stroke<crate::Vertex2D, G> for DrawList<'a>

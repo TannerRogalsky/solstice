@@ -494,6 +494,19 @@ struct TextureCache {
     info: solstice::texture::TextureInfo,
 }
 
+impl<T> From<T> for TextureCache
+where
+    T: solstice::texture::Texture,
+{
+    fn from(texture: T) -> Self {
+        TextureCache {
+            ty: texture.get_texture_type(),
+            key: texture.get_texture_key(),
+            info: texture.get_texture_info(),
+        }
+    }
+}
+
 impl solstice::texture::Texture for &TextureCache {
     fn get_texture_key(&self) -> solstice::TextureKey {
         self.key
@@ -812,15 +825,29 @@ pub enum Command<'a> {
     Clear(Color, Option<Canvas>),
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct DrawList<'a> {
     commands: Vec<Command<'a>>,
     color: Color,
-    transform: Transform3D,
+    transform: mint::ColumnMatrix4<f32>,
     camera: Transform3D,
     projection_mode: Option<Projection>,
     target: Option<Canvas>,
     shader: Option<Shader>,
+}
+
+impl Default for DrawList<'_> {
+    fn default() -> Self {
+        Self {
+            commands: vec![],
+            color: Default::default(),
+            transform: Transform3D::default().into(),
+            camera: Default::default(),
+            projection_mode: None,
+            target: None,
+            shader: None,
+        }
+    }
 }
 
 impl<'a> DrawList<'a> {
@@ -955,7 +982,7 @@ impl<'a> DrawList<'a> {
         self.color = color.into();
     }
 
-    pub fn set_transform<T: Into<Transform3D>>(&mut self, transform: T) {
+    pub fn set_transform<T: Into<mint::ColumnMatrix4<f32>>>(&mut self, transform: T) {
         self.transform = transform.into();
     }
 
@@ -973,6 +1000,31 @@ impl<'a> DrawList<'a> {
 
     pub fn set_shader(&mut self, shader: Option<Shader>) {
         self.shader = shader;
+    }
+}
+
+impl<'a> DrawList<'a> {
+    fn push_draw(
+        &mut self,
+        data: GeometryVariants<'a>,
+        color: Color,
+        transform: mint::ColumnMatrix4<f32>,
+        texture: Option<TextureCache>,
+    ) {
+        let projection_mode = self.projection_mode.unwrap_or_else(|| match &data {
+            GeometryVariants::D2(_) => Projection::Orthographic(None),
+            GeometryVariants::D3(_) => Projection::Perspective(None),
+        });
+        self.commands.push(Command::Draw(DrawState {
+            data,
+            transform,
+            camera: Default::default(),
+            projection_mode,
+            color,
+            texture,
+            target: self.target.clone(),
+            shader: self.shader.clone(),
+        }))
     }
 }
 
