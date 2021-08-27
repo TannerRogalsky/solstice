@@ -1,8 +1,10 @@
+mod batch;
 mod color;
 mod lines;
 mod noise_texture;
 mod shader;
 
+pub use batch::*;
 pub use color::*;
 pub use lines::*;
 pub use noise_texture::*;

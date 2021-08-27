@@ -995,38 +995,47 @@ impl Context {
             }
 
             if desired & bit != 0 {
-                let (vertex_format, stride, step, buffer_key, buffer_type) =
-                    binding_info[i as usize].unwrap();
-                self.bind_buffer(buffer_key, buffer_type);
-                let (data_type, elements_count, _instances_count) = vertex_format.atype.to_gl();
-                unsafe {
-                    self.ctx.vertex_attrib_divisor(i, step);
-                    use vertex::AttributeType;
-                    match vertex_format.atype {
-                        AttributeType::F32
-                        | AttributeType::F32F32
-                        | AttributeType::F32F32F32
-                        | AttributeType::F32F32F32F32
-                        | AttributeType::F32x2x2
-                        | AttributeType::F32x3x3
-                        | AttributeType::F32x4x4 => self.ctx.vertex_attrib_pointer_f32(
-                            i,
-                            elements_count,
-                            data_type,
-                            vertex_format.normalize,
-                            stride as i32,
-                            vertex_format.offset as i32,
-                        ),
-                        AttributeType::I32
-                        | AttributeType::I32I32
-                        | AttributeType::I32I32I32
-                        | AttributeType::I32I32I32I32 => self.ctx.vertex_attrib_pointer_i32(
-                            i,
-                            elements_count,
-                            data_type,
-                            stride as i32,
-                            vertex_format.offset as i32,
-                        ),
+                let binding_info = binding_info[i as usize];
+                if let Some((vertex_format, stride, step, buffer_key, buffer_type)) = binding_info {
+                    self.bind_buffer(buffer_key, buffer_type);
+                    let (data_type, elements_count, _instances_count) = vertex_format.atype.to_gl();
+                    unsafe {
+                        use vertex::AttributeType;
+                        match vertex_format.atype {
+                            AttributeType::F32
+                            | AttributeType::F32F32
+                            | AttributeType::F32F32F32
+                            | AttributeType::F32F32F32F32
+                            | AttributeType::F32x2x2
+                            | AttributeType::F32x3x3
+                            | AttributeType::F32x4x4 => {
+                                for j in 0..vertex_format.atype.height() {
+                                    let index = i + j as u32;
+                                    self.ctx.vertex_attrib_divisor(index, step);
+                                    self.ctx.vertex_attrib_pointer_f32(
+                                        index,
+                                        elements_count,
+                                        data_type,
+                                        vertex_format.normalize,
+                                        stride as i32,
+                                        (vertex_format.offset + 16 * j) as i32,
+                                    )
+                                }
+                            }
+                            AttributeType::I32
+                            | AttributeType::I32I32
+                            | AttributeType::I32I32I32
+                            | AttributeType::I32I32I32I32 => {
+                                self.ctx.vertex_attrib_divisor(i, step);
+                                self.ctx.vertex_attrib_pointer_i32(
+                                    i,
+                                    elements_count,
+                                    data_type,
+                                    stride as i32,
+                                    vertex_format.offset as i32,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1625,7 +1634,9 @@ fn prepare_draw<'a, S: shader::Shader + ?Sized>(
             .find(|(binding, ..)| binding.name == attr.name.as_str())
             .cloned();
         if let Some(binding) = binding {
-            desired_attribute_state |= 1 << attr.location;
+            for offset in 0..(attr.atype.height() as u32) {
+                desired_attribute_state |= 1 << (attr.location + offset);
+            }
             attributes[attr.location as usize] = Some(binding);
         }
     }

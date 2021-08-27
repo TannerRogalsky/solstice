@@ -21,47 +21,76 @@ pub enum AttributeType {
 
 impl AttributeType {
     pub fn get_size_bytes(self) -> usize {
+        self.get_num_components() * self.component_size()
+    }
+
+    pub fn component_size(self) -> usize {
         use std::mem::size_of;
         match self {
-            AttributeType::F32 => size_of::<f32>(),
-            AttributeType::F32F32 => 2 * size_of::<f32>(),
-            AttributeType::F32F32F32 => 3 * size_of::<f32>(),
-            AttributeType::F32F32F32F32 => 4 * size_of::<f32>(),
-            AttributeType::F32x2x2 => 4 * size_of::<f32>(),
-            AttributeType::F32x3x3 => 9 * size_of::<f32>(),
-            AttributeType::F32x4x4 => 16 * size_of::<f32>(),
-            AttributeType::I32 => size_of::<i32>(),
-            AttributeType::I32I32 => 2 * size_of::<i32>(),
-            AttributeType::I32I32I32 => 3 * size_of::<i32>(),
-            AttributeType::I32I32I32I32 => 4 * size_of::<i32>(),
+            AttributeType::F32
+            | AttributeType::F32F32
+            | AttributeType::F32F32F32
+            | AttributeType::F32F32F32F32
+            | AttributeType::F32x2x2
+            | AttributeType::F32x3x3
+            | AttributeType::F32x4x4 => size_of::<f32>(),
+            AttributeType::I32
+            | AttributeType::I32I32
+            | AttributeType::I32I32I32
+            | AttributeType::I32I32I32I32 => size_of::<i32>(),
         }
     }
 
     pub fn get_num_components(self) -> usize {
-        match self {
-            AttributeType::F32 | AttributeType::I32 => 1,
-            AttributeType::F32F32 | AttributeType::I32I32 => 2,
-            AttributeType::F32F32F32 | AttributeType::I32I32I32 => 3,
-            AttributeType::F32F32F32F32 | AttributeType::I32I32I32I32 => 4,
-            AttributeType::F32x2x2 => 4,
-            AttributeType::F32x3x3 => 9,
-            AttributeType::F32x4x4 => 16,
-        }
+        self.width() * self.height()
     }
 
     pub fn to_gl(self) -> (u32, i32, i32) {
+        let gl_ty = match self {
+            AttributeType::F32 => glow::FLOAT,
+            AttributeType::F32F32 => glow::FLOAT,
+            AttributeType::F32F32F32 => glow::FLOAT,
+            AttributeType::F32F32F32F32 => glow::FLOAT,
+            AttributeType::F32x2x2 => glow::FLOAT,
+            AttributeType::F32x3x3 => glow::FLOAT,
+            AttributeType::F32x4x4 => glow::FLOAT,
+            AttributeType::I32 => glow::INT,
+            AttributeType::I32I32 => glow::INT,
+            AttributeType::I32I32I32 => glow::INT,
+            AttributeType::I32I32I32I32 => glow::INT,
+        };
+        (gl_ty, self.width() as _, self.height() as _)
+    }
+
+    pub fn width(self) -> usize {
         match self {
-            AttributeType::F32 => (glow::FLOAT, 1, 1),
-            AttributeType::F32F32 => (glow::FLOAT, 2, 1),
-            AttributeType::F32F32F32 => (glow::FLOAT, 3, 1),
-            AttributeType::F32F32F32F32 => (glow::FLOAT, 4, 1),
-            AttributeType::F32x2x2 => (glow::FLOAT, 2, 2),
-            AttributeType::F32x3x3 => (glow::FLOAT, 3, 3),
-            AttributeType::F32x4x4 => (glow::FLOAT, 4, 4),
-            AttributeType::I32 => (glow::INT, 1, 1),
-            AttributeType::I32I32 => (glow::INT, 2, 1),
-            AttributeType::I32I32I32 => (glow::INT, 3, 1),
-            AttributeType::I32I32I32I32 => (glow::INT, 4, 1),
+            AttributeType::F32 => 1,
+            AttributeType::F32F32 => 2,
+            AttributeType::F32F32F32 => 3,
+            AttributeType::F32F32F32F32 => 4,
+            AttributeType::F32x2x2 => 2,
+            AttributeType::F32x3x3 => 3,
+            AttributeType::F32x4x4 => 4,
+            AttributeType::I32 => 1,
+            AttributeType::I32I32 => 2,
+            AttributeType::I32I32I32 => 3,
+            AttributeType::I32I32I32I32 => 4,
+        }
+    }
+
+    pub fn height(self) -> usize {
+        match self {
+            AttributeType::F32 => 1,
+            AttributeType::F32F32 => 1,
+            AttributeType::F32F32F32 => 1,
+            AttributeType::F32F32F32F32 => 1,
+            AttributeType::F32x2x2 => 2,
+            AttributeType::F32x3x3 => 3,
+            AttributeType::F32x4x4 => 4,
+            AttributeType::I32 => 1,
+            AttributeType::I32I32 => 1,
+            AttributeType::I32I32I32 => 1,
+            AttributeType::I32I32I32I32 => 1,
         }
     }
 }

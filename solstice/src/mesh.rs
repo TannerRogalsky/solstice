@@ -145,7 +145,15 @@ where
     }
 
     /// Write new data into a range of the Mesh's vertex data.
+    /// Offset is number of vertex elements from the start of the buffer. NOT in bytes.
     pub fn set_vertices(&self, ctx: &mut super::Context, vertices: &[V], offset: usize) {
+        debug_assert!(
+            vertices.len() + offset <= self.vbo.size() / std::mem::size_of::<V>(),
+            "Overflowed vertex buffer. Wrote {} -> {} elements into a buffer of size {}.",
+            offset,
+            vertices.len() + offset,
+            self.vbo.size() / std::mem::size_of::<V>()
+        );
         ctx.bind_buffer(self.vbo.handle(), self.vbo.buffer_type());
         ctx.buffer_static_draw(
             &self.vbo,
@@ -635,6 +643,19 @@ impl<V: Vertex, I: Index> MeshAttacher for IndexedMesh<V, I> {
         }));
         MultiMesh {
             ibo: Some((&self.ibo, I::GL_TYPE)),
+            attachments,
+        }
+    }
+}
+impl MeshAttacher for MultiMesh<'_> {
+    fn attach_with_step<'a, T: Mesh>(&'a self, other: &'a T, step: u32) -> MultiMesh<'a> {
+        let mut attachments = self.attachments();
+        attachments.extend(other.attachments().into_iter().map(|mut a| {
+            a.step = step;
+            a
+        }));
+        MultiMesh {
+            ibo: self.ibo,
             attachments,
         }
     }

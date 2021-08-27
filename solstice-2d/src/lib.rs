@@ -55,6 +55,7 @@ struct GeometryBuffers {
     mesh3d_unindexed: MappedVertexMesh<Vertex3D>,
     mesh2d: MappedIndexedMesh<Vertex2D, u32>,
     mesh2d_unindexed: MappedVertexMesh<Vertex2D>,
+    instances: solstice::mesh::VertexMesh<shared::Transform>,
 }
 
 pub struct Graphics {
@@ -75,6 +76,8 @@ impl Graphics {
         let mesh2d_unindexed = MappedVertexMesh::new(ctx, 10000)?;
         let mesh3d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
         let mesh3d_unindexed = MappedVertexMesh::new(ctx, 10000)?;
+        let instances = solstice::mesh::VertexMesh::new(ctx, 1000)?;
+
         let line_workspace = LineWorkspace::new(ctx)?;
         let default_shader = Shader::new(ctx)?;
         let default_texture = create_default_texture(ctx)?;
@@ -88,6 +91,7 @@ impl Graphics {
                 mesh3d_unindexed,
                 mesh2d,
                 mesh2d_unindexed,
+                instances,
             },
             line_workspace,
             default_shader,
@@ -608,16 +612,44 @@ impl WriteAndDrawBuffer for &Geometry<'_, Vertex3D> {
     }
 }
 
+impl WriteAndDrawBuffer for &Batch<'_, Vertex3D> {
+    fn draw<S>(
+        self,
+        meshes: &mut GeometryBuffers,
+        ctx: &mut Context,
+        shader: &S,
+        settings: solstice::PipelineSettings,
+    ) where
+        S: solstice::shader::Shader,
+    {
+        let geometry = self.unmap(ctx, meshes);
+        solstice::Renderer::draw(ctx, shader, &geometry, settings);
+    }
+}
+
+impl WriteAndDrawBuffer for &Batch<'_, Vertex2D> {
+    fn draw<S>(
+        self,
+        meshes: &mut GeometryBuffers,
+        ctx: &mut Context,
+        shader: &S,
+        settings: solstice::PipelineSettings,
+    ) where
+        S: solstice::shader::Shader,
+    {
+        let geometry = self.unmap(ctx, meshes);
+        solstice::Renderer::draw(ctx, shader, &geometry, settings);
+    }
+}
+
 #[derive(Debug, Clone)]
-pub enum MeshVariant<'a, V>
-where
-    V: solstice::vertex::Vertex,
-{
+pub enum MeshVariant<'a, V> {
     Data(Geometry<'a, V>),
     VertexMesh(solstice::Geometry<&'a solstice::mesh::VertexMesh<V>>),
     IndexedMesh(solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u32>>),
     IndexedMeshU16(solstice::Geometry<&'a solstice::mesh::IndexedMesh<V, u16>>),
     MultiMesh(solstice::Geometry<&'a solstice::mesh::MultiMesh<'a>>),
+    Batch(Batch<'a, V>),
 }
 
 impl<'a, V> MeshVariant<'a, V>
@@ -633,6 +665,7 @@ where
     ) where
         S: solstice::shader::Shader,
         &'a Geometry<'a, V>: WriteAndDrawBuffer,
+        &'a Batch<'a, V>: WriteAndDrawBuffer,
     {
         use solstice::Renderer;
         match self {
@@ -641,18 +674,19 @@ where
             MeshVariant::IndexedMesh(geometry) => ctx.draw(shader, geometry, settings),
             MeshVariant::IndexedMeshU16(geometry) => ctx.draw(shader, geometry, settings),
             MeshVariant::MultiMesh(geometry) => ctx.draw(shader, &geometry, settings),
+            MeshVariant::Batch(batch) => batch.draw(meshes, ctx, shader, settings),
         }
     }
 }
 
-pub trait GeometryKind<'a, V>: Sized + std::cmp::PartialEq + Into<MeshVariant<'a, V>>
+pub trait GeometryKind<'a, V>: Sized + Into<MeshVariant<'a, V>>
 where
     V: solstice::vertex::Vertex,
 {
 }
 impl<'a, V, T> GeometryKind<'a, V> for T
 where
-    T: Sized + std::cmp::PartialEq + Into<MeshVariant<'a, V>>,
+    T: Sized + Into<MeshVariant<'a, V>>,
     V: solstice::vertex::Vertex,
 {
 }
@@ -714,6 +748,15 @@ where
 {
     fn from(v: solstice::Geometry<&'a solstice::mesh::MultiMesh<'a>>) -> Self {
         Self::MultiMesh(v)
+    }
+}
+
+impl<'a, V> From<Batch<'a, V>> for MeshVariant<'a, V>
+where
+    V: solstice::vertex::Vertex,
+{
+    fn from(v: Batch<'a, V>) -> Self {
+        Self::Batch(v)
     }
 }
 

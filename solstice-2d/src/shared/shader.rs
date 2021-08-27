@@ -169,16 +169,78 @@ void main() {{
     )
 }
 
+fn batch_shader_src(src: ShaderSource) -> String {
+    format!(
+        "#define Image sampler2D
+#define ArrayImage sampler2DArray
+#define CubeImage samplerCube
+#define VolumeImage sampler3D
+
+varying vec4 vColor;
+varying vec2 vUV;
+
+uniform SOLSTICE_HIGHP_OR_MEDIUMP vec4 uResolution;
+
+#ifdef VERTEX
+attribute vec4 position;
+attribute vec4 color;
+attribute vec3 normal;
+attribute vec2 uv;
+
+attribute mat4 uModel;
+
+uniform mat4 uProjection;
+uniform mat4 uView;
+
+{vertex}
+
+void main() {{
+    vColor = color;
+    vUV = uv;
+    gl_Position = pos(uProjection * uView * uModel, position);
+}}
+#endif
+
+#ifdef FRAGMENT
+uniform sampler2D tex0;
+uniform vec4 uColor;
+
+{fragment}
+
+void main() {{
+    vec2 screen = vec2(gl_FragCoord.x, (gl_FragCoord.y * uResolution.z) + uResolution.w);
+    fragColor = effect(uColor * vColor, tex0, vUV, screen);
+}}
+#endif",
+        vertex = src.vertex,
+        fragment = src.fragment
+    )
+}
+
 impl Shader {
     pub fn new(ctx: &mut Context) -> Result<Self, ShaderError> {
         Self::with((DEFAULT_VERT, DEFAULT_FRAG), ctx)
+    }
+
+    pub fn batch(ctx: &mut Context) -> Result<Self, ShaderError> {
+        Self::batch_with((DEFAULT_VERT, DEFAULT_FRAG), ctx)
     }
 
     pub fn with<'a, S>(src: S, ctx: &mut Context) -> Result<Self, ShaderError>
     where
         S: Into<ShaderSource<'a>>,
     {
-        let src = shader_src(src.into());
+        Self::inner(shader_src(src.into()), ctx)
+    }
+
+    pub fn batch_with<'a, S>(src: S, ctx: &mut Context) -> Result<Self, ShaderError>
+    where
+        S: Into<ShaderSource<'a>>,
+    {
+        Self::inner(batch_shader_src(src.into()), ctx)
+    }
+
+    fn inner(src: String, ctx: &mut Context) -> Result<Self, ShaderError> {
         let (vertex, fragment) =
             solstice::shader::DynamicShader::create_source(src.as_str(), src.as_str());
         let shader = DynamicShader::new(ctx, vertex.as_str(), fragment.as_str())
