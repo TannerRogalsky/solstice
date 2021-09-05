@@ -424,7 +424,7 @@ pub struct AttachedAttributes<'a> {
 }
 
 pub trait Mesh {
-    fn attachments(&self) -> Vec<AttachedAttributes>;
+    fn attachments(&self) -> std::borrow::Cow<'_, [AttachedAttributes]>;
     fn draw(
         &self,
         ctx: &mut super::Context,
@@ -435,13 +435,14 @@ pub trait Mesh {
 }
 
 impl<V: Vertex> Mesh for VertexMesh<V> {
-    fn attachments(&self) -> Vec<AttachedAttributes> {
+    fn attachments(&self) -> std::borrow::Cow<'_, [AttachedAttributes]> {
         vec![AttachedAttributes {
             buffer: &self.vbo,
             formats: V::build_bindings(),
             step: 0,
             stride: std::mem::size_of::<V>(),
         }]
+        .into()
     }
 
     fn draw(
@@ -468,7 +469,7 @@ impl<V: Vertex> Mesh for VertexMesh<V> {
 }
 
 impl<V: Vertex> Mesh for &VertexMesh<V> {
-    fn attachments(&self) -> Vec<AttachedAttributes> {
+    fn attachments(&self) -> std::borrow::Cow<'_, [AttachedAttributes]> {
         VertexMesh::attachments(self)
     }
 
@@ -484,7 +485,7 @@ impl<V: Vertex> Mesh for &VertexMesh<V> {
 }
 
 impl<V: Vertex, I: Index> Mesh for IndexedMesh<V, I> {
-    fn attachments(&self) -> Vec<AttachedAttributes> {
+    fn attachments(&self) -> std::borrow::Cow<'_, [AttachedAttributes]> {
         self.mesh.attachments()
     }
 
@@ -521,7 +522,7 @@ impl<V: Vertex, I: Index> Mesh for IndexedMesh<V, I> {
 }
 
 impl<V: Vertex, I: Index> Mesh for &IndexedMesh<V, I> {
-    fn attachments(&self) -> Vec<AttachedAttributes> {
+    fn attachments(&self) -> std::borrow::Cow<'_, [AttachedAttributes]> {
         IndexedMesh::attachments(self)
     }
 
@@ -543,8 +544,8 @@ pub struct MultiMesh<'a> {
 }
 
 impl<'a> Mesh for MultiMesh<'a> {
-    fn attachments(&self) -> Vec<AttachedAttributes> {
-        self.attachments.clone()
+    fn attachments(&self) -> std::borrow::Cow<'_, [AttachedAttributes]> {
+        std::borrow::Cow::Borrowed(&self.attachments)
     }
 
     fn draw(
@@ -598,7 +599,7 @@ impl<'a> Mesh for MultiMesh<'a> {
 }
 
 impl Mesh for &MultiMesh<'_> {
-    fn attachments(&self) -> Vec<AttachedAttributes> {
+    fn attachments(&self) -> std::borrow::Cow<'_, [AttachedAttributes]> {
         MultiMesh::attachments(self)
     }
 
@@ -623,8 +624,8 @@ pub trait MeshAttacher: Mesh {
 
 impl<V: Vertex> MeshAttacher for VertexMesh<V> {
     fn attach_with_step<'a, T: Mesh>(&'a self, other: &'a T, step: u32) -> MultiMesh<'a> {
-        let mut attachments = self.attachments();
-        attachments.extend(other.attachments().into_iter().map(|mut a| {
+        let mut attachments = self.attachments().into_owned();
+        attachments.extend(other.attachments().iter().cloned().map(|mut a| {
             a.step = step;
             a
         }));
@@ -636,8 +637,8 @@ impl<V: Vertex> MeshAttacher for VertexMesh<V> {
 }
 impl<V: Vertex, I: Index> MeshAttacher for IndexedMesh<V, I> {
     fn attach_with_step<'a, T: Mesh>(&'a self, other: &'a T, step: u32) -> MultiMesh<'a> {
-        let mut attachments = self.attachments();
-        attachments.extend(other.attachments().into_iter().map(|mut a| {
+        let mut attachments = self.attachments().into_owned();
+        attachments.extend(other.attachments().iter().cloned().map(|mut a| {
             a.step = step;
             a
         }));
@@ -649,8 +650,8 @@ impl<V: Vertex, I: Index> MeshAttacher for IndexedMesh<V, I> {
 }
 impl MeshAttacher for MultiMesh<'_> {
     fn attach_with_step<'a, T: Mesh>(&'a self, other: &'a T, step: u32) -> MultiMesh<'a> {
-        let mut attachments = self.attachments();
-        attachments.extend(other.attachments().into_iter().map(|mut a| {
+        let mut attachments = self.attachments().into_owned();
+        attachments.extend(other.attachments().iter().cloned().map(|mut a| {
             a.step = step;
             a
         }));

@@ -1610,29 +1610,23 @@ fn prepare_draw<'a, S: shader::Shader + ?Sized>(
     let attached_bindings = attached_attributes
         .iter()
         .flat_map(|attributes| {
-            attributes
-                .formats
-                .iter()
-                .map(|binding| {
-                    (
-                        binding,
-                        attributes.stride,
-                        attributes.step,
-                        attributes.buffer.handle(),
-                        attributes.buffer.buffer_type(),
-                    )
-                })
-                .collect::<Vec<_>>()
+            attributes.formats.iter().map(move |binding| {
+                let info = (
+                    binding,
+                    attributes.stride,
+                    attributes.step,
+                    attributes.buffer.handle(),
+                    attributes.buffer.buffer_type(),
+                );
+                (binding.name, info)
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<std::collections::HashMap<_, _>>();
 
     let mut desired_attribute_state = 0u32;
     let mut attributes = [None; 32];
     for attr in shader::Shader::attributes(shader).iter() {
-        let binding = attached_bindings
-            .iter()
-            .find(|(binding, ..)| binding.name == attr.name.as_str())
-            .cloned();
+        let binding = attached_bindings.get(attr.name.as_str()).copied();
         if let Some(binding) = binding {
             for offset in 0..(attr.atype.height() as u32) {
                 desired_attribute_state |= 1 << (attr.location + offset);
