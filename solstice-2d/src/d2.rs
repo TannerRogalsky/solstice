@@ -148,7 +148,7 @@ where
                     .iter()
                     .map(|v: &Vertex2D| LineVertex {
                         position: [v.position[0], v.position[1], 0.],
-                        width: 5.0,
+                        width: self.line_width,
                         color: [1., 1., 1., 1.],
                     })
                     .collect::<Vec<_>>()

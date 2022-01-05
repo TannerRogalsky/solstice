@@ -830,6 +830,7 @@ pub struct DrawList<'a> {
     commands: Vec<Command<'a>>,
     color: Color,
     transform: mint::ColumnMatrix4<f32>,
+    line_width: f32,
     camera: Transform3D,
     projection_mode: Option<Projection>,
     target: Option<Canvas>,
@@ -842,6 +843,7 @@ impl Default for DrawList<'_> {
             commands: vec![],
             color: Default::default(),
             transform: Transform3D::default().into(),
+            line_width: 1.0,
             camera: Default::default(),
             projection_mode: None,
             target: None,
@@ -860,6 +862,7 @@ impl<'a> DrawList<'a> {
             commands: vec![],
             color: other.color,
             transform: other.transform,
+            line_width: 1.0,
             camera: other.camera,
             projection_mode: other.projection_mode,
             target: other.target.clone(),
@@ -984,6 +987,10 @@ impl<'a> DrawList<'a> {
 
     pub fn set_transform<T: Into<mint::ColumnMatrix4<f32>>>(&mut self, transform: T) {
         self.transform = transform.into();
+    }
+
+    pub fn set_line_width(&mut self, line_width: f32) {
+        self.line_width = line_width;
     }
 
     pub fn set_camera<T: Into<Transform3D>>(&mut self, camera: T) {
