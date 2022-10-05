@@ -5,13 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.2.15-alpha.0 (2022-10-05)
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release over the course of 272 calendar days.
+ - 3 commits contributed to the release over the course of 272 calendar days.
  - 272 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' where seen in commit messages
@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - add solstice changelog ([`d4bdc49`](https://github.com/TannerRogalsky/solstice/commit/d4bdc49477ff8ddffc5c3cc72adfdb0ba44196fa))
     - fix access to line workspace geometry ([`3c72f6b`](https://github.com/TannerRogalsky/solstice/commit/3c72f6bd78b9ec1f36a09a611a5d05485b062367))
     - (cargo-release) start next development iteration 0.2.15-alpha.0 ([`ee42a58`](https://github.com/TannerRogalsky/solstice/commit/ee42a589c00b062fe37f5393493b9358bb420e87))
 </details>
