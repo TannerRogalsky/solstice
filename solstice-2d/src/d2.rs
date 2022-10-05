@@ -181,7 +181,7 @@ macro_rules! impl_array_simple_convex_geom {
             type Vertices = std::iter::Map<std::array::IntoIter<$ty, $count>, fn($ty) -> Vertex2D>;
 
             fn vertices(&self) -> Self::Vertices {
-                std::array::IntoIter::new(*self).map(Into::into)
+                IntoIterator::into_iter(*self).map(Into::into)
             }
 
             fn vertex_count(&self) -> usize {
@@ -193,7 +193,7 @@ macro_rules! impl_array_simple_convex_geom {
             type Vertices = std::iter::Map<std::array::IntoIter<$ty, $count>, fn($ty) -> Vertex2D>;
 
             fn vertices(&self) -> Self::Vertices {
-                std::array::IntoIter::new(**self).map(Into::into)
+                IntoIterator::into_iter(**self).map(Into::into)
             }
 
             fn vertex_count(&self) -> usize {

@@ -70,7 +70,7 @@ impl Plane {
                     let c = (ix + 1) + grid_x1 * (iy + 1);
                     let d = (ix + 1) + grid_x1 * iy;
 
-                    std::array::IntoIter::new([a, b, d, b, c, d])
+                    IntoIterator::into_iter([a, b, d, b, c, d])
                 })
             })
             .collect()

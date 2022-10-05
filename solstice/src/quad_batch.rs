@@ -82,7 +82,7 @@ where
             let mut indices: Vec<u16> = Vec::with_capacity(index_capacity);
             for i in 0..capacity {
                 let vi = (i * 4) as u16;
-                indices.extend(std::array::IntoIter::new(INDICES).map(|i| vi + i));
+                indices.extend(IntoIterator::into_iter(INDICES).map(|i| vi + i));
             }
             indices
         };

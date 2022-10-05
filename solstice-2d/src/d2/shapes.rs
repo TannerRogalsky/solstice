@@ -389,7 +389,7 @@ where
     fn from(s: T) -> Self {
         let vertices = s.vertices().collect::<Vec<_>>();
         let indices = (1..(vertices.len() as u32).saturating_sub(1))
-            .flat_map(|i| std::array::IntoIter::new([0, i, i + 1]))
+            .flat_map(|i| [0, i, i + 1])
             .collect::<Vec<_>>();
         Geometry::new(vertices, Some(indices))
     }
