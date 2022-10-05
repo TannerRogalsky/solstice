@@ -160,6 +160,7 @@ pub struct LineWorkspace {
     segment_geometry: VertexMesh<Position>,
     positions: MappedVertexMesh<LineVertex>,
     offset: usize,
+    unmapped: bool,
 
     shader: Shader,
 }
@@ -177,6 +178,7 @@ impl LineWorkspace {
             segment_geometry,
             positions,
             offset: 0,
+            unmapped: false,
             shader,
         })
     }
@@ -186,6 +188,10 @@ impl LineWorkspace {
     }
 
     pub fn add_points(&mut self, verts: &[LineVertex]) {
+        if self.unmapped {
+            self.unmapped = false;
+            self.offset = 0;
+        }
         self.positions.set_vertices(verts, self.offset);
         self.offset += verts.len()
     }
@@ -194,12 +200,28 @@ impl LineWorkspace {
         &self.shader
     }
 
+    pub fn inner(&self) -> solstice::Geometry<MultiMesh> {
+        use solstice::mesh::*;
+
+        let mesh = self.positions.inner();
+        let instance_count = (self.offset as u32).saturating_sub(1);
+
+        let draw_range = 0..(self.segment_geometry.len());
+        let attached = self.segment_geometry.attach_with_step(mesh, 1);
+        solstice::Geometry {
+            mesh: attached,
+            draw_range,
+            draw_mode: solstice::DrawMode::Triangles,
+            instance_count,
+        }
+    }
+
     pub fn geometry(&mut self, ctx: &mut Context) -> solstice::Geometry<MultiMesh> {
         use solstice::mesh::*;
 
         let mesh = self.positions.unmap(ctx);
         let instance_count = (self.offset as u32).saturating_sub(1);
-        self.offset = 0;
+        self.unmapped = true;
 
         let draw_range = 0..(self.segment_geometry.len());
         let attached = self.segment_geometry.attach_with_step(mesh, 1);
