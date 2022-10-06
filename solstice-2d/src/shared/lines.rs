@@ -154,8 +154,6 @@ fn round_cap_join_geometry(resolution: usize) -> Vec<Position> {
     instance_round_round
 }
 
-const BUFFER_SIZE: usize = 10000;
-
 pub struct LineWorkspace {
     segment_geometry: VertexMesh<Position>,
     positions: MappedVertexMesh<LineVertex>,
@@ -167,10 +165,14 @@ pub struct LineWorkspace {
 
 impl LineWorkspace {
     pub fn new(ctx: &mut Context) -> Result<Self, super::GraphicsError> {
+        Self::with_capacity(ctx, 10_000)
+    }
+
+    pub fn with_capacity(ctx: &mut Context, capacity: usize) -> Result<Self, super::GraphicsError> {
         let segment_geometry = round_cap_join_geometry(50);
         let segment_geometry = VertexMesh::with_data(ctx, &segment_geometry)?;
         // let segment_geometry = VertexMesh::with_data(ctx, &SEGMENT_VERTS)?;
-        let positions = MappedVertexMesh::new(ctx, BUFFER_SIZE)?;
+        let positions = MappedVertexMesh::new(ctx, capacity)?;
 
         let shader = Shader::with(SHADER_SRC, ctx)?;
 
@@ -184,7 +186,7 @@ impl LineWorkspace {
     }
 
     pub fn can_buffer(&self, verts: &[LineVertex]) -> bool {
-        self.offset + verts.len() < BUFFER_SIZE
+        self.offset + verts.len() < self.positions.get_vertices().len()
     }
 
     pub fn add_points(&mut self, verts: &[LineVertex]) {
