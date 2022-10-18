@@ -48,6 +48,12 @@ impl Transform2D {
         let p = self.isometry.transform_point(&p);
         [p.x, p.y]
     }
+
+    pub fn inverse_transform_point(&self, x: f32, y: f32) -> [f32; 2] {
+        let p = nalgebra::Point2::new(x * self.scale.x, y * self.scale.y);
+        let p = self.isometry.inverse_transform_point(&p);
+        [p.x, p.y]
+    }
 }
 
 impl std::ops::Mul for Transform2D {
