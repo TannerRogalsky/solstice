@@ -1025,7 +1025,7 @@ impl<'a> DrawList<'a> {
         self.commands.push(Command::Draw(DrawState {
             data,
             transform,
-            camera: Default::default(),
+            camera: self.camera,
             projection_mode,
             color,
             texture,
