@@ -11,6 +11,7 @@ use solstice::{
     image::Image,
     mesh::{MappedIndexedMesh, MappedVertexMesh},
     texture::Texture,
+    viewport::Viewport,
     Context,
 };
 
@@ -57,6 +58,14 @@ struct GeometryBuffers {
     mesh2d_unindexed: MappedVertexMesh<Vertex2D>,
 }
 
+#[derive(Debug, Default)]
+pub struct Config {
+    pub width: f32,
+    pub height: f32,
+    pub line_capacity: usize,
+    pub mesh_capacity: usize,
+}
+
 pub struct Graphics {
     meshes: GeometryBuffers,
     line_workspace: LineWorkspace,
@@ -64,23 +73,37 @@ pub struct Graphics {
     default_texture: Image,
     text_workspace: text::Text,
     text_shader: Shader,
-    viewport: solstice::viewport::Viewport<i32>,
-    scissor: Option<solstice::viewport::Viewport<i32>>,
+    viewport: Viewport<i32>,
+    scissor: Option<Viewport<i32>>,
     default_projection_bounds: Option<Rectangle>,
 }
 
 impl Graphics {
     pub fn new(ctx: &mut Context, width: f32, height: f32) -> Result<Self, GraphicsError> {
-        let mesh2d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
-        let mesh2d_unindexed = MappedVertexMesh::new(ctx, 10000)?;
-        let mesh3d = MappedIndexedMesh::new(ctx, 10000, 10000)?;
-        let mesh3d_unindexed = MappedVertexMesh::new(ctx, 10000)?;
+        Self::with_config(
+            ctx,
+            &Config {
+                width,
+                height,
+                line_capacity: 10_000,
+                mesh_capacity: 10_000,
+            },
+        )
+    }
+
+    pub fn with_config(ctx: &mut Context, config: &Config) -> Result<Self, GraphicsError> {
+        let mesh2d = MappedIndexedMesh::new(ctx, config.mesh_capacity, config.mesh_capacity)?;
+        let mesh2d_unindexed = MappedVertexMesh::new(ctx, config.mesh_capacity)?;
+        let mesh3d = MappedIndexedMesh::new(ctx, config.mesh_capacity, config.mesh_capacity)?;
+        let mesh3d_unindexed = MappedVertexMesh::new(ctx, config.line_capacity)?;
         let line_workspace = LineWorkspace::new(ctx)?;
         let default_shader = Shader::new(ctx)?;
         let default_texture = create_default_texture(ctx)?;
 
         let text_workspace = text::Text::new(ctx)?;
         let text_shader = Shader::with((text::DEFAULT_VERT, text::DEFAULT_FRAG), ctx)?;
+
+        let viewport = Viewport::new(0, 0, config.width as _, config.height as _);
 
         Ok(Self {
             meshes: GeometryBuffers {
@@ -94,7 +117,7 @@ impl Graphics {
             default_texture,
             text_workspace,
             text_shader,
-            viewport: solstice::viewport::Viewport::new(0, 0, width as _, height as _),
+            viewport,
             scissor: None,
             default_projection_bounds: None,
         })
@@ -117,30 +140,25 @@ impl Graphics {
     }
 
     pub fn set_width_height(&mut self, width: f32, height: f32) {
-        self.set_viewport(solstice::viewport::Viewport::new(
-            0,
-            0,
-            width as _,
-            height as _,
-        ))
+        self.set_viewport(Viewport::new(0, 0, width as _, height as _))
     }
 
-    pub fn set_viewport(&mut self, viewport: solstice::viewport::Viewport<i32>) {
+    pub fn set_viewport(&mut self, viewport: Viewport<i32>) {
         self.viewport = viewport;
     }
 
-    pub fn viewport(&self) -> &solstice::viewport::Viewport<i32> {
+    pub fn viewport(&self) -> &Viewport<i32> {
         &self.viewport
     }
 
-    pub fn set_scissor(&mut self, scissor: Option<solstice::viewport::Viewport<i32>>) {
+    pub fn set_scissor(&mut self, scissor: Option<Viewport<i32>>) {
         self.scissor = scissor;
     }
 
     pub fn process(&mut self, ctx: &mut Context, draw_list: &DrawList) {
-        fn canvas_bounds(t: &Canvas) -> solstice::viewport::Viewport<i32> {
+        fn canvas_bounds(t: &Canvas) -> Viewport<i32> {
             let (w, h) = t.dimensions();
-            solstice::viewport::Viewport::new(0, 0, w as _, h as _)
+            Viewport::new(0, 0, w as _, h as _)
         }
 
         for command in draw_list.commands.iter() {
