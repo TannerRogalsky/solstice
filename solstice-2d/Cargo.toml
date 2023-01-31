@@ -6,6 +6,8 @@ edition = "2018"
 license-file = "../LICENSE"
 readme = "../README.md"
 description = "Easy, cross-platform 2D graphics."
+repository = "https://github.com/TannerRogalsky/solstice"
+homepage = "https://github.com/TannerRogalsky/solstice"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
