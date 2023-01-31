@@ -95,8 +95,8 @@ impl Graphics {
         let mesh2d = MappedIndexedMesh::new(ctx, config.mesh_capacity, config.mesh_capacity)?;
         let mesh2d_unindexed = MappedVertexMesh::new(ctx, config.mesh_capacity)?;
         let mesh3d = MappedIndexedMesh::new(ctx, config.mesh_capacity, config.mesh_capacity)?;
-        let mesh3d_unindexed = MappedVertexMesh::new(ctx, config.line_capacity)?;
-        let line_workspace = LineWorkspace::new(ctx)?;
+        let mesh3d_unindexed = MappedVertexMesh::new(ctx, config.mesh_capacity)?;
+        let line_workspace = LineWorkspace::with_capacity(ctx, config.line_capacity)?;
         let default_shader = Shader::new(ctx)?;
         let default_texture = create_default_texture(ctx)?;
 
