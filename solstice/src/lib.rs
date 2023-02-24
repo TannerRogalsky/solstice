@@ -678,33 +678,35 @@ impl Context {
                         gl.get_active_uniform(program, index).unwrap();
                     if size > 1 {
                         let name = name.trim_end_matches("[0]");
-                        uniforms.extend((0..size).map(|i| {
+                        uniforms.extend((0..size).filter_map(|i| {
                             let name = format!("{}[{}]", name, i);
-                            let location = gl.get_uniform_location(program, name.as_str()).unwrap();
+                            gl.get_uniform_location(program, name.as_str())
+                                .map(|location| {
+                                    let initial_data =
+                                        get_initial_uniform_data(&gl, utype, program, &location);
+                                    let location = UniformLocation(location);
+                                    Uniform {
+                                        name,
+                                        size: 1,
+                                        utype,
+                                        location,
+                                        initial_data,
+                                    }
+                                })
+                        }));
+                    } else {
+                        if let Some(location) = gl.get_uniform_location(program, name.as_str()) {
                             let initial_data =
                                 get_initial_uniform_data(&gl, utype, program, &location);
                             let location = UniformLocation(location);
-                            Uniform {
+                            uniforms.push(Uniform {
                                 name,
-                                size: 1,
+                                size,
                                 utype,
                                 location,
                                 initial_data,
-                            }
-                        }));
-                    } else {
-                        let location = gl
-                            .get_uniform_location(program, name.as_str())
-                            .expect("Failed to get uniform?!");
-                        let initial_data = get_initial_uniform_data(&gl, utype, program, &location);
-                        let location = UniformLocation(location);
-                        uniforms.push(Uniform {
-                            name,
-                            size,
-                            utype,
-                            location,
-                            initial_data,
-                        });
+                            });
+                        }
                     }
                 }
             }
